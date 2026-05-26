@@ -24,7 +24,7 @@ app.get("/", (c) => {
   `);
 });
 
-export default {
+const helloModule: BlennyModule = {
   name: "hello",
   routes: [
     { method: "GET", path: "/", handler: (c) => app.fetch(c.req.raw) },
@@ -34,8 +34,11 @@ export default {
     {
       topic: "spatial:tick",
       handler: (payload) => {
-        console.log(`[hello] tick ${payload.cycle}, agents: ${payload.activeAgents}`);
+        const tick = payload as { cycle: number; activeAgents: number };
+        console.log(`[hello] tick ${tick.cycle}, agents: ${tick.activeAgents}`);
       },
     },
   ],
-} satisfies BlennyModule;
+};
+
+export default helloModule;
