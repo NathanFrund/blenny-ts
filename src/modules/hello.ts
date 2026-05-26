@@ -10,7 +10,7 @@ app.get("/", (c) => {
       <head><title>blenny-ts</title></head>
       <body>
         <h1>blenny-ts</h1>
-        <p>Hypermedia-driven multi-agent simulation platform.</p>
+        <p>A hypermedia-driven real-time platform.</p>
         <div id="tick"></div>
         <script type="module">
           const es = new EventSource("/sse");
