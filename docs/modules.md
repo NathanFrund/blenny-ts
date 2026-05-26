@@ -121,18 +121,67 @@ The typed event system is fully decoupled — any module can publish any topic, 
 
 ## Broadcasting to Clients
 
-Access the hub through `state.hub` during initialization:
+Access the hub through `state.hub` during initialization, then push HTML/JSON/script to connected clients at any point — in route handlers, subscriptions, or background loops.
+
+### Example: Real-time task list
+
+This module adds a task via POST and pushes the updated list to only the submitting user's SSE connections:
 
 ```ts
+import type { Context } from "@hono/hono";
+import type { TransportHub } from "../core/hub.ts";
+import type { UserInfo } from "../core/auth.ts";
+import type { AppState } from "../core/app-state.ts";
+import type { BlennyModule } from "../types.ts";
+
 let hub: TransportHub;
+const tasks: string[] = [];
 
-// In initialize:
-hub = state.hub;
+function renderTaskList(): string {
+  return `<ul id="task-list" hx-swap-oob="innerHTML">${
+    tasks.map((t) => `<li>${t}</li>`).join("")
+  }</ul>`;
+}
 
-// Somewhere in a handler or subscription:
-hub.patchElements("<div>Updated!</div>", { intent: "ui" });
-hub.mergeSignals({ score: 100 }, { userId: "abc123" });
-hub.executeScript("console.log('hello')", { intent: "notification" });
+async function handleAddTask(c: Context): Promise<Response> {
+  const user = c.get("user") as UserInfo | undefined;
+  if (!user) return c.redirect("/auth/signin");
+
+  const body = await c.req.parseBody();
+  tasks.push(body.task as string);
+
+  // Push the updated list to just this user's connections
+  hub.patchElements(renderTaskList(), { userId: user.id });
+
+  return c.redirect("/tasks");
+}
+
+const tasksModule: BlennyModule = {
+  name: "tasks",
+  routes: [
+    { method: "POST", path: "/tasks/add", handler: handleAddTask, auth: true },
+  ],
+  initialize(state: AppState) {
+    hub = state.hub;
+  },
+};
+
+export default tasksModule;
+```
+
+The client's SSE connection receives the Datastar `datastar-patch-elements` event and swaps the `<ul id="task-list">` in-place. The `userId` option ensures only the user who submitted the task sees the update — their other tabs update in real-time.
+
+### Broadcast API
+
+```ts
+// Push HTML patches to all connections with "ui" intent
+hub.patchElements('<div id="status">Done</div>', { intent: "ui" });
+
+// Merge signals to a specific user (all their tabs)
+hub.mergeSignals({ score: 100 }, { userId });
+
+// Execute script — ideal for notifications
+hub.executeScript("alert('Time up!')", { intent: "notification" });
 ```
 
 ### Broadcast Options
@@ -140,7 +189,8 @@ hub.executeScript("console.log('hello')", { intent: "notification" });
 | Option | Purpose |
 |--------|---------|
 | `intent` | Filter to connections matching this intent (`"ui"`, `"data"`, `"command"`, `"notification"`) |
-| `userId` | Direct message to a specific user's connections |
+| `userId` | Direct message to a specific user's connections (all their tabs) |
+| *(none)* | Omit both to broadcast to every connection |
 
 ## Lifecycle Hooks
 
