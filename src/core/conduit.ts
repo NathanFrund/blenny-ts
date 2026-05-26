@@ -2,16 +2,23 @@ import { Context } from "@hono/hono";
 import type { FC, Child } from "@hono/hono/jsx";
 import { DefaultLayout } from "./layout.tsx";
 
-export class Conduit {
-  private layout: FC<{ children: Child }>;
+export type LayoutComponent = FC<{ children: Child }>;
 
-  constructor(layout?: FC<{ children: Child }>) {
+export class Conduit {
+  private layout: LayoutComponent;
+
+  constructor(layout?: LayoutComponent) {
     this.layout = layout ?? DefaultLayout;
   }
 
-  respond(c: Context, content: Child): Response | Promise<Response> {
+  respond(
+    c: Context,
+    content: Child,
+    opts?: { layout?: LayoutComponent },
+  ): Response | Promise<Response> {
+    const layout = opts?.layout ?? this.layout;
     const isHtmx = c.req.header("HX-Request") !== undefined;
     if (isHtmx) return c.html(content as unknown as string);
-    return c.html(this.layout({ children: content }) as unknown as string);
+    return c.html(layout({ children: content }) as unknown as string);
   }
 }

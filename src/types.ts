@@ -1,5 +1,6 @@
 import { Context } from "@hono/hono";
 import type { AppState } from "./core/app-state.ts";
+import type { LayoutComponent } from "./core/conduit.ts";
 
 // The contract for any community module dropped into Blenny
 export interface Route {
@@ -13,6 +14,7 @@ export interface BlennyModule {
   name: string;
   enabled?: boolean;
   routes: Route[];
+  layout?: LayoutComponent;
   subscriptions?: {
     topic: string;
     handler: (payload: unknown) => void;
