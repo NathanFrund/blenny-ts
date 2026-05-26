@@ -7,6 +7,8 @@ export class SseConnection implements Connection {
   id: string;
   userId?: string;
   intents?: Set<Intent>;
+  connType = "sse" as const;
+  lastWriteAt: number;
 
   constructor(
     private stream: ServerSentEventGenerator,
@@ -17,11 +19,18 @@ export class SseConnection implements Connection {
     this.id = id;
     this.userId = userId;
     this.intents = intents;
+    this.lastWriteAt = Date.now();
   }
 
   send(msg: ServerMessage): void {
+    this.lastWriteAt = Date.now();
     if (msg.html) this.stream.patchElements(msg.html);
     if (msg.signals) this.stream.patchSignals(JSON.stringify(msg.signals));
     if (msg.script) this.stream.executeScript(msg.script);
+  }
+
+  close(): void {
+    // No-op — SSE stream terminates on abort; the connection is
+    // removed from the hub by the abort listener.
   }
 }

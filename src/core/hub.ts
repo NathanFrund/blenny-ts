@@ -37,6 +37,8 @@ export interface Connection {
   id: ConnId;
   userId?: string;
   intents?: Set<Intent>;
+  connType: string;
+  lastWriteAt?: number;
   send(msg: ServerMessage): void;
 }
 
@@ -45,21 +47,41 @@ export interface Connection {
 export class TransportHub {
   private conns = new Map<ConnId, Connection>();
   private userConns = new Map<string, Map<ConnId, true>>();
+  maxConns: number;
+  maxConnsPerUser: number;
+
+  constructor(opts?: { maxConns?: number; maxConnsPerUser?: number }) {
+    this.maxConns = opts?.maxConns ?? 10_000;
+    this.maxConnsPerUser = opts?.maxConnsPerUser ?? 100;
+  }
 
   // ── Connection management ───────────────────────────────────
 
   registerConnection(conn: Connection): () => void {
-    this.conns.set(conn.id, conn);
+    if (this.conns.size >= this.maxConns) {
+      throw new Error(
+        `connection limit reached (${this.maxConns})`,
+      );
+    }
     if (conn.userId) {
+      const existing = this.userConns.get(conn.userId);
+      if (existing && existing.size >= this.maxConnsPerUser) {
+        throw new Error(
+          `per-user connection limit reached (${this.maxConnsPerUser})`,
+        );
+      }
+      this.conns.set(conn.id, conn);
       if (!this.userConns.has(conn.userId)) {
         this.userConns.set(conn.userId, new Map());
       }
       this.userConns.get(conn.userId)!.set(conn.id, true);
+    } else {
+      this.conns.set(conn.id, conn);
     }
     return () => this.removeConnection(conn.id);
   }
 
-  private removeConnection(id: ConnId): void {
+  removeConnection(id: ConnId): void {
     const conn = this.conns.get(id);
     if (!conn) return;
     this.conns.delete(id);
@@ -80,7 +102,17 @@ export class TransportHub {
     if (msg.intent && conn.intents && !conn.intents.has(msg.intent)) {
       return;
     }
-    conn.send(msg);
+    try {
+      conn.send(msg);
+    } catch {
+      this.removeConnection(conn.id);
+    }
+  }
+
+  // ── Introspection ────────────────────────────────────────────
+
+  getConnections(): Connection[] {
+    return Array.from(this.conns.values());
   }
 
   // ── Actions (module-facing API) ──────────────────────────────

@@ -17,6 +17,10 @@ const DEFAULTS: Record<string, string> = {
   "surreal.pass": "root",
   "log.level": "",
   "log.format": "",
+  "transport.max_connections": "10000",
+  "transport.max_per_user": "100",
+  "transport.idle_timeout_ms": "300000",
+  "server.max_body_bytes": "1048576",
 };
 
 export interface ConfigOverrides {
@@ -107,6 +111,22 @@ export class BlennyConfig {
 
   get logFormat(): string {
     return this.data.get("log.format") || (this.devMode ? "text" : "json");
+  }
+
+  get maxConnections(): number {
+    return Number(this.data.get("transport.max_connections"));
+  }
+
+  get maxConnectionsPerUser(): number {
+    return Number(this.data.get("transport.max_per_user"));
+  }
+
+  get idleTimeoutMs(): number {
+    return Number(this.data.get("transport.idle_timeout_ms"));
+  }
+
+  get maxBodyBytes(): number {
+    return Number(this.data.get("server.max_body_bytes"));
   }
 
   // ── Logging helper ───────────────────────────────────────────────

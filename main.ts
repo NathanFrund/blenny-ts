@@ -1,5 +1,6 @@
 import { Hono } from "@hono/hono";
 import type { MiddlewareHandler } from "@hono/hono";
+import { cors } from "@hono/hono/cors";
 import { serveStatic } from "@hono/hono/deno";
 import { BlennyConfig } from "./src/core/config.ts";
 import { BlennyError, errorResponse } from "./src/core/error.ts";
@@ -20,13 +21,38 @@ import { createLogger, requestLogger } from "./src/core/logger.ts";
 const config = new BlennyConfig();
 config.logSources();
 
-const hub = new TransportHub();
+if (config.jwtSecret === "CHANGE-ME-EMBEDDED-DEFAULT" && !config.devMode) {
+  console.error(
+    "FATAL: auth.jwt_secret is still the embedded default. " +
+    "Set BLENNY_AUTH_JWT_SECRET or add it to blenny.json before deploying to production.",
+  );
+  Deno.exit(1);
+}
+
+const hub = new TransportHub({
+  maxConns: config.maxConnections,
+  maxConnsPerUser: config.maxConnectionsPerUser,
+});
 BlennyPublisher.init(hub);
 const conduit = new Conduit();
 const logger = await createLogger(config);
 const state: AppState = { hub, conduit, config, logger };
 const app = new Hono();
 app.use(requestLogger(logger));
+app.use(cors());
+app.use(async (c, next) => {
+  const cl = c.req.header("content-length");
+  if (cl) {
+    const bytes = parseInt(cl, 10);
+    if (bytes > config.maxBodyBytes) {
+      return c.json(
+        { error: { type: "request_too_large", message: "Request body too large" } },
+        413,
+      );
+    }
+  }
+  await next();
+});
 
 app.onError((err, _c) => {
   if (err instanceof BlennyError) {
@@ -125,6 +151,8 @@ app.get("/sse", async (c) => {
 
   return ServerSentEventGenerator.stream(
     (stream) => {
+      if (c.req.raw.signal.aborted) return;
+
       const id = crypto.randomUUID();
       const conn = new SseConnection(stream, id, userId, intents);
       const cleanup = hub.registerConnection(conn);
@@ -164,6 +192,21 @@ const server = Deno.serve({
   onListen: ({ port: p }) => {
     publish("platform:ready", { timestamp: Date.now() });
     logger.info("blenny-ts listening on port {port}", { port: p });
+
+    const idleMs = config.idleTimeoutMs;
+    setInterval(() => {
+      const now = Date.now();
+      let reaped = 0;
+      for (const conn of hub.getConnections()) {
+        if (conn.connType === "sse" && conn.lastWriteAt && now - conn.lastWriteAt > idleMs) {
+          hub.removeConnection(conn.id);
+          reaped++;
+        }
+      }
+      if (reaped > 0) {
+        logger.info("Reaped {count} idle SSE connections", { count: reaped });
+      }
+    }, idleMs);
   },
 }, app.fetch);
 

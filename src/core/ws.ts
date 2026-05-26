@@ -9,6 +9,7 @@ export class WsConnection implements Connection {
   id: string;
   userId?: string;
   intents?: Set<Intent>;
+  connType = "ws" as const;
 
   constructor(
     private ws: WSContext,

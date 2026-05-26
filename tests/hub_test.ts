@@ -6,6 +6,7 @@ class CaptureConnection implements Connection {
   id: ConnId;
   userId?: string;
   intents?: Set<Intent>;
+  connType = "capture" as const;
   sent: string[] = [];
 
   constructor(id: string, userId?: string, intents?: Set<Intent>) {
