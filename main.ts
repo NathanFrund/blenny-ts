@@ -13,7 +13,7 @@ import { SseConnection } from "./src/core/sse-connection.ts";
 import { createWsHandler } from "./src/core/ws.ts";
 import { loadModules } from "./src/core/module-loader.ts";
 import type { AppState } from "./src/core/app-state.ts";
-import type { BlennyEvents, BlennyModule } from "./src/types.ts";
+import type { BlennyEvents } from "./src/types.ts";
 
 const config = new BlennyConfig();
 config.logSources();
@@ -24,19 +24,9 @@ const state: AppState = { hub, conduit, config };
 const app = new Hono();
 app.use(logger());
 
-const allModules = await loadModules();
-const modules: BlennyModule[] = [];
+const modules = await loadModules();
 
-// 1. Filter enabled modules
-for (const mod of allModules) {
-  if (mod.enabled === false) {
-    console.log(`[lifecycle] ${mod.name} disabled, skipping`);
-    continue;
-  }
-  modules.push(mod);
-}
-
-// 2. Initialize — inject dependencies
+// 1. Initialize — inject dependencies
 for (const mod of modules) {
   await mod.initialize?.(state);
   console.log(`[lifecycle] ${mod.name} initialized`);
