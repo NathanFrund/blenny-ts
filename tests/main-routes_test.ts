@@ -36,6 +36,10 @@ Deno.test("main routes", async (t) => {
       if (user) userId = user.id;
     }
 
+    if (state.auth && config.transportAuthRequired && !userId) {
+      return c.text("Unauthorized", 401);
+    }
+
     return ServerSentEventGenerator.stream(
       (stream) => {
         const id = crypto.randomUUID();
@@ -85,8 +89,18 @@ Deno.test("main routes", async (t) => {
     assertEquals(typeof body.modules, "number");
   });
 
-  await t.step("GET /sse returns SSE content-type", async () => {
+  await t.step("GET /sse without auth returns 401", async () => {
     const res = await app.request("http://localhost/sse");
+    assertEquals(res.status, 401);
+  });
+
+  await t.step("GET /sse with valid token returns SSE content-type", async () => {
+    const { createToken } = await import("../src/core/auth.ts");
+    const token = await createToken(
+      { id: "admin", role: "admin" },
+      state.auth!.config,
+    );
+    const res = await app.request(`http://localhost/sse?token=${token}`);
     assertEquals(res.status, 200);
     const ctype = res.headers.get("content-type");
     assertExists(ctype);
@@ -100,8 +114,13 @@ Deno.test("main routes", async (t) => {
     assertEquals(res.headers.get("location"), "/auth/signin");
   });
 
-  await t.step("GET /sse?intent=ui filters to ui-only connections", async () => {
-    const res = await app.request("http://localhost/sse?intent=ui");
+  await t.step("GET /sse with token and intent works", async () => {
+    const { createToken } = await import("../src/core/auth.ts");
+    const token = await createToken(
+      { id: "admin", role: "admin" },
+      state.auth!.config,
+    );
+    const res = await app.request(`http://localhost/sse?intent=ui&token=${token}`);
     assertEquals(res.status, 200);
   });
 

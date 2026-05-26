@@ -92,6 +92,10 @@ app.get("/sse", async (c) => {
     if (user) userId = user.id;
   }
 
+  if (state.auth && config.transportAuthRequired && !userId) {
+    return c.text("Unauthorized", 401);
+  }
+
   return ServerSentEventGenerator.stream(
     (stream) => {
       const id = crypto.randomUUID();
@@ -109,7 +113,14 @@ app.get("/sse", async (c) => {
   );
 });
 
-app.get("/ws", createWsHandler(hub));
+const wsHandler = createWsHandler(hub);
+app.get("/ws", async (c, next) => {
+  if (state.auth && config.transportAuthRequired) {
+    const user = await getUser(c, state.auth.config);
+    if (!user) return c.text("Unauthorized", 401);
+  }
+  return wsHandler(c, next);
+});
 
 app.use("/static/*", serveStatic({ root: "./" }));
 

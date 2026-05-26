@@ -162,6 +162,18 @@ Two implementations:
 
 Connections declare intent filters at registration (`?intent=ui,data`). The hub skips delivery when a message's intent doesn't match the connection's filter.
 
+### Transport Security
+
+Real-time transports (`/sse`, `/ws`) require authentication **by default** when an auth module is loaded. Unauthenticated connections receive a `401 Unauthorized` response. This is controlled by the config key `transport.auth_required` (default `true`).
+
+| Auth module loaded | `transport.auth_required` | Transport behavior |
+|---|---|---|
+| No | — | Open (no identity system to enforce against) |
+| Yes | `true` (default) | Rejects unauthenticated with 401 |
+| Yes | `false` | Open (opt-out for public use cases) |
+
+Set to `false` for fully public real-time endpoints (e.g., live scoreboards).
+
 ### Typed Event Bus
 
 `publish()` / `subscribe()` for strictly typed events. Topics are fully decoupled — only `platform:ready` is emitted by the framework itself; the rest fire only when the emitting module is loaded.

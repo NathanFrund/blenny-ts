@@ -6,6 +6,8 @@
   "auth.session_duration_hours": "720",
   "auth.cookie_name": "blenny_session",
 
+  "transport.auth_required": "true",
+
   "dev_mode": "true",
 
   "surreal.url": "ws://127.0.0.1:8000/rpc",

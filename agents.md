@@ -205,6 +205,6 @@ deno.json            — Task definitions, imports, JSX config
 
 | Priority | Gap | Status |
 |----------|-----|--------|
-| **High** | **Transport auth required by default** — `/sse` and `/ws` should reject unauthenticated connections. Config flag `transport_auth_required` to disable. | ⬜ Not started |
+| **High** | **Transport auth required by default** — `/sse` and `/ws` reject unauthenticated connections. Config flag `transport.auth_required` to disable. | ✅ Done |
 | **High** | **Anti-fragile middleware** — Global error boundary catching uncaught exceptions and returning structured JSON errors. | ⬜ Not started |
 | **Low** | **`broadcastData` intent tagging** — Tag messages with intent `"data"` instead of no tag. | ⬜ Not started |

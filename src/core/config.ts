@@ -9,6 +9,7 @@ const DEFAULTS: Record<string, string> = {
   "auth.session_duration_hours": "720",
   "auth.cookie_name": "blenny_session",
   "dev_mode": "true",
+  "transport.auth_required": "true",
   "surreal.url": "ws://127.0.0.1:8000/rpc",
   "surreal.ns": "blenny",
   "surreal.db": "blenny",
@@ -69,6 +70,13 @@ export class BlennyConfig {
 
   get devMode(): boolean {
     return this.data.get("dev_mode") === "true";
+  }
+
+  get transportAuthRequired(): boolean {
+    const explicit = this.data.get("transport.auth_required");
+    if (explicit === "true") return true;
+    if (explicit === "false") return false;
+    return !this.devMode;
   }
 
   get surrealUrl(): string {
