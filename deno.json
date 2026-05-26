@@ -1,0 +1,14 @@
+{
+  "tasks": {
+    "dev": "deno run --allow-net --allow-read --allow-ffi --unstable-ffi --watch main.ts",
+    "compile": "deno compile --allow-net --allow-read --allow-ffi --include src/native/ main.ts"
+  },
+  "compilerOptions": {
+    "jsx": "precompile",
+    "jsxImportSource": "jsr:@hono/hono/jsx"
+  },
+  "imports": {
+    "@hono/hono": "jsr:@hono/hono@^4.12.23",
+    "@std/path": "jsr:@std/path@^1.0.0"
+  }
+}
