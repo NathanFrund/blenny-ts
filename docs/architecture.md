@@ -150,11 +150,11 @@ Connections declare intent filters at registration (`?intent=ui,data`). The hub 
 
 ### Typed Event Bus
 
-`publish()` / `subscribe()` for strictly typed events:
+`publish()` / `subscribe()` for strictly typed events. Topics are fully decoupled — only `platform:ready` is emitted by the framework itself; the rest fire only when the emitting module is loaded.
 
 ```ts
 publish("auth:signin", { userId: "abc", timestamp: Date.now() });
-subscribe("spatial:tick", (payload) => { /* payload.cycle, payload.activeAgents */ });
+subscribe("auth:signin", (payload) => { /* payload.userId */ });
 ```
 
 ## Layout System

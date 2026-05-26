@@ -95,20 +95,19 @@ subscriptions: [
   { topic: "auth:signin", handler: (payload) => {
     console.log(`User ${payload.userId} signed in`);
   }},
-  { topic: "spatial:tick", handler: (payload) => {
-    // payload.cycle, payload.activeAgents
-  }},
 ]
 ```
 
 ### Available Event Topics
 
+Only `platform:ready` is guaranteed by the framework. All other topics fire only when the emitting module is loaded.
+
 | Topic | Payload | Emitted By |
 |-------|---------|------------|
-| `auth:signin` | `{ userId, timestamp }` | Auth module |
-| `auth:signout` | `{ userId, timestamp }` | Auth module |
-| `spatial:tick` | `{ cycle, activeAgents }` | Simulation module |
-| `platform:ready` | `{ timestamp }` | `main.ts` on listen |
+| `auth:signin` | `{ userId, timestamp }` | Auth module (`form-auth`) |
+| `auth:signout` | `{ userId, timestamp }` | Auth module (`form-auth`) |
+| `spatial:tick` | `{ cycle, activeAgents }` | Simulation module (`simulation`) |
+| `platform:ready` | `{ timestamp }` | Framework (`main.ts`) |
 
 ### Publishing Events
 
@@ -117,6 +116,8 @@ import { publish } from "../core/hub.ts";
 
 publish("spatial:tick", { cycle: 42, activeAgents: 5 });
 ```
+
+The typed event system is fully decoupled — any module can publish any topic, and subscribers react only if the publishing module is present at runtime.
 
 ## Broadcasting to Clients
 
