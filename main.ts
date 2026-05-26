@@ -2,13 +2,15 @@ import { Hono } from "@hono/hono";
 import { logger } from "@hono/hono/logger";
 import { serveStatic } from "@hono/hono/deno";
 import { publish, subscribe, TransportHub } from "./src/core/hub.ts";
+import { Conduit } from "./src/core/conduit.ts";
 import type { Intent } from "./src/core/envelope.ts";
 import { loadModules } from "./src/core/module-loader.ts";
 import type { AppState } from "./src/core/app-state.ts";
 import type { BlennyEvents, BlennyModule } from "./src/types.ts";
 
 const hub = new TransportHub();
-const state: AppState = { hub };
+const conduit = new Conduit();
+const state: AppState = { hub, conduit };
 const app = new Hono();
 app.use(logger());
 
