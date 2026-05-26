@@ -9,6 +9,9 @@ const DashboardPage: FC<{ modules: number }> = (props) => (
     <h1>Dashboard</h1>
     <p>Blenny-ts platform status.</p>
     <p>Modules loaded: {props.modules}</p>
+    <form method="post" action="/auth/signout" style="margin-top:16px">
+      <button type="submit">Sign Out</button>
+    </form>
   </div>
 );
 
