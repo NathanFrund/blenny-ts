@@ -79,9 +79,9 @@ const authModule: BlennyModule = {
   initialize(state: AppState) {
     conduit = state.conduit;
     config = {
-      jwtSecret: "blenny-dev-secret-do-not-use-in-production",
-      cookieName: "blenny_session",
-      sessionExpiry: 86400,
+      jwtSecret: state.config.jwtSecret,
+      cookieName: state.config.cookieName,
+      sessionExpiry: state.config.sessionDurationHours * 3600,
     };
     state.auth = {
       config,

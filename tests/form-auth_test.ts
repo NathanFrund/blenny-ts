@@ -3,13 +3,15 @@ import { Hono } from "@hono/hono";
 import type { MiddlewareHandler } from "@hono/hono";
 import { TransportHub } from "../src/core/hub.ts";
 import { Conduit } from "../src/core/conduit.ts";
+import { BlennyConfig } from "../src/core/config.ts";
 import authModule from "../src/modules/form-auth.tsx";
 import type { AppState } from "../src/core/app-state.ts";
 
 function buildApp(): Hono {
+  const config = new BlennyConfig();
   const hub = new TransportHub();
   const conduit = new Conduit();
-  const state: AppState = { hub, conduit };
+  const state: AppState = { hub, conduit, config };
   const app = new Hono();
 
   authModule.initialize?.(state);

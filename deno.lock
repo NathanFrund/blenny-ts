@@ -7,7 +7,10 @@
     "jsr:@std/internal@^1.0.12": "1.0.14",
     "jsr:@std/internal@^1.0.14": "1.0.14",
     "jsr:@std/path@1": "1.1.5",
-    "npm:@starfederation/datastar-sdk@1": "1.0.0"
+    "jsr:@surrealdb/surrealdb@^1.3.2": "1.3.2",
+    "npm:@starfederation/datastar-sdk@1": "1.0.0",
+    "npm:isows@^1.0.6": "1.0.7_ws@8.21.0",
+    "npm:uuidv7@^1.0.1": "1.2.1"
   },
   "jsr": {
     "@hono/hono@4.12.23": {
@@ -27,11 +30,31 @@
       "dependencies": [
         "jsr:@std/internal@^1.0.14"
       ]
+    },
+    "@surrealdb/surrealdb@1.3.2": {
+      "integrity": "d7dcd57d775341f771526b3272a3567e0401d5084d58887a86e3d928392163ec",
+      "dependencies": [
+        "npm:isows",
+        "npm:uuidv7"
+      ]
     }
   },
   "npm": {
     "@starfederation/datastar-sdk@1.0.0": {
       "integrity": "sha512-VT1co9LeRLJ3wynffvkxXLJaCh4PHt1YUhH3zCQYhjTuaeWjozNjQQrg+BUbkDMO58mSgeQp9pgOXRWciy0y6g=="
+    },
+    "isows@1.0.7_ws@8.21.0": {
+      "integrity": "sha512-I1fSfDCZL5P0v33sVqeTDSpcstAg/N+wF5HS033mogOVIp4B+oHC7oOCsA3axAbBSGTJ8QubbNmnIRN/h8U7hg==",
+      "dependencies": [
+        "ws"
+      ]
+    },
+    "uuidv7@1.2.1": {
+      "integrity": "sha512-4kPkK3/XTQW9Hbm4CaqfICn+kY9LJtDVEOfgsRRra/+n2Ofg4NqzRFceAkxvQ/Ud/6BpHOPzj8cirqM7TzTN5Q==",
+      "bin": true
+    },
+    "ws@8.21.0": {
+      "integrity": "sha512-Vsp28b7DRcimFQvrqu2Wek3z1iYxDCWqHYB8Qsnk/S4RfaCQzPGPyBNuVjJV3cd6UiKtUtp6sNM77gWvzcCH+g=="
     }
   },
   "workspace": {
@@ -40,6 +63,7 @@
       "jsr:@hono/hono@^4.12.23",
       "jsr:@std/assert@1",
       "jsr:@std/path@1",
+      "jsr:@surrealdb/surrealdb@^1.3.2",
       "npm:@starfederation/datastar-sdk@1"
     ]
   }

@@ -3,6 +3,7 @@ import { Hono } from "@hono/hono";
 import type { MiddlewareHandler } from "@hono/hono";
 import { TransportHub } from "../src/core/hub.ts";
 import { Conduit } from "../src/core/conduit.ts";
+import { BlennyConfig } from "../src/core/config.ts";
 import { getUser } from "../src/core/auth.ts";
 import type { Intent } from "../src/core/envelope.ts";
 import type { AppState } from "../src/core/app-state.ts";
@@ -10,9 +11,10 @@ import { ServerSentEventGenerator } from "@starfederation/datastar-sdk/web";
 import { SseConnection } from "../src/core/sse-connection.ts";
 
 Deno.test("main routes", async (t) => {
+  const config = new BlennyConfig();
   const hub = new TransportHub();
   const conduit = new Conduit();
-  const state: AppState = { hub, conduit };
+  const state: AppState = { hub, conduit, config };
   const app = new Hono();
 
   // Initialize auth module first (mirrors main.ts)

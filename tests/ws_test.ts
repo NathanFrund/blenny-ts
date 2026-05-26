@@ -5,6 +5,7 @@ import { subscribe } from "../src/core/hub.ts";
 Deno.test("WsConnection", async (t) => {
   await t.step("send() delivers bare HTML for html messages", () => {
     const sent: string[] = [];
+    // deno-lint-ignore no-explicit-any
     const ws = { send: (s: string) => sent.push(s) } as any;
     const conn = new WsConnection(ws, "test-id");
 
@@ -15,6 +16,7 @@ Deno.test("WsConnection", async (t) => {
 
   await t.step("send() delivers JSON string for signals messages", () => {
     const sent: string[] = [];
+    // deno-lint-ignore no-explicit-any
     const ws = { send: (s: string) => sent.push(s) } as any;
     const conn = new WsConnection(ws, "test-id");
 
@@ -25,6 +27,7 @@ Deno.test("WsConnection", async (t) => {
 
   await t.step("send() delivers bare script text", () => {
     const sent: string[] = [];
+    // deno-lint-ignore no-explicit-any
     const ws = { send: (s: string) => sent.push(s) } as any;
     const conn = new WsConnection(ws, "test-id");
 
@@ -35,6 +38,7 @@ Deno.test("WsConnection", async (t) => {
 
   await t.step("send() handles multiple fields in one message", () => {
     const sent: string[] = [];
+    // deno-lint-ignore no-explicit-any
     const ws = { send: (s: string) => sent.push(s) } as any;
     const conn = new WsConnection(ws, "test-id");
 
@@ -45,6 +49,7 @@ Deno.test("WsConnection", async (t) => {
 
   await t.step("send() sends nothing for empty message", () => {
     const sent: string[] = [];
+    // deno-lint-ignore no-explicit-any
     const ws = { send: (s: string) => sent.push(s) } as any;
     const conn = new WsConnection(ws, "test-id");
 

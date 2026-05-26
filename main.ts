@@ -2,6 +2,8 @@ import { Hono } from "@hono/hono";
 import type { MiddlewareHandler } from "@hono/hono";
 import { logger } from "@hono/hono/logger";
 import { serveStatic } from "@hono/hono/deno";
+import { BlennyConfig } from "./src/core/config.ts";
+import { connectDatabase } from "./src/core/database.ts";
 import { publish, subscribe, TransportHub } from "./src/core/hub.ts";
 import { Conduit } from "./src/core/conduit.ts";
 import { getUser } from "./src/core/auth.ts";
@@ -13,9 +15,12 @@ import { loadModules } from "./src/core/module-loader.ts";
 import type { AppState } from "./src/core/app-state.ts";
 import type { BlennyEvents, BlennyModule } from "./src/types.ts";
 
+const config = new BlennyConfig();
+config.logSources();
+
 const hub = new TransportHub();
 const conduit = new Conduit();
-const state: AppState = { hub, conduit };
+const state: AppState = { hub, conduit, config };
 const app = new Hono();
 app.use(logger());
 
@@ -70,6 +75,9 @@ for (const mod of modules) {
   }
 }
 
+// 4a. Connect database
+state.db = (await connectDatabase(config)) ?? undefined;
+
 // 5. Start — background tasks
 for (const mod of modules) {
   await mod.start?.();
@@ -119,11 +127,15 @@ const controller = new AbortController();
 Deno.addSignalListener("SIGINT", () => controller.abort());
 Deno.addSignalListener("SIGTERM", () => controller.abort());
 
-const port = Number(Deno.env.get("PORT") || "3000");
-const server = Deno.serve({ port, signal: controller.signal, onListen: ({ port: p }) => {
-  publish("platform:ready", { timestamp: Date.now() });
-  console.log(`blenny-ts running on http://localhost:${p}`);
-} }, app.fetch);
+const server = Deno.serve({
+  hostname: config.bindAddress,
+  port: config.port,
+  signal: controller.signal,
+  onListen: ({ port: p }) => {
+    publish("platform:ready", { timestamp: Date.now() });
+    console.log(`blenny-ts running on http://localhost:${p}`);
+  },
+}, app.fetch);
 
 await server.finished;
 
@@ -132,5 +144,8 @@ for (const mod of modules.toReversed()) {
   await mod.stop?.();
   if (mod.stop) console.log(`[lifecycle] ${mod.name} stopped`);
 }
+
+// 7. Close database
+await state.db?.close();
 
 console.log("blenny-ts shutdown complete");
