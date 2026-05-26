@@ -1,8 +1,10 @@
 import { Hono } from "@hono/hono";
+import type { MiddlewareHandler } from "@hono/hono";
 import { logger } from "@hono/hono/logger";
 import { serveStatic } from "@hono/hono/deno";
 import { publish, subscribe, TransportHub } from "./src/core/hub.ts";
 import { Conduit } from "./src/core/conduit.ts";
+import { getUser } from "./src/core/auth.ts";
 import type { Intent } from "./src/core/envelope.ts";
 import { loadModules } from "./src/core/module-loader.ts";
 import type { AppState } from "./src/core/app-state.ts";
@@ -32,10 +34,25 @@ for (const mod of modules) {
   console.log(`[lifecycle] ${mod.name} initialized`);
 }
 
+// 2a. Apply auth middleware globally if an auth module was initialized
+if (state.auth) {
+  app.use("*", state.auth.middleware);
+}
+
 // 3. Register routes
 for (const mod of modules) {
   for (const route of mod.routes) {
-    app.on(route.method, route.path, route.handler);
+    const method = route.method as "GET" | "POST" | "PUT" | "DELETE";
+    const handler = route.handler as unknown as MiddlewareHandler;
+    if (route.auth && state.auth) {
+      const guard: MiddlewareHandler =
+        typeof route.auth === "string"
+          ? state.auth.requireRole(route.auth)
+          : state.auth.requireUser;
+      app.on(method, route.path, guard, handler);
+    } else {
+      app.on(method, route.path, handler);
+    }
     console.log(`[router] ${route.method} ${route.path} -> ${mod.name}`);
   }
 }
@@ -60,7 +77,7 @@ for (const mod of modules) {
 
 app.get("/health", (c) => c.json({ status: "ok", modules: modules.length }));
 
-app.get("/sse", (c) => {
+app.get("/sse", async (c) => {
   const { readable, writable } = new TransformStream<Uint8Array>();
   const writer = writable.getWriter();
 
@@ -69,7 +86,13 @@ app.get("/sse", (c) => {
     ? new Set(intentParam.split(",") as Intent[])
     : undefined;
 
-  const cleanup = hub.registerConnection(writer, undefined, intents);
+  let userId: string | undefined;
+  if (state.auth) {
+    const user = await getUser(c, state.auth.config);
+    if (user) userId = user.id;
+  }
+
+  const cleanup = hub.registerConnection(writer, userId, intents);
 
   c.req.raw.signal.addEventListener("abort", () => {
     cleanup();

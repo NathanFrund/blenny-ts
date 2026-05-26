@@ -18,6 +18,7 @@ const moduleConfig: BlennyModule = {
     {
       method: "GET",
       path: "/dashboard",
+      auth: true,
       handler: (c) => conduit.respond(c, <DashboardPage modules={3} />),
     },
   ],
