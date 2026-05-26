@@ -1,0 +1,9 @@
+{
+  "deno.enable": true,
+  "deno.unstable": ["ffi"],
+  "deno.config": "./deno.json",
+  "http.trustedDomains": [
+    "raw.githubusercontent.com",
+    "deno.land"
+  ]
+}
