@@ -14,7 +14,7 @@ A Deno/TypeScript port of the Blenny philosophy (Pharo Smalltalk → Rust → Cl
 6. **Single binary** — `deno compile` produces a self-contained executable
 7. **Zero ceremony** — `main.ts` is infrastructure only; all active logic lives in modules
 
-## What's Built (Phase 0)
+## What's Built
 
 | Component | Status |
 |---|---|
@@ -24,6 +24,12 @@ A Deno/TypeScript port of the Blenny philosophy (Pharo Smalltalk → Rust → Cl
 | `/sse` endpoint (basic SSE stream) | ✅ |
 | `platform:ready` lifecycle event | ✅ |
 | Zero `any` types (strict `no-explicit-any` compliance) | ✅ |
+| TransportHub + Datastar/Standard encoders | ✅ |
+| Module lifecycle hooks (initialize/start/stop) | ✅ |
+| Connection intents (hub-level intent filtering) | ✅ |
+| JSX Conduit (HTMX-aware fragment/layout rendering) | ✅ |
+| Auth module + JWT middleware (pluggable strategies) | ✅ |
+| Per-user messaging (SSE connections bound to userId) | ✅ |
 
 ## Architectural Decisions
 
@@ -81,6 +87,16 @@ user writers:      Map<string, Map<uuid, Writer>>              // per-user per-t
 
 Switching encoders is a one-line config change. Module code never changes.
 
+### Auth Strategy
+
+An auth module is just a `BlennyModule` that additionally sets `state.auth` (an `AuthBundle`) during `initialize()`. The module owns the UI (form, OAuth, QR), credential validation, and token issuance. The framework reads `state.auth` after initialization and:
+
+- Applies `auth.middleware` globally (reads JWT cookie/query param, sets `c.get("user")`)
+- Wraps handlers with `requireUser`/`requireRole` guards when `route.auth` is set
+- Passes `userId` to SSE connections via `?token=` query param or cookie
+
+To swap auth strategies, drop in a different module. No framework changes needed.
+
 ### Template Strategy
 
 **JSX via Hono's precompiled JSX** — no separate template language. Modules export `.tsx` files that are type-checked, authored alongside their handlers, and rendered inline. The `deno.json` already configures `"jsx": "precompile"` with `@hono/hono/jsx` as the import source.
@@ -117,10 +133,13 @@ Switching encoders is a one-line config change. Module code never changes.
 - `Conduit.render(template, props, request)` — auto-detects HTMX, returns fragment or full page
 - Extension stripping, template ownership
 
-### Phase 5: Auth + WebSocket
-- JWT middleware (auto-discovered auth module)
-- Per-user messaging backed by authentication
-- Opt-in WebSocket sidecar (config flag)
+### Phase 5: Auth + Per-User Messaging
+- `src/core/auth.ts` — JWT primitives, cookie helpers, middleware factories
+- `src/modules/form-auth.tsx` — reference auth module (hardcoded admin/admin)
+- Route-level `auth` flag on `Route` type (`true` or role string)
+- Framework wires `requireUser`/`requireRole` guards based on `route.auth`
+- `/sse` reads JWT from cookie or `?token=`, binds connection to `userId`
+- Auth strategies are swappable by replacing the auth module
 
 ## Dependency Stack
 
@@ -134,9 +153,9 @@ Zero external dependencies beyond Hono and stdlib. This is intentional — Deno'
 
 ## Open Questions for Team Discussion
 
-1. **WebSocket sidecar** — should this ship in MVP or Phase 2? The Rust/Clojure versions make it opt-in via config flag. SSE alone covers the real-time use case for most applications.
-2. **Auth module** — ship a dev auth module (hardcoded admin/password) in core, or leave auth entirely to user modules?
-3. **JSX Conduit scope** — minimal helper (detect HTMX, render fragment) or full template engine with named templates, extension stripping, and hot-reload from disk?
+1. **WebSocket sidecar** — should this ship in MVP or later? The Rust/Clojure versions make it opt-in via config flag. SSE alone covers the real-time use case for most applications.
+2. ~~Auth module — ship a dev auth module (hardcoded admin/password) in core, or leave auth entirely to user modules?~~ **Resolved: shipped `form-auth.tsx` as reference implementation; swappable strategy pattern.**
+3. ~~JSX Conduit scope — minimal helper (detect HTMX, render fragment) or full template engine with named templates, extension stripping, and hot-reload from disk?~~ **Resolved: minimal helper.**
 4. **Single-binary compilation** — `deno compile` is in the task file but untested with FFI/`--allow-ffi`. Should we validate this early or defer to late-stage?
 
 ---
