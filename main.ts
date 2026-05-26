@@ -6,6 +6,7 @@ import { publish, subscribe, TransportHub } from "./src/core/hub.ts";
 import { Conduit } from "./src/core/conduit.ts";
 import { getUser } from "./src/core/auth.ts";
 import type { Intent } from "./src/core/envelope.ts";
+import { createWsHandler } from "./src/core/ws.ts";
 import { loadModules } from "./src/core/module-loader.ts";
 import type { AppState } from "./src/core/app-state.ts";
 import type { BlennyEvents, BlennyModule } from "./src/types.ts";
@@ -107,6 +108,8 @@ app.get("/sse", async (c) => {
     },
   });
 });
+
+app.get("/ws", createWsHandler(hub));
 
 app.use("/static/*", serveStatic({ root: "./" }));
 
