@@ -119,9 +119,10 @@ const controller = new AbortController();
 Deno.addSignalListener("SIGINT", () => controller.abort());
 Deno.addSignalListener("SIGTERM", () => controller.abort());
 
-const server = Deno.serve({ port: 3000, signal: controller.signal, onListen: () => {
+const port = Number(Deno.env.get("PORT") || "3000");
+const server = Deno.serve({ port, signal: controller.signal, onListen: ({ port: p }) => {
   publish("platform:ready", { timestamp: Date.now() });
-  console.log("blenny-ts running on http://localhost:3000");
+  console.log(`blenny-ts running on http://localhost:${p}`);
 } }, app.fetch);
 
 await server.finished;

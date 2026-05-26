@@ -1,6 +1,6 @@
 {
   "tasks": {
-    "dev": "deno run --allow-net --allow-read --allow-ffi --unstable-ffi --watch main.ts",
+    "dev": "deno run --allow-net --allow-read --allow-env --allow-ffi --unstable-ffi --watch main.ts",
     "compile": "deno compile --allow-net --allow-read --allow-ffi --include src/native/ main.ts",
     "test": "deno test --allow-read"
   },
