@@ -1,6 +1,6 @@
 # Blenny-ts
 
-A Deno/TypeScript port of the [Blenny](https://github.com/anomalyco/blenny) web framework — a hypermedia-driven, real-time, single-binary platform.
+A Deno/TypeScript port of the [Blenny](https://github.com/NathanFrund/blenny) web framework — a hypermedia-driven, real-time, single-binary platform.
 
 ## Quick Start
 
