@@ -3,6 +3,7 @@ import type { MiddlewareHandler } from "@hono/hono";
 import { logger } from "@hono/hono/logger";
 import { serveStatic } from "@hono/hono/deno";
 import { BlennyConfig } from "./src/core/config.ts";
+import { BlennyError } from "./src/core/error.ts";
 import { connectDatabase } from "./src/core/database.ts";
 import { BlennyPublisher } from "./src/core/publisher.ts";
 import { publish, subscribe, TransportHub } from "./src/core/hub.ts";
@@ -25,6 +26,34 @@ const conduit = new Conduit();
 const state: AppState = { hub, conduit, config };
 const app = new Hono();
 app.use(logger());
+
+function errorResponse(
+  body: Record<string, unknown>,
+  status: number,
+): Response {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { "content-type": "application/json" },
+  });
+}
+
+app.onError((err, _c) => {
+  if (err instanceof BlennyError) {
+    return errorResponse(err.toJSON(), err.statusCode);
+  }
+  console.error("[error]", err);
+  return errorResponse(
+    { error: { type: "internal", message: "Internal Server Error" } },
+    500,
+  );
+});
+
+app.notFound((_c) => {
+  return errorResponse(
+    { error: { type: "not_found", message: "Not Found" } },
+    404,
+  );
+});
 
 const modules = await loadModules();
 

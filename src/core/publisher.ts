@@ -23,12 +23,12 @@ export class BlennyPublisher {
 
   static broadcastData(data: string): void {
     if (!hubInstance) throw new PublisherError("BlennyPublisher not initialized — call BlennyPublisher.init(hub) at boot");
-    hubInstance.mergeSignals(JSON.parse(data) as Record<string, unknown>);
+    hubInstance.mergeSignals(JSON.parse(data) as Record<string, unknown>, { intent: "data" });
   }
 
   static directData(data: string, userId: string): void {
     if (!hubInstance) throw new PublisherError("BlennyPublisher not initialized — call BlennyPublisher.init(hub) at boot");
-    hubInstance.mergeSignals(JSON.parse(data) as Record<string, unknown>, { userId });
+    hubInstance.mergeSignals(JSON.parse(data) as Record<string, unknown>, { intent: "data", userId });
   }
 }
 

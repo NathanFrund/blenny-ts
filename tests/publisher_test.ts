@@ -80,6 +80,7 @@ Deno.test("BlennyPublisher broadcastData parses JSON internally", () => {
   assertEquals(conn.sent.length, 1);
   const msg = JSON.parse(conn.sent[0]) as ServerMessage;
   assertEquals(msg.signals, { score: 42, name: "alice" });
+  assertEquals(msg.intent, "data");
 });
 
 Deno.test("BlennyPublisher directs to specific user only", () => {
@@ -116,6 +117,7 @@ Deno.test("BlennyPublisher directData to specific user", () => {
 
   const msg = JSON.parse(alice.sent[0]) as ServerMessage;
   assertEquals(msg.signals, { msg: "secret" });
+  assertEquals(msg.intent, "data");
 });
 
 Deno.test("BlennyPublisher nop when no connections", () => {

@@ -206,6 +206,26 @@ conduit.respond(c, <MyPage />, { layout: MyCustomLayout });
 
 And declare a module-level default on `BlennyModule.layout` for documentation/organization.
 
+## Error Handling
+
+All uncaught errors in module routes are caught by a global `onError` handler and returned as structured JSON:
+
+```json
+{ "error": { "type": "not_found", "message": "Not Found" } }
+{ "error": { "type": "unauthorized", "message": "Unauthorized" } }
+{ "error": { "type": "internal", "message": "Internal Server Error" } }
+```
+
+Standard `Error` instances produce a generic `500 Internal Server Error` to avoid leaking stack traces. Module handlers can throw `BlennyError` instances for precise control:
+
+```ts
+throw BlennyError.notFound("User not found");
+throw BlennyError.unauthorized();
+throw BlennyError.internal("Database connection failed");
+```
+
+Unknown routes return a `404` via `app.notFound()`. Infrastructure endpoints (SSE, WS, health) manage their own error states.
+
 ## Database
 
 Optional SurrealDB integration via `state.db`:
