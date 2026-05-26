@@ -6,6 +6,8 @@ import { publish, subscribe, TransportHub } from "./src/core/hub.ts";
 import { Conduit } from "./src/core/conduit.ts";
 import { getUser } from "./src/core/auth.ts";
 import type { Intent } from "./src/core/envelope.ts";
+import { ServerSentEventGenerator } from "@starfederation/datastar-sdk/web";
+import { SseConnection } from "./src/core/sse-connection.ts";
 import { createWsHandler } from "./src/core/ws.ts";
 import { loadModules } from "./src/core/module-loader.ts";
 import type { AppState } from "./src/core/app-state.ts";
@@ -79,9 +81,6 @@ for (const mod of modules) {
 app.get("/health", (c) => c.json({ status: "ok", modules: modules.length }));
 
 app.get("/sse", async (c) => {
-  const { readable, writable } = new TransformStream<Uint8Array>();
-  const writer = writable.getWriter();
-
   const intentParam = c.req.query("intent");
   const intents = intentParam
     ? new Set(intentParam.split(",") as Intent[])
@@ -93,20 +92,21 @@ app.get("/sse", async (c) => {
     if (user) userId = user.id;
   }
 
-  const cleanup = hub.registerConnection(writer, userId, intents);
+  return ServerSentEventGenerator.stream(
+    (stream) => {
+      const id = crypto.randomUUID();
+      const conn = new SseConnection(stream, id, userId, intents);
+      const cleanup = hub.registerConnection(conn);
 
-  c.req.raw.signal.addEventListener("abort", () => {
-    cleanup();
-    writer.close().catch(() => {});
-  });
-
-  return c.newResponse(readable, {
-    headers: {
-      "Content-Type": hub.getEncoder().contentType,
-      "Cache-Control": "no-cache",
-      Connection: "keep-alive",
+      return new Promise<void>((resolve) => {
+        c.req.raw.signal.addEventListener("abort", () => {
+          cleanup();
+          resolve();
+        });
+      });
     },
-  });
+    { keepalive: true },
+  );
 });
 
 app.get("/ws", createWsHandler(hub));

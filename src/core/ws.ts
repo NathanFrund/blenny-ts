@@ -1,20 +1,31 @@
 import { upgradeWebSocket } from "@hono/hono/deno";
 import type { WSContext } from "@hono/hono/ws";
 import type { Context } from "@hono/hono";
-import type { TransportHub } from "./hub.ts";
+import type { TransportHub, Connection } from "./hub.ts";
 import { publish } from "./hub.ts";
-import type { Intent } from "./envelope.ts";
+import type { Intent, ServerMessage } from "./envelope.ts";
 
-export function stripSseFrame(encoded: string): string[] {
-  const payloads: string[] = [];
-  for (const block of encoded.split("\n\n")) {
-    if (!block) continue;
-    const dataMatch = block.match(/^data: (.+)$/m);
-    if (dataMatch) {
-      payloads.push(dataMatch[1]);
-    }
+export class WsConnection implements Connection {
+  id: string;
+  userId?: string;
+  intents?: Set<Intent>;
+
+  constructor(
+    private ws: WSContext,
+    id: string,
+    userId?: string,
+    intents?: Set<Intent>,
+  ) {
+    this.id = id;
+    this.userId = userId;
+    this.intents = intents;
   }
-  return payloads;
+
+  send(msg: ServerMessage): void {
+    if (msg.html) this.ws.send(msg.html);
+    if (msg.signals) this.ws.send(JSON.stringify(msg.signals));
+    if (msg.script) this.ws.send(msg.script);
+  }
 }
 
 export function dispatchWsMessage(raw: string): void {
@@ -31,19 +42,6 @@ export function dispatchWsMessage(raw: string): void {
   }
 }
 
-function createWsWriter(ws: WSContext): WritableStreamDefaultWriter {
-  const decoder = new TextDecoder();
-  const writable = new WritableStream<Uint8Array>({
-    write(chunk) {
-      const text = decoder.decode(chunk);
-      for (const payload of stripSseFrame(text)) {
-        ws.send(payload);
-      }
-    },
-  });
-  return writable.getWriter();
-}
-
 export function createWsHandler(hub: TransportHub) {
   return upgradeWebSocket((c: Context) => {
     const intentParam = c.req.query("intent");
@@ -57,8 +55,9 @@ export function createWsHandler(hub: TransportHub) {
 
     return {
       onOpen(_evt: Event, ws: WSContext) {
-        const writer = createWsWriter(ws);
-        cleanup = hub.registerConnection(writer, userId, intents);
+        const id = crypto.randomUUID();
+        const conn = new WsConnection(ws, id, userId, intents);
+        cleanup = hub.registerConnection(conn);
       },
       onMessage(evt: MessageEvent, _ws: WSContext) {
         const raw = typeof evt.data === "string"

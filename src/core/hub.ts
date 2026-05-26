@@ -1,9 +1,7 @@
 import type { Intent, ServerMessage } from "./envelope.ts";
-import type { TransportEncoder } from "./transport-encoder.ts";
 import type { BlennyEvents } from "../types.ts";
-import { DatastarEncoder } from "./encoders/datastar-encoder.ts";
 
-// ── Typed event bus (absorbed from bus.ts) ──────────────────────────
+// ── Typed event bus ──────────────────────────────────────────────
 
 type Handler<T> = (payload: T) => void;
 const eventSubs = new Map<keyof BlennyEvents, Set<(payload: unknown) => void>>();
@@ -31,51 +29,34 @@ export function publish<K extends keyof BlennyEvents>(
   }
 }
 
-// ── TransportHub ────────────────────────────────────────────────────
+// ── Connection interface ────────────────────────────────────────
 
-type ConnId = string;
+export type ConnId = string;
 
-interface Connection {
+export interface Connection {
   id: ConnId;
   userId?: string;
   intents?: Set<Intent>;
-  writer: WritableStreamDefaultWriter;
+  send(msg: ServerMessage): void;
 }
 
+// ── TransportHub ─────────────────────────────────────────────────
+
 export class TransportHub {
-  private encoder: TransportEncoder;
   private conns = new Map<ConnId, Connection>();
   private userConns = new Map<string, Map<ConnId, true>>();
 
-  constructor(encoder?: TransportEncoder) {
-    this.encoder = encoder ?? new DatastarEncoder();
-  }
-
-  getEncoder(): TransportEncoder {
-    return this.encoder;
-  }
-
-  setEncoder(encoder: TransportEncoder): void {
-    this.encoder = encoder;
-  }
-
   // ── Connection management ───────────────────────────────────
 
-  registerConnection(
-    writer: WritableStreamDefaultWriter,
-    userId?: string,
-    intents?: Set<Intent>,
-  ): () => void {
-    const id = crypto.randomUUID();
-    const conn: Connection = { id, userId, intents, writer };
-    this.conns.set(id, conn);
-    if (userId) {
-      if (!this.userConns.has(userId)) {
-        this.userConns.set(userId, new Map());
+  registerConnection(conn: Connection): () => void {
+    this.conns.set(conn.id, conn);
+    if (conn.userId) {
+      if (!this.userConns.has(conn.userId)) {
+        this.userConns.set(conn.userId, new Map());
       }
-      this.userConns.get(userId)!.set(id, true);
+      this.userConns.get(conn.userId)!.set(conn.id, true);
     }
-    return () => this.removeConnection(id);
+    return () => this.removeConnection(conn.id);
   }
 
   private removeConnection(id: ConnId): void {
@@ -99,10 +80,7 @@ export class TransportHub {
     if (msg.intent && conn.intents && !conn.intents.has(msg.intent)) {
       return;
     }
-    const data = this.encoder.encode(msg);
-    conn.writer.write(new TextEncoder().encode(data)).catch(() => {
-      this.removeConnection(conn.id);
-    });
+    conn.send(msg);
   }
 
   // ── Actions (module-facing API) ──────────────────────────────

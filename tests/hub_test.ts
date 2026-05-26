@@ -1,91 +1,100 @@
 import { assertEquals } from "@std/assert";
-import { TransportHub } from "../src/core/hub.ts";
-import type { Intent } from "../src/core/envelope.ts";
+import { TransportHub, type ConnId, type Connection } from "../src/core/hub.ts";
+import type { Intent, ServerMessage } from "../src/core/envelope.ts";
 
-function makeWriter(): WritableStreamDefaultWriter {
-  const { writable } = new TransformStream<Uint8Array>();
-  return writable.getWriter();
+class CaptureConnection implements Connection {
+  id: ConnId;
+  userId?: string;
+  intents?: Set<Intent>;
+  sent: string[] = [];
+
+  constructor(id: string, userId?: string, intents?: Set<Intent>) {
+    this.id = id;
+    this.userId = userId;
+    this.intents = intents;
+  }
+
+  send(msg: ServerMessage): void {
+    this.sent.push(JSON.stringify(msg));
+  }
 }
 
 Deno.test("TransportHub", async (t) => {
   await t.step("registerConnection returns a cleanup function", () => {
     const hub = new TransportHub();
-    const cleanup = hub.registerConnection(makeWriter());
+    const conn = new CaptureConnection(crypto.randomUUID());
+    const cleanup = hub.registerConnection(conn);
     assertEquals(typeof cleanup, "function");
   });
 
-  await t.step("patchElements broadcasts to all connections", async () => {
+  await t.step("patchElements broadcasts to all connections", () => {
     const hub = new TransportHub();
-    const chunks: string[] = [];
-    hub.registerConnection(makeCaptureWriter(chunks));
+    const conn = new CaptureConnection(crypto.randomUUID());
+    hub.registerConnection(conn);
 
     hub.patchElements("<div>hello</div>");
-    await new Promise((r) => setTimeout(r, 0));
-    assertEquals(chunks.length, 1);
-    assertEquals(chunks[0].includes("datastar-patch-elements"), true);
-    assertEquals(chunks[0].includes("<div>hello</div>"), true);
+
+    assertEquals(conn.sent.length, 1);
+    const msg = JSON.parse(conn.sent[0]) as ServerMessage;
+    assertEquals(msg.html, "<div>hello</div>");
   });
 
-  await t.step("patchElements delivers to specific user only", async () => {
+  await t.step("patchElements delivers to specific user only", () => {
     const hub = new TransportHub();
-    const aliceChunks: string[] = [];
-    const bobChunks: string[] = [];
-
-    hub.registerConnection(makeCaptureWriter(aliceChunks), "alice");
-    hub.registerConnection(makeCaptureWriter(bobChunks), "bob");
+    const alice = new CaptureConnection(crypto.randomUUID(), "alice");
+    const bob = new CaptureConnection(crypto.randomUUID(), "bob");
+    hub.registerConnection(alice);
+    hub.registerConnection(bob);
 
     hub.patchElements("<div>alice-only</div>", { userId: "alice" });
-    await new Promise((r) => setTimeout(r, 0));
 
-    assertEquals(aliceChunks.length, 1);
-    assertEquals(bobChunks.length, 0);
+    assertEquals(alice.sent.length, 1);
+    assertEquals(bob.sent.length, 0);
   });
 
-  await t.step("patchElements respects intent filtering", async () => {
+  await t.step("patchElements respects intent filtering", () => {
     const hub = new TransportHub();
-    const uiChunks: string[] = [];
-    const cmdChunks: string[] = [];
-
-    hub.registerConnection(
-      makeCaptureWriter(uiChunks),
+    const ui = new CaptureConnection(
+      crypto.randomUUID(),
       undefined,
       new Set<Intent>(["ui"]),
     );
-    hub.registerConnection(
-      makeCaptureWriter(cmdChunks),
+    const cmd = new CaptureConnection(
+      crypto.randomUUID(),
       undefined,
       new Set<Intent>(["command"]),
     );
+    hub.registerConnection(ui);
+    hub.registerConnection(cmd);
 
     hub.patchElements("<div>ui-only</div>", { intent: "ui" });
-    await new Promise((r) => setTimeout(r, 0));
 
-    assertEquals(uiChunks.length, 1);
-    assertEquals(cmdChunks.length, 0);
+    assertEquals(ui.sent.length, 1);
+    assertEquals(cmd.sent.length, 0);
   });
 
-  await t.step("mergeSignals broadcasts correctly", async () => {
+  await t.step("mergeSignals broadcasts correctly", () => {
     const hub = new TransportHub();
-    const chunks: string[] = [];
-    hub.registerConnection(makeCaptureWriter(chunks));
+    const conn = new CaptureConnection(crypto.randomUUID());
+    hub.registerConnection(conn);
 
     hub.mergeSignals({ x: 1, y: 2 });
-    await new Promise((r) => setTimeout(r, 0));
 
-    assertEquals(chunks.length, 1);
-    assertEquals(chunks[0].includes("datastar-merge-signals"), true);
+    assertEquals(conn.sent.length, 1);
+    const msg = JSON.parse(conn.sent[0]) as ServerMessage;
+    assertEquals(msg.signals, { x: 1, y: 2 });
   });
 
-  await t.step("executeScript broadcasts correctly", async () => {
+  await t.step("executeScript broadcasts correctly", () => {
     const hub = new TransportHub();
-    const chunks: string[] = [];
-    hub.registerConnection(makeCaptureWriter(chunks));
+    const conn = new CaptureConnection(crypto.randomUUID());
+    hub.registerConnection(conn);
 
     hub.executeScript("console.log('hi')");
-    await new Promise((r) => setTimeout(r, 0));
 
-    assertEquals(chunks.length, 1);
-    assertEquals(chunks[0].includes("datastar-execute-script"), true);
+    assertEquals(conn.sent.length, 1);
+    const msg = JSON.parse(conn.sent[0]) as ServerMessage;
+    assertEquals(msg.script, "console.log('hi')");
   });
 
   await t.step("nop broadcast to no connections is safe", () => {
@@ -100,14 +109,3 @@ Deno.test("TransportHub", async (t) => {
     hub.patchElements("<div>hello</div>", { userId: "ghost" });
   });
 });
-
-function makeCaptureWriter(
-  chunks: string[],
-): WritableStreamDefaultWriter {
-  const writable = new WritableStream<Uint8Array>({
-    write(chunk) {
-      chunks.push(new TextDecoder().decode(chunk));
-    },
-  });
-  return writable.getWriter();
-}

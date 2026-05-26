@@ -1,42 +1,56 @@
 import { assertEquals } from "@std/assert";
-import { stripSseFrame, dispatchWsMessage } from "../src/core/ws.ts";
+import { dispatchWsMessage, WsConnection } from "../src/core/ws.ts";
 import { subscribe } from "../src/core/hub.ts";
 
-Deno.test("stripSseFrame", async (t) => {
-  await t.step("extracts bare HTML from datastar patch event", () => {
-    const result = stripSseFrame(
-      "event: datastar-patch-elements\ndata: <div>hello</div>\n\n",
-    );
-    assertEquals(result, ["<div>hello</div>"]);
+Deno.test("WsConnection", async (t) => {
+  await t.step("send() delivers bare HTML for html messages", () => {
+    const sent: string[] = [];
+    const ws = { send: (s: string) => sent.push(s) } as any;
+    const conn = new WsConnection(ws, "test-id");
+
+    conn.send({ html: "<div>hello</div>" });
+
+    assertEquals(sent, ["<div>hello</div>"]);
   });
 
-  await t.step("extracts JSON from datastar merge-signals event", () => {
-    const result = stripSseFrame(
-      "event: datastar-merge-signals\ndata: {\"x\":1,\"y\":2}\n\n",
-    );
-    assertEquals(result, ['{"x":1,"y":2}']);
+  await t.step("send() delivers JSON string for signals messages", () => {
+    const sent: string[] = [];
+    const ws = { send: (s: string) => sent.push(s) } as any;
+    const conn = new WsConnection(ws, "test-id");
+
+    conn.send({ signals: { x: 1, y: 2 } });
+
+    assertEquals(sent, [JSON.stringify({ x: 1, y: 2 })]);
   });
 
-  await t.step("extracts script from datastar execute-script event", () => {
-    const result = stripSseFrame(
-      "event: datastar-execute-script\ndata: console.log('hi')\n\n",
-    );
-    assertEquals(result, ["console.log('hi')"]);
+  await t.step("send() delivers bare script text", () => {
+    const sent: string[] = [];
+    const ws = { send: (s: string) => sent.push(s) } as any;
+    const conn = new WsConnection(ws, "test-id");
+
+    conn.send({ script: "console.log('hi')" });
+
+    assertEquals(sent, ["console.log('hi')"]);
   });
 
-  await t.step("handles multiple concatenated events", () => {
-    const result = stripSseFrame(
-      "event: datastar-patch-elements\ndata: <div>a</div>\n\nevent: datastar-patch-elements\ndata: <div>b</div>\n\n",
-    );
-    assertEquals(result, ["<div>a</div>", "<div>b</div>"]);
+  await t.step("send() handles multiple fields in one message", () => {
+    const sent: string[] = [];
+    const ws = { send: (s: string) => sent.push(s) } as any;
+    const conn = new WsConnection(ws, "test-id");
+
+    conn.send({ html: "<div>a</div>", signals: { x: 1 }, script: "foo()" });
+
+    assertEquals(sent, ["<div>a</div>", JSON.stringify({ x: 1 }), "foo()"]);
   });
 
-  await t.step("returns empty array for empty string", () => {
-    assertEquals(stripSseFrame(""), []);
-  });
+  await t.step("send() sends nothing for empty message", () => {
+    const sent: string[] = [];
+    const ws = { send: (s: string) => sent.push(s) } as any;
+    const conn = new WsConnection(ws, "test-id");
 
-  await t.step("returns empty array for no data line", () => {
-    assertEquals(stripSseFrame("event: foo\n\n"), []);
+    conn.send({});
+
+    assertEquals(sent, []);
   });
 });
 

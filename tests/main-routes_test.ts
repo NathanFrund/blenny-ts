@@ -6,6 +6,8 @@ import { Conduit } from "../src/core/conduit.ts";
 import { getUser } from "../src/core/auth.ts";
 import type { Intent } from "../src/core/envelope.ts";
 import type { AppState } from "../src/core/app-state.ts";
+import { ServerSentEventGenerator } from "@starfederation/datastar-sdk/web";
+import { SseConnection } from "../src/core/sse-connection.ts";
 
 Deno.test("main routes", async (t) => {
   const hub = new TransportHub();
@@ -21,9 +23,6 @@ Deno.test("main routes", async (t) => {
   app.get("/health", (c) => c.json({ status: "ok", modules: 5 }));
 
   app.get("/sse", async (c) => {
-    const { readable, writable } = new TransformStream<Uint8Array>();
-    const writer = writable.getWriter();
-
     const intentParam = c.req.query("intent");
     const intents = intentParam
       ? new Set(intentParam.split(",") as Intent[])
@@ -35,20 +34,21 @@ Deno.test("main routes", async (t) => {
       if (user) userId = user.id;
     }
 
-    const cleanup = hub.registerConnection(writer, userId, intents);
+    return ServerSentEventGenerator.stream(
+      (stream) => {
+        const id = crypto.randomUUID();
+        const conn = new SseConnection(stream, id, userId, intents);
+        const cleanup = hub.registerConnection(conn);
 
-    c.req.raw.signal.addEventListener("abort", () => {
-      cleanup();
-      writer.close().catch(() => {});
-    });
-
-    return c.newResponse(readable, {
-      headers: {
-        "Content-Type": hub.getEncoder().contentType,
-        "Cache-Control": "no-cache",
-        Connection: "keep-alive",
+        return new Promise<void>((resolve) => {
+          c.req.raw.signal.addEventListener("abort", () => {
+            cleanup();
+            resolve();
+          });
+        });
       },
-    });
+      { keepalive: true },
+    );
   });
 
   if (state.auth) {
