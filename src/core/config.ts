@@ -16,15 +16,27 @@ const DEFAULTS: Record<string, string> = {
   "surreal.pass": "root",
 };
 
+export interface ConfigOverrides {
+  env?: Record<string, string | undefined>;
+  args?: string[];
+  fileContent?: string | null;
+}
+
 export class BlennyConfig {
   private data = new Map<string, string>();
   private sources = new Map<string, ConfigSource>();
 
-  constructor() {
+  constructor(overrides?: ConfigOverrides) {
     this.applyDefaults();
-    this.applyFile();
-    this.applyEnv();
-    this.applyCli();
+    if (overrides) {
+      this.applyFileOverride(overrides.fileContent);
+      this.applyEnvOverride(overrides.env);
+      this.applyCliOverride(overrides.args);
+    } else {
+      this.applyFile();
+      this.applyEnv();
+      this.applyCli();
+    }
   }
 
   // ── Raw key lookup ──────────────────────────────────────────────
@@ -162,6 +174,65 @@ export class BlennyConfig {
         const key = arg.slice(2);
         if (key in DEFAULTS || key.includes(".")) {
           if (i + 1 < args.length && !args[i + 1].startsWith("--") && !args[i + 1].startsWith("-")) {
+            this.set(key, args[++i], "cli");
+          } else {
+            this.set(key, "true", "cli");
+          }
+        }
+      }
+    }
+  }
+
+  // ── Test override providers ──────────────────────────────────────
+
+  private applyFileOverride(fileContent: string | null | undefined): void {
+    if (fileContent === undefined || fileContent === null) return;
+    try {
+      const parsed = JSON.parse(fileContent) as Record<string, unknown>;
+      for (const [key, value] of Object.entries(parsed)) {
+        if (typeof value === "string") {
+          this.set(key, value, "file");
+        } else if (typeof value === "number" || typeof value === "boolean") {
+          this.set(key, String(value), "file");
+        }
+      }
+    } catch {
+      console.warn("[config] override file parse error");
+    }
+  }
+
+  private applyEnvOverride(
+    env: Record<string, string | undefined> | undefined,
+  ): void {
+    if (!env) return;
+    for (const key of Object.keys(DEFAULTS)) {
+      const envName = "BLENNY_" + key.toUpperCase().replace(/\./g, "_");
+      const value = env[envName];
+      if (value !== undefined) {
+        this.set(key, value, "env");
+      }
+    }
+  }
+
+  private applyCliOverride(args: string[] | undefined): void {
+    if (!args) return;
+    for (let i = 0; i < args.length; i++) {
+      const arg = args[i];
+      if (!arg.startsWith("--")) continue;
+      const eqIdx = arg.indexOf("=");
+      if (eqIdx !== -1) {
+        const key = arg.slice(2, eqIdx);
+        const value = arg.slice(eqIdx + 1);
+        if (key in DEFAULTS || key.includes(".")) {
+          this.set(key, value, "cli");
+        }
+      } else {
+        const key = arg.slice(2);
+        if (key in DEFAULTS || key.includes(".")) {
+          if (
+            i + 1 < args.length && !args[i + 1].startsWith("--") &&
+            !args[i + 1].startsWith("-")
+          ) {
             this.set(key, args[++i], "cli");
           } else {
             this.set(key, "true", "cli");

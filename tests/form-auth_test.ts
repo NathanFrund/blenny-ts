@@ -7,14 +7,14 @@ import { BlennyConfig } from "../src/core/config.ts";
 import authModule from "../src/modules/form-auth.tsx";
 import type { AppState } from "../src/core/app-state.ts";
 
-function buildApp(): Hono {
+async function buildApp(): Promise<Hono> {
   const config = new BlennyConfig();
   const hub = new TransportHub();
   const conduit = new Conduit();
   const state: AppState = { hub, conduit, config };
   const app = new Hono();
 
-  authModule.initialize?.(state);
+  await authModule.initialize?.(state);
 
   if (state.auth) {
     app.use("*", state.auth.middleware);
@@ -33,7 +33,7 @@ function buildApp(): Hono {
 }
 
 Deno.test("form-auth module", async (t) => {
-  const app = buildApp();
+  const app = await buildApp();
 
   await t.step("GET /auth/signin returns sign-in form", async () => {
     const res = await app.request("http://localhost/auth/signin");
@@ -102,6 +102,88 @@ Deno.test("form-auth module", async (t) => {
     assertExists(setCookie);
     assertEquals(setCookie.includes("blenny_session=;"), true);
     assertEquals(setCookie.includes("Max-Age=0"), true);
+  });
+});
+
+Deno.test("registration", async (t) => {
+  const app = await buildApp();
+
+  await t.step("GET /auth/register returns registration form", async () => {
+    const res = await app.request("http://localhost/auth/register");
+    assertEquals(res.status, 200);
+    const html = await res.text();
+    assertEquals(html.includes("Register"), true);
+    assertEquals(html.includes('name="username"'), true);
+    assertEquals(html.includes('name="display_name"'), true);
+    assertEquals(html.includes('name="password"'), true);
+    assertEquals(html.includes('/auth/signin"'), true);
+  });
+
+  await t.step("POST /auth/register creates user and returns 302 + cookie", async () => {
+    const body = new URLSearchParams({
+      username: "regtest-user",
+      display_name: "Reg User",
+      password: "secret123",
+    });
+    const res = await app.request("http://localhost/auth/register", {
+      method: "POST",
+      body: body.toString(),
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    });
+    assertEquals(res.status, 302);
+    assertEquals(res.headers.get("location"), "/dashboard");
+
+    const setCookie = res.headers.get("set-cookie");
+    assertExists(setCookie);
+    assertEquals(setCookie.includes("blenny_session"), true);
+    assertEquals(setCookie.includes("HttpOnly"), true);
+  });
+
+  await t.step("POST /auth/register with taken username shows error", async () => {
+    const body = new URLSearchParams({
+      username: "admin",
+      display_name: "Should Fail",
+      password: "whatever",
+    });
+    const res = await app.request("http://localhost/auth/register", {
+      method: "POST",
+      body: body.toString(),
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    });
+    assertEquals(res.status, 200);
+    const html = await res.text();
+    assertEquals(html.includes("Username is already taken"), true);
+  });
+
+  await t.step("POST /auth/register with empty fields shows error", async () => {
+    const body = new URLSearchParams({
+      username: "",
+      display_name: "",
+      password: "",
+    });
+    const res = await app.request("http://localhost/auth/register", {
+      method: "POST",
+      body: body.toString(),
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    });
+    assertEquals(res.status, 200);
+    const html = await res.text();
+    assertEquals(html.includes("All fields are required"), true);
+  });
+
+  await t.step("newly registered user can sign in", async () => {
+    const body = new URLSearchParams({
+      username: "regtest-user",
+      password: "secret123",
+    });
+    const res = await app.request("http://localhost/auth/signin", {
+      method: "POST",
+      body: body.toString(),
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    });
+    assertEquals(res.status, 302);
+    assertEquals(res.headers.get("location"), "/dashboard");
+    assertExists(res.headers.get("set-cookie"));
   });
 });
 
