@@ -15,6 +15,8 @@ const DEFAULTS: Record<string, string> = {
   "surreal.db": "blenny",
   "surreal.user": "root",
   "surreal.pass": "root",
+  "log.level": "",
+  "log.format": "",
 };
 
 export interface ConfigOverrides {
@@ -97,6 +99,14 @@ export class BlennyConfig {
 
   get surrealPass(): string {
     return this.data.get("surreal.pass")!;
+  }
+
+  get logLevel(): string {
+    return this.data.get("log.level") || (this.devMode ? "debug" : "info");
+  }
+
+  get logFormat(): string {
+    return this.data.get("log.format") || (this.devMode ? "text" : "json");
   }
 
   // ── Logging helper ───────────────────────────────────────────────

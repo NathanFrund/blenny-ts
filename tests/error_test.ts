@@ -1,5 +1,5 @@
 import { assertEquals } from "@std/assert";
-import { BlennyError } from "../src/core/error.ts";
+import { BlennyError, errorResponse } from "../src/core/error.ts";
 
 Deno.test("BlennyError notFound factory", () => {
   const err = BlennyError.notFound();
@@ -32,13 +32,6 @@ Deno.test("BlennyError instance of Error", () => {
 Deno.test("BlennyError thrown in app returns structured JSON", async () => {
   const { Hono } = await import("@hono/hono");
   const app = new Hono();
-
-  function errorResponse(body: Record<string, unknown>, status: number): Response {
-    return new Response(JSON.stringify(body), {
-      status,
-      headers: { "content-type": "application/json" },
-    });
-  }
 
   app.onError((err, _c) => {
     if (err instanceof BlennyError) {

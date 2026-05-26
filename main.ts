@@ -1,9 +1,8 @@
 import { Hono } from "@hono/hono";
 import type { MiddlewareHandler } from "@hono/hono";
-import { logger } from "@hono/hono/logger";
 import { serveStatic } from "@hono/hono/deno";
 import { BlennyConfig } from "./src/core/config.ts";
-import { BlennyError } from "./src/core/error.ts";
+import { BlennyError, errorResponse } from "./src/core/error.ts";
 import { connectDatabase } from "./src/core/database.ts";
 import { BlennyPublisher } from "./src/core/publisher.ts";
 import { publish, subscribe, TransportHub } from "./src/core/hub.ts";
@@ -16,6 +15,7 @@ import { createWsHandler } from "./src/core/ws.ts";
 import { loadModules } from "./src/core/module-loader.ts";
 import type { AppState } from "./src/core/app-state.ts";
 import type { BlennyEvents } from "./src/types.ts";
+import { createLogger, requestLogger } from "./src/core/logger.ts";
 
 const config = new BlennyConfig();
 config.logSources();
@@ -23,25 +23,16 @@ config.logSources();
 const hub = new TransportHub();
 BlennyPublisher.init(hub);
 const conduit = new Conduit();
-const state: AppState = { hub, conduit, config };
+const logger = await createLogger(config);
+const state: AppState = { hub, conduit, config, logger };
 const app = new Hono();
-app.use(logger());
-
-function errorResponse(
-  body: Record<string, unknown>,
-  status: number,
-): Response {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { "content-type": "application/json" },
-  });
-}
+app.use(requestLogger(logger));
 
 app.onError((err, _c) => {
   if (err instanceof BlennyError) {
     return errorResponse(err.toJSON(), err.statusCode);
   }
-  console.error("[error]", err);
+  logger.error("Uncaught error: {error}", { error: err.message, stack: err.stack });
   return errorResponse(
     { error: { type: "internal", message: "Internal Server Error" } },
     500,
@@ -60,7 +51,7 @@ const modules = await loadModules();
 // 1. Initialize — inject dependencies
 for (const mod of modules) {
   await mod.initialize?.(state);
-  console.log(`[lifecycle] ${mod.name} initialized`);
+  logger.info("Module initialized: {name}", { name: mod.name });
 }
 
 // 2a. Apply auth middleware globally if an auth module was initialized
@@ -82,7 +73,11 @@ for (const mod of modules) {
     } else {
       app.on(method, route.path, handler);
     }
-    console.log(`[router] ${route.method} ${route.path} -> ${mod.name}`);
+    logger.debug("Route registered: {method} {path} -> {module}", {
+      method: route.method,
+      path: route.path,
+      module: mod.name,
+    });
   }
 }
 
@@ -91,7 +86,10 @@ for (const mod of modules) {
   if (mod.subscriptions) {
     for (const sub of mod.subscriptions) {
       subscribe(sub.topic as keyof BlennyEvents, sub.handler as (payload: unknown) => void);
-      console.log(`[bus] ${mod.name} subscribed to "${sub.topic}"`);
+      logger.debug("Event subscription: {module} -> {topic}", {
+        module: mod.name,
+        topic: sub.topic,
+      });
     }
   }
 }
@@ -102,7 +100,7 @@ state.db = (await connectDatabase(config)) ?? undefined;
 // 5. Start — background tasks
 for (const mod of modules) {
   await mod.start?.();
-  if (mod.start) console.log(`[lifecycle] ${mod.name} started`);
+  if (mod.start) logger.info("Module started: {name}", { name: mod.name });
 }
 
 // ── Platform endpoints ──────────────────────────────────────────
@@ -165,7 +163,7 @@ const server = Deno.serve({
   signal: controller.signal,
   onListen: ({ port: p }) => {
     publish("platform:ready", { timestamp: Date.now() });
-    console.log(`blenny-ts running on http://localhost:${p}`);
+    logger.info("blenny-ts listening on port {port}", { port: p });
   },
 }, app.fetch);
 
@@ -174,10 +172,10 @@ await server.finished;
 // 6. Stop modules in reverse order
 for (const mod of modules.toReversed()) {
   await mod.stop?.();
-  if (mod.stop) console.log(`[lifecycle] ${mod.name} stopped`);
+  if (mod.stop) logger.info("Module stopped: {name}", { name: mod.name });
 }
 
 // 7. Close database
 await state.db?.close();
 
-console.log("blenny-ts shutdown complete");
+logger.info("blenny-ts shutdown complete");

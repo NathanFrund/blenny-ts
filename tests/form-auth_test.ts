@@ -6,12 +6,13 @@ import { Conduit } from "../src/core/conduit.ts";
 import { BlennyConfig } from "../src/core/config.ts";
 import authModule from "../src/modules/form-auth.tsx";
 import type { AppState } from "../src/core/app-state.ts";
+import { NULL_LOGGER } from "../src/core/logger.ts";
 
 async function buildApp(): Promise<Hono> {
   const config = new BlennyConfig();
   const hub = new TransportHub();
   const conduit = new Conduit();
-  const state: AppState = { hub, conduit, config };
+  const state: AppState = { hub, conduit, config, logger: NULL_LOGGER };
   const app = new Hono();
 
   await authModule.initialize?.(state);

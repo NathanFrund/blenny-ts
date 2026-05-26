@@ -7,6 +7,7 @@ import { BlennyConfig } from "../src/core/config.ts";
 import { getUser } from "../src/core/auth.ts";
 import type { Intent } from "../src/core/envelope.ts";
 import type { AppState } from "../src/core/app-state.ts";
+import { NULL_LOGGER } from "../src/core/logger.ts";
 import { ServerSentEventGenerator } from "@starfederation/datastar-sdk/web";
 import { SseConnection } from "../src/core/sse-connection.ts";
 
@@ -14,7 +15,7 @@ Deno.test("main routes", async (t) => {
   const config = new BlennyConfig();
   const hub = new TransportHub();
   const conduit = new Conduit();
-  const state: AppState = { hub, conduit, config };
+  const state: AppState = { hub, conduit, config, logger: NULL_LOGGER };
   const app = new Hono();
 
   // Initialize auth module first (mirrors main.ts)

@@ -24,3 +24,13 @@ export class BlennyError extends Error {
     return { error: { type: this.type, message: this.message } };
   }
 }
+
+export function errorResponse(
+  body: Record<string, unknown>,
+  status: number,
+): Response {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { "content-type": "application/json" },
+  });
+}

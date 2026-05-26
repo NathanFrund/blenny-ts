@@ -17,7 +17,7 @@ Hypermedia-driven, real-time, single-binary platform.
 
 ### AppState
 - Single object injected into modules during `initialize(state)`.
-- Contains: `hub`, `conduit`, `config`, optional `auth` (set by auth module), optional `db` (SurrealDB).
+- Contains: `hub`, `conduit`, `config`, `logger`, optional `auth` (set by auth module), optional `db` (SurrealDB).
 
 ### TransportHub
 - Central connection manager. Three maps: global connections, per-user connections, per-topic subscribers.
@@ -44,6 +44,17 @@ Hypermedia-driven, real-time, single-binary platform.
 - Detection: `c.req.header("HX-Request") !== undefined`.
 - Per-response layout override: `conduit.respond(c, content, { layout })`.
 - JSX types bridged via `as unknown as string` (zero `any` in source).
+
+### Logger
+- `BlennyLogger` interface with `debug`, `info`, `warn`, `error`, `child(meta)` methods.
+- Default implementation wraps LogTape (`@logtape/logtape`) with ANSI colors in dev, JSON Lines in production.
+- Created at boot via `createLogger(config)` (async — configures LogTape sinks/level).
+- `child({ key: val })` returns a logger with structured context properties (appears in JSON output).
+- Accessible through `state.logger` everywhere.
+- Config: `log.level` (auto: debug in dev, info in prod), `log.format` (auto: text in dev, json in prod).
+- `requestLogger(logger)` replaces Hono's built-in logger middleware — structured request logs with method/path/status/duration.
+- Test isolation: `resetLogger()` clears LogTape config between tests.
+- MockLogger class available for unit tests that need to capture log messages.
 
 ### Config
 - Composite provider: CLI args > env vars (`BLENNY_<KEY>`) > `blenny.json` > embedded defaults.
@@ -108,7 +119,7 @@ To prevent regression during automated refactoring, agents must preserve:
 
 - Core framework fully implemented: modules, hub, SSE, WS, conduit, config, auth, database.
 - BlennyPublisher for zero-ceremony real-time pushes.
-- 30 source files, 9 test files, 79 test steps — all passing.
+- 32 source files, 10 test files, 80+ test steps — all passing.
 - `deno check` and `deno lint` clean across all files.
 - Three known gaps vs blenny-rs (see Gaps vs blenny-rs below).
 
@@ -145,6 +156,7 @@ All tests: `deno test --allow-read --allow-env`
 | `tests/db-guard_test.ts` | `requireDb`/`withDb` behavior |
 | `tests/form-auth_test.ts` | Registration, sign-in, sign-out, auth guard |
 | `tests/hub_test.ts` | Connection lifecycle, broadcast, direct, intent filtering |
+| `tests/logger_test.ts` | createLogger, child context, requestLogger middleware, mock logger |
 | `tests/main-routes_test.ts` | Health, SSE, dashboard auth guard, token binding |
 | `tests/publisher_test.ts` | Init/reset lifecycle, broadcast, direct, JSON parsing |
 | `tests/ws_test.ts` | WsConnection.send(), dispatchWsMessage() |
@@ -166,6 +178,7 @@ src/
     envelope.ts      — ServerMessage, Intent types
     hub.ts           — TransportHub + typed event bus (publish/subscribe)
     layout.tsx       — DefaultLayout JSX component
+    logger.ts        — BlennyLogger interface + LogTape impl + requestLogger middleware
     module-loader.ts — Filesystem module scanner
     publisher.ts     — BlennyPublisher static class
     sse-connection.ts — SseConnection wrapping Datastar SDK
