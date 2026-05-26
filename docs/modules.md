@@ -121,20 +121,34 @@ The typed event system is fully decoupled — any module can publish any topic, 
 
 ## Broadcasting to Clients
 
-Access the hub through `state.hub` during initialization, then push HTML/JSON/script to connected clients at any point — in route handlers, subscriptions, or background loops.
+Push HTML or data to connected clients from **anywhere** — route handlers, subscriptions, background loops — with zero wiring via `BlennyPublisher`:
+
+```ts
+import { BlennyPublisher } from "../core/publisher.ts";
+
+// Broadcast to every connected client
+BlennyPublisher.broadcastHtml('<div id="status">Done</div>');
+
+// Send to a specific user (all their SSE and WS connections)
+BlennyPublisher.directHtml('<div>Private</div>', userId);
+
+// Push JSON data (parsed internally to signals)
+BlennyPublisher.broadcastData('{"score":100}');
+BlennyPublisher.directData('{"msg":"secret"}', userId);
+```
+
+The publisher is initialized automatically at boot — modules never need to store or wire it.
 
 ### Example: Real-time task list
 
-This module adds a task via POST and pushes the updated list to only the submitting user's SSE connections:
+This module adds a task via POST and pushes the updated list to only the submitting user's connections:
 
 ```ts
 import type { Context } from "@hono/hono";
-import type { TransportHub } from "../core/hub.ts";
+import { BlennyPublisher } from "../core/publisher.ts";
 import type { UserInfo } from "../core/auth.ts";
-import type { AppState } from "../core/app-state.ts";
 import type { BlennyModule } from "../types.ts";
 
-let hub: TransportHub;
 const tasks: string[] = [];
 
 function renderTaskList(): string {
@@ -150,8 +164,8 @@ async function handleAddTask(c: Context): Promise<Response> {
   const body = await c.req.parseBody();
   tasks.push(body.task as string);
 
-  // Push the updated list to just this user's connections
-  hub.patchElements(renderTaskList(), { userId: user.id });
+  // Push the updated list to just this user's connections — no wiring needed
+  BlennyPublisher.directHtml(renderTaskList(), user.id);
 
   return c.redirect("/tasks");
 }
@@ -161,36 +175,29 @@ const tasksModule: BlennyModule = {
   routes: [
     { method: "POST", path: "/tasks/add", handler: handleAddTask, auth: true },
   ],
-  initialize(state: AppState) {
-    hub = state.hub;
-  },
 };
 
 export default tasksModule;
 ```
 
-The client's SSE connection receives the Datastar `datastar-patch-elements` event and swaps the `<ul id="task-list">` in-place. The `userId` option ensures only the user who submitted the task sees the update — their other tabs update in real-time.
+Note: the module has no `initialize()` hook and stores no references — `BlennyPublisher` is ready globally.
 
-### Broadcast API
+The client's SSE connection receives a Datastar `datastar-patch-elements` event and swaps the `<ul id="task-list">` in-place. The `userId` routing ensures only the submitting user sees the update across all their open tabs.
+
+### Low-level Hub
+
+For cases that need intents, the `TransportHub` is still available directly in modules that store a reference during `initialize()`:
 
 ```ts
-// Push HTML patches to all connections with "ui" intent
+// Push HTML with intent filtering
 hub.patchElements('<div id="status">Done</div>', { intent: "ui" });
 
-// Merge signals to a specific user (all their tabs)
-hub.mergeSignals({ score: 100 }, { userId });
-
-// Execute script — ideal for notifications
+// Merge signals with both intent and user targeting
+hub.mergeSignals({ score: 100 }, { intent: "data", userId });
 hub.executeScript("alert('Time up!')", { intent: "notification" });
 ```
 
-### Broadcast Options
-
-| Option | Purpose |
-|--------|---------|
-| `intent` | Filter to connections matching this intent (`"ui"`, `"data"`, `"command"`, `"notification"`) |
-| `userId` | Direct message to a specific user's connections (all their tabs) |
-| *(none)* | Omit both to broadcast to every connection |
+The `BlennyPublisher` methods (`broadcastHtml`, `directHtml`, `broadcastData`, `directData`) are thin wrappers around `hub.patchElements` and `hub.mergeSignals`. Choose the publisher for zero-ceremony pushes; use the hub directly when you need intent-level control.
 
 ## Lifecycle Hooks
 
@@ -240,15 +247,18 @@ Called on graceful shutdown, in reverse initialization order. Use for:
 - Flushing state
 
 ```ts
+import { BlennyPublisher } from "../core/publisher.ts";
+
+let intervalId: number;
+
 start() {
-  const id = setInterval(() => {
-    hub.patchElements(`<div>tick ${Date.now()}</div>`);
+  intervalId = setInterval(() => {
+    BlennyPublisher.broadcastHtml(`<div>tick ${Date.now()}</div>`);
   }, 1000);
-  // Store id for cleanup in stop
 }
 
 stop() {
-  clearInterval(id);
+  clearInterval(intervalId);
 }
 ```
 

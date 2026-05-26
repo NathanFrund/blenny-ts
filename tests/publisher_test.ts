@@ -1,0 +1,152 @@
+import { assertEquals, assertThrows } from "@std/assert";
+import { BlennyPublisher, PublisherError } from "../src/core/publisher.ts";
+import { TransportHub } from "../src/core/hub.ts";
+import type { ServerMessage, Intent } from "../src/core/envelope.ts";
+
+class CaptureConnection {
+  id: string;
+  userId?: string;
+  intents?: Set<Intent>;
+  sent: string[] = [];
+
+  constructor(id: string, userId?: string, intents?: Set<Intent>) {
+    this.id = id;
+    this.userId = userId;
+    this.intents = intents;
+  }
+
+  send(msg: ServerMessage): void {
+    this.sent.push(JSON.stringify(msg));
+  }
+}
+
+Deno.test("BlennyPublisher throws before init", () => {
+  BlennyPublisher.reset();
+  assertThrows(
+    () => BlennyPublisher.broadcastHtml("<div>test</div>"),
+    PublisherError,
+  );
+  assertThrows(
+    () => BlennyPublisher.directHtml("<div>test</div>", "alice"),
+    PublisherError,
+  );
+  assertThrows(
+    () => BlennyPublisher.broadcastData('{"a":1}'),
+    PublisherError,
+  );
+  assertThrows(
+    () => BlennyPublisher.directData('{"a":1}', "alice"),
+    PublisherError,
+  );
+});
+
+Deno.test("BlennyPublisher init and reset lifecycle", () => {
+  BlennyPublisher.reset();
+  const hub = new TransportHub();
+  BlennyPublisher.init(hub);
+  // Should not throw after init
+  BlennyPublisher.broadcastHtml("<div>test</div>");
+
+  BlennyPublisher.reset();
+  assertThrows(
+    () => BlennyPublisher.broadcastHtml("<div>test</div>"),
+    PublisherError,
+  );
+});
+
+Deno.test("BlennyPublisher broadcasts to all connections", () => {
+  BlennyPublisher.reset();
+  const hub = new TransportHub();
+  BlennyPublisher.init(hub);
+
+  const conn = new CaptureConnection("test-1");
+  hub.registerConnection(conn);
+
+  BlennyPublisher.broadcastHtml("<div>Hello</div>");
+  assertEquals(conn.sent.length, 1);
+  const msg = JSON.parse(conn.sent[0]) as ServerMessage;
+  assertEquals(msg.html, "<div>Hello</div>");
+});
+
+Deno.test("BlennyPublisher broadcastData parses JSON internally", () => {
+  BlennyPublisher.reset();
+  const hub = new TransportHub();
+  BlennyPublisher.init(hub);
+
+  const conn = new CaptureConnection("test-1");
+  hub.registerConnection(conn);
+
+  BlennyPublisher.broadcastData('{"score":42,"name":"alice"}');
+  assertEquals(conn.sent.length, 1);
+  const msg = JSON.parse(conn.sent[0]) as ServerMessage;
+  assertEquals(msg.signals, { score: 42, name: "alice" });
+});
+
+Deno.test("BlennyPublisher directs to specific user only", () => {
+  BlennyPublisher.reset();
+  const hub = new TransportHub();
+  BlennyPublisher.init(hub);
+
+  const alice = new CaptureConnection("alice-1", "alice");
+  const bob = new CaptureConnection("bob-1", "bob");
+  hub.registerConnection(alice);
+  hub.registerConnection(bob);
+
+  BlennyPublisher.directHtml("<div>Private for alice</div>", "alice");
+  assertEquals(alice.sent.length, 1);
+  assertEquals(bob.sent.length, 0);
+
+  const msg = JSON.parse(alice.sent[0]) as ServerMessage;
+  assertEquals(msg.html, "<div>Private for alice</div>");
+});
+
+Deno.test("BlennyPublisher directData to specific user", () => {
+  BlennyPublisher.reset();
+  const hub = new TransportHub();
+  BlennyPublisher.init(hub);
+
+  const alice = new CaptureConnection("alice-1", "alice");
+  const bob = new CaptureConnection("bob-1", "bob");
+  hub.registerConnection(alice);
+  hub.registerConnection(bob);
+
+  BlennyPublisher.directData('{"msg":"secret"}', "alice");
+  assertEquals(alice.sent.length, 1);
+  assertEquals(bob.sent.length, 0);
+
+  const msg = JSON.parse(alice.sent[0]) as ServerMessage;
+  assertEquals(msg.signals, { msg: "secret" });
+});
+
+Deno.test("BlennyPublisher nop when no connections", () => {
+  BlennyPublisher.reset();
+  const hub = new TransportHub();
+  BlennyPublisher.init(hub);
+
+  BlennyPublisher.broadcastHtml("<div>hi</div>");
+  BlennyPublisher.broadcastData('{"a":1}');
+  BlennyPublisher.directHtml("<div>hi</div>", "ghost");
+  BlennyPublisher.directData('{"a":1}', "ghost");
+});
+
+Deno.test("BlennyPublisher multiple init calls update hub", () => {
+  BlennyPublisher.reset();
+  const hub1 = new TransportHub();
+  const hub2 = new TransportHub();
+
+  const conn1 = new CaptureConnection("hub1-conn");
+  hub1.registerConnection(conn1);
+
+  const conn2 = new CaptureConnection("hub2-conn");
+  hub2.registerConnection(conn2);
+
+  BlennyPublisher.init(hub1);
+  BlennyPublisher.broadcastHtml("<div>from hub1</div>");
+  assertEquals(conn1.sent.length, 1);
+  assertEquals(conn2.sent.length, 0);
+
+  BlennyPublisher.init(hub2);
+  BlennyPublisher.broadcastHtml("<div>from hub2</div>");
+  assertEquals(conn1.sent.length, 1); // still 1
+  assertEquals(conn2.sent.length, 1);
+});

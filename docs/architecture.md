@@ -113,9 +113,23 @@ The reference `form-auth.tsx` module provides in-memory user storage with SHA-25
 
 ## Transport System
 
+### BlennyPublisher
+
+Zero-ceremony static API for pushing real-time updates from anywhere:
+
+```ts
+BlennyPublisher.broadcastHtml("<div>Hello</div>");
+BlennyPublisher.directHtml("<div>Private</div>", userId);
+BlennyPublisher.broadcastData('{"score":42}');
+BlennyPublisher.directData('{"msg":"hi"}', userId);
+```
+
+Initialized once at boot by `main.ts`. No wiring needed in modules.
+
 ### TransportHub
 
-Central connection manager. Tracks connections by ID and by user ID.
+Lower-level connection manager. Powers the publisher, but also exposed for modules
+that need intent-level control:
 
 ```ts
 hub.registerConnection(conn)       // Returns cleanup function

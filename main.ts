@@ -4,6 +4,7 @@ import { logger } from "@hono/hono/logger";
 import { serveStatic } from "@hono/hono/deno";
 import { BlennyConfig } from "./src/core/config.ts";
 import { connectDatabase } from "./src/core/database.ts";
+import { BlennyPublisher } from "./src/core/publisher.ts";
 import { publish, subscribe, TransportHub } from "./src/core/hub.ts";
 import { Conduit } from "./src/core/conduit.ts";
 import { getUser } from "./src/core/auth.ts";
@@ -19,6 +20,7 @@ const config = new BlennyConfig();
 config.logSources();
 
 const hub = new TransportHub();
+BlennyPublisher.init(hub);
 const conduit = new Conduit();
 const state: AppState = { hub, conduit, config };
 const app = new Hono();
