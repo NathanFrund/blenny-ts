@@ -50,7 +50,7 @@ const app = new Hono();
 app.use(requestLogger(logger));
 app.use(cors({ origin: config.corsOrigin }));
 
-const rateLimiter = createRateLimiter(config);
+const rateLimiter = createRateLimiter(config, logger);
 app.use("/sse", rateLimiter);
 app.use("/ws", rateLimiter);
 

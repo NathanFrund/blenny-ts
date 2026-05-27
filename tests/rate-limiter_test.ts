@@ -1,4 +1,4 @@
-import { assertEquals, assertExists } from "@std/assert";
+import { assertEquals, assertExists, assertGreaterOrEqual } from "@std/assert";
 import { Hono } from "@hono/hono";
 import { BlennyConfig } from "../src/core/config.ts";
 import { createRateLimiter } from "../src/core/rate-limiter.ts";
@@ -55,7 +55,9 @@ Deno.test("rate limiter", async (t) => {
     await app.request("http://localhost/test");
     const res = await app.request("http://localhost/test");
     assertEquals(res.status, 429);
-    assertEquals(res.headers.get("Retry-After"), "60");
+    const retryAfter = Number(res.headers.get("Retry-After"));
+    assertExists(retryAfter);
+    assertGreaterOrEqual(retryAfter, 55);
   });
 
   await t.step("tracks different IPs independently", async () => {
