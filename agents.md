@@ -30,9 +30,10 @@ Hypermedia-driven, real-time, single-binary platform.
 - Four methods: `broadcastHtml`, `directHtml`, `broadcastData`, `directData`.
 - Initialized once at boot via `BlennyPublisher.init(hub)`. Testable via `BlennyPublisher.reset()`.
 - `broadcastHtml`/`directHtml` delegate to `hub.patchElements()`.
-- `broadcastData`/`directData` parse JSON internally and delegate to `hub.mergeSignals()`.
+- `broadcastData`/`directData` parse JSON internally, validate via `SignalSchema`, and delegate to `hub.mergeSignals()`.
 - **Prefer `state.hub.action(...)` in module code** for explicitness and testability. Use `BlennyPublisher.*` in timers, event callbacks, and CLI tools where threading a hub reference is overhead.
 - Singleton tradeoff: mirrors the one-hub-per-process runtime. Tests use `reset()` for isolation.
+- **Double-init guard:** `init()` with a different hub throws `PublisherError`. Call `reset()` first to swap hubs.
 
 ### Auth
 - Pluggable by convention: a module sets `state.auth` (an `AuthBundle`) during `initialize()`.
@@ -63,6 +64,13 @@ Hypermedia-driven, real-time, single-binary platform.
 - Constructed once at boot. Test injection via `ConfigOverrides`.
 - Convenience getters: `config.port`, `config.jwtSecret`, `config.surrealUrl`, etc.
 - Raw access: `config.at("any.dotted.key")`.
+
+### Validation
+- **`src/core/validation.ts`** is the central home for runtime schemas, shared across the framework and modules.
+- Uses **Valibot** (`@valibot/valibot`) — imports via `import * as v from "@valibot/valibot"`.
+- `SignalSchema` (via `v.safeParse`) guards `broadcastData`/`directData` — rejects malformed JSON, non-object values, and arrays.
+- `UsernameSchema` / `PasswordSchema` available for auth validation (not yet wired into `form-auth.tsx`).
+- `escapeHtml()` re-exported from `@std/html/entities` — opt-in utility for escaping user-provided text in HTML strings. Not applied automatically; callers must opt in.
 
 ### SSE/WS Handler Symmetry
 - Both endpoints parse `?intent=` for connection-level routing.
@@ -160,7 +168,7 @@ All tests: `deno test --allow-read --allow-env`
 | `tests/hub_test.ts` | Connection lifecycle, broadcast, direct, intent filtering |
 | `tests/logger_test.ts` | createLogger, child context, requestLogger middleware, mock logger |
 | `tests/main-routes_test.ts` | Health, SSE, dashboard auth guard, token binding |
-| `tests/publisher_test.ts` | Init/reset lifecycle, broadcast, direct, JSON parsing |
+| `tests/publisher_test.ts` | Init/reset lifecycle, double-init guard, broadcast, direct, JSON parsing, JSON validation errors |
 | `tests/ws_test.ts` | WsConnection.send(), dispatchWsMessage() |
 
 ---
@@ -185,6 +193,7 @@ src/
     publisher.ts     — BlennyPublisher static class
     sse-connection.ts — SseConnection wrapping Datastar SDK
     user-store.ts    — In-memory user store (SHA-256)
+    validation.ts    — Valibot schemas (SignalSchema, UsernameSchema, PasswordSchema, escapeHtml)
     ws.ts            — WsConnection, dispatchWsMessage, createWsHandler
   modules/
     dashboard.tsx    — Conduit rendering demo with sign-out form
@@ -213,6 +222,9 @@ deno.json            — Task definitions, imports, JSX config
 - **`buildApp()` is async:** Auth module's `initialize()` is async (SHA-256 seeding). All test app builders must `await`.
 - **`handleSignOut()` is synchronous:** Uses `c.get("user")` which returns `undefined` when unauthenticated. No `await` needed.
 - **`Keepalive` type:** The `@starfederation/datastar-sdk/web` module may not export `KeepaliveOptions`. Pass `{ keepalive: true }` as literal.
+- **Valibot import:** Always `import * as v from "@valibot/valibot"`. Don't destructure — Valibot's API is namespace-import idiomatic.
+- **`SignalSchema` rejects arrays:** `v.objectWithRest` coerces arrays to objects before checking. The pipe uses `v.check(isPlainObject)` first to reject arrays, null, and primitives. Use `v.safeParse(SignalSchema, input)` — not `v.parse()` which throws.
+- **`escapeHtml` is opt-in:** Re-exported from `@std/html/entities` in `validation.ts`. Not applied automatically — callers must choose to use it when interpolating user text into HTML.
 
 ---
 
