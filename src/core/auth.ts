@@ -1,11 +1,19 @@
 import { Context, type MiddlewareHandler } from "@hono/hono";
 import { sign, verify } from "@hono/hono/jwt";
 import { getCookie, setCookie, deleteCookie } from "@hono/hono/cookie";
+import * as v from "@valibot/valibot";
+import { UserInfoSchema } from "./validation.ts";
+
+// ── Types ─────────────────────────────────────────────────────
 
 export interface AuthConfig {
   jwtSecret: string;
   cookieName: string;
   sessionExpiry: number;
+  secureCookies?: boolean;
+  allowQueryToken?: boolean;
+  redirectUrl?: string;
+  useJsonForApi?: boolean;
 }
 
 export interface UserInfo {
@@ -13,7 +21,7 @@ export interface UserInfo {
   role: string;
 }
 
-// ── Token helpers ──────────────────────────────────────────
+// ── Token helpers ─────────────────────────────────────────────
 
 export async function createToken(
   user: UserInfo,
@@ -29,30 +37,58 @@ export async function getUser(
   c: Context,
   config: AuthConfig,
 ): Promise<UserInfo | null> {
-  const token = getCookie(c, config.cookieName) ??
-    c.req.query("token");
+  let token = getCookie(c, config.cookieName);
+
+  if (!token && config.allowQueryToken === true) {
+    token = c.req.query("token");
+  }
+
   if (!token) return null;
+
   try {
-    return await verify(token, config.jwtSecret, "HS256") as unknown as UserInfo;
+    const payload = await verify(token, config.jwtSecret, "HS256");
+    const result = v.safeParse(UserInfoSchema, payload);
+    if (!result.success) return null;
+    return { id: result.output.id, role: result.output.role };
   } catch {
     return null;
   }
 }
 
-// ── Middleware factories ────────────────────────────────────
+// ── Middleware factories ──────────────────────────────────────
 
 export function createAuthMiddleware(config: AuthConfig): MiddlewareHandler {
   return async (c, next) => {
+    c.set("authConfig", config);
     const user = await getUser(c, config);
     if (user) c.set("user", user);
     await next();
   };
 }
 
-export function requireUser(): MiddlewareHandler {
+function shouldReturnJson(c: Context, config: AuthConfig): boolean {
+  if (config.useJsonForApi === true) {
+    const accept = c.req.header("Accept") || "";
+    return accept.includes("application/json") || !accept.includes("text/html");
+  }
+  const path = c.req.path;
+  if (path.startsWith("/api/") || path.startsWith("/json/")) {
+    return true;
+  }
+  return false;
+}
+
+export function requireUser(options?: { redirectUrl?: string }): MiddlewareHandler {
   return async (c, next) => {
     const user = c.get("user") as UserInfo | undefined;
-    if (!user) return c.redirect("/auth/signin");
+    const authConfig = c.get("authConfig") as AuthConfig | undefined;
+    if (!user) {
+      if (authConfig && shouldReturnJson(c, authConfig)) {
+        return c.json({ error: "unauthorized", message: "Authentication required" }, 401);
+      }
+      const redirect = options?.redirectUrl ?? authConfig?.redirectUrl ?? "/auth/signin";
+      return c.redirect(redirect);
+    }
     await next();
   };
 }
@@ -60,13 +96,22 @@ export function requireUser(): MiddlewareHandler {
 export function requireRole(...roles: string[]): MiddlewareHandler {
   return async (c, next) => {
     const user = c.get("user") as UserInfo | undefined;
-    if (!user) return c.redirect("/auth/signin");
-    if (!roles.includes(user.role)) return c.json({ error: "forbidden" }, 403);
+    const authConfig = c.get("authConfig") as AuthConfig | undefined;
+    if (!user) {
+      if (authConfig && shouldReturnJson(c, authConfig)) {
+        return c.json({ error: "unauthorized", message: "Authentication required" }, 401);
+      }
+      const redirect = authConfig?.redirectUrl ?? "/auth/signin";
+      return c.redirect(redirect);
+    }
+    if (!roles.includes(user.role)) {
+      return c.json({ error: "forbidden", message: "Insufficient role" }, 403);
+    }
     await next();
   };
 }
 
-// ── Cookie helpers ──────────────────────────────────────────
+// ── Cookie helpers ────────────────────────────────────────────
 
 export function setSessionCookie(
   c: Context,
@@ -77,6 +122,8 @@ export function setSessionCookie(
     path: "/",
     httpOnly: true,
     maxAge: config.sessionExpiry,
+    secure: config.secureCookies ?? false,
+    sameSite: "lax",
   });
 }
 

@@ -168,6 +168,8 @@ const authModule: BlennyModule = {
       jwtSecret: state.config.jwtSecret,
       cookieName: state.config.cookieName,
       sessionExpiry: state.config.sessionDurationHours * 3600,
+      secureCookies: false,
+      allowQueryToken: false,
     };
     state.auth = {
       config,

@@ -102,7 +102,9 @@ Deno.test("main routes", async (t) => {
       { id: "admin", role: "admin" },
       state.auth!.config,
     );
-    const res = await app.request(`http://localhost/sse?token=${token}`);
+    const res = await app.request("http://localhost/sse", {
+      headers: { Cookie: "blenny_session=" + token },
+    });
     assertEquals(res.status, 200);
     const ctype = res.headers.get("content-type");
     assertExists(ctype);
@@ -122,7 +124,9 @@ Deno.test("main routes", async (t) => {
       { id: "admin", role: "admin" },
       state.auth!.config,
     );
-    const res = await app.request(`http://localhost/sse?intent=ui&token=${token}`);
+    const res = await app.request("http://localhost/sse?intent=ui", {
+      headers: { Cookie: "blenny_session=" + token },
+    });
     assertEquals(res.status, 200);
   });
 
@@ -132,7 +136,9 @@ Deno.test("main routes", async (t) => {
       { id: "admin", role: "admin" },
       state.auth!.config,
     );
-    const res = await app.request(`http://localhost/sse?token=${token}`);
+    const res = await app.request("http://localhost/sse", {
+      headers: { Cookie: "blenny_session=" + token },
+    });
     assertEquals(res.status, 200);
   });
 });

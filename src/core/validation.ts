@@ -23,3 +23,11 @@ export const PasswordSchema = v.pipe(
   v.minLength(8, "Password must be at least 8 characters"),
   v.maxLength(256, "Password must be at most 256 characters"),
 );
+
+export const UserInfoSchema = v.object({
+  id: v.string(),
+  role: v.string(),
+  exp: v.optional(v.number()),
+});
+
+export type UserInfoData = v.InferOutput<typeof UserInfoSchema>;

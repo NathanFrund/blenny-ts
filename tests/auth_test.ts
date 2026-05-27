@@ -1,5 +1,6 @@
 import { assertEquals, assertExists } from "@std/assert";
 import { Context, Hono } from "@hono/hono";
+import * as v from "@valibot/valibot";
 import {
   createToken,
   getUser,
@@ -37,13 +38,22 @@ Deno.test("auth", async (t) => {
     assertEquals(user?.role, "admin");
   });
 
-  await t.step("getUser decodes a valid token from query param", async () => {
+  await t.step("getUser decodes a valid token from query param when allowed", async () => {
+    const token = await createToken(adminUser, config);
+    const queryConfig = { ...config, allowQueryToken: true };
+    const req = new Request(`http://localhost/?token=${token}`);
+    const c = new Context(req);
+    const user = await getUser(c, queryConfig);
+    assertEquals(user?.id, "admin");
+    assertEquals(user?.role, "admin");
+  });
+
+  await t.step("getUser ignores query param when allowQueryToken is false", async () => {
     const token = await createToken(adminUser, config);
     const req = new Request(`http://localhost/?token=${token}`);
     const c = new Context(req);
     const user = await getUser(c, config);
-    assertEquals(user?.id, "admin");
-    assertEquals(user?.role, "admin");
+    assertEquals(user, null);
   });
 
   await t.step("getUser returns null for missing token", async () => {
@@ -73,6 +83,22 @@ Deno.test("auth", async (t) => {
     assertEquals(user, null);
   });
 
+  await t.step("getUser returns null for JWT with malformed payload", async () => {
+    const badUser = { id: 123, role: true, extra: "should be stripped" };
+    // Sign with matching config so verify passes, but Valibot should reject shape
+    const { sign } = await import("@hono/hono/jwt");
+    const token = await sign(
+      { ...badUser, exp: Math.floor(Date.now() / 1000) + 3600 },
+      config.jwtSecret,
+    );
+    const req = new Request("http://localhost/", {
+      headers: { Cookie: `test_session=${token}` },
+    });
+    const c = new Context(req);
+    const user = await getUser(c, config);
+    assertEquals(user, null);
+  });
+
   await t.step("setSessionCookie sets the cookie on context", () => {
     const req = new Request("http://localhost/");
     const c = new Context(req);
@@ -84,6 +110,8 @@ Deno.test("auth", async (t) => {
     assertEquals(setCookie.includes("test_session=test-token-value"), true);
     assertEquals(setCookie.includes("HttpOnly"), true);
     assertEquals(setCookie.includes("Path=/"), true);
+    assertEquals(setCookie.includes("SameSite=Lax"), true);
+    assertEquals(setCookie.includes("Secure"), false);
   });
 
   await t.step("clearSessionCookie deletes the cookie", () => {
@@ -191,5 +219,27 @@ Deno.test("auth middleware", async (t) => {
     const res = await app.request("http://localhost/admin");
     assertEquals(res.status, 302);
     assertEquals(res.headers.get("location"), "/auth/signin");
+  });
+
+  await t.step("requireUser returns 401 JSON for /api/ routes", async () => {
+    const app = new Hono();
+    app.use("*", createAuthMiddleware(config));
+    app.get("/api/data", requireUser(), (c) => c.text("ok"));
+
+    const res = await app.request("http://localhost/api/data");
+    assertEquals(res.status, 401);
+    const body = await res.json();
+    assertEquals(body.error, "unauthorized");
+    assertEquals(body.message, "Authentication required");
+  });
+
+  await t.step("requireUser accepts custom redirectUrl", async () => {
+    const app = new Hono();
+    app.use("*", createAuthMiddleware(config));
+    app.get("/custom", requireUser({ redirectUrl: "/custom-login" }), (c) => c.text("ok"));
+
+    const res = await app.request("http://localhost/custom");
+    assertEquals(res.status, 302);
+    assertEquals(res.headers.get("location"), "/custom-login");
   });
 });
