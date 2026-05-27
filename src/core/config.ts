@@ -21,6 +21,7 @@ const DEFAULTS: Record<string, string> = {
   "transport.max_per_user": "100",
   "transport.idle_timeout_ms": "300000",
   "server.max_body_bytes": "1048576",
+  "cors.origin": "*",
 };
 
 export interface ConfigOverrides {
@@ -127,6 +128,10 @@ export class BlennyConfig {
 
   get maxBodyBytes(): number {
     return Number(this.data.get("server.max_body_bytes"));
+  }
+
+  get corsOrigin(): string {
+    return this.data.get("cors.origin")!;
   }
 
   // ── Logging helper ───────────────────────────────────────────────

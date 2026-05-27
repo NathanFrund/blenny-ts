@@ -21,12 +21,19 @@ import { createLogger, requestLogger } from "./src/core/logger.ts";
 const config = new BlennyConfig();
 config.logSources();
 
-if (config.jwtSecret === "CHANGE-ME-EMBEDDED-DEFAULT" && !config.devMode) {
-  console.error(
-    "FATAL: auth.jwt_secret is still the embedded default. " +
-    "Set BLENNY_AUTH_JWT_SECRET or add it to blenny.json before deploying to production.",
-  );
-  Deno.exit(1);
+if (config.jwtSecret === "CHANGE-ME-EMBEDDED-DEFAULT") {
+  if (config.devMode) {
+    console.warn(
+      "WARNING: auth.jwt_secret is the embedded default. " +
+      "Set BLENNY_AUTH_JWT_SECRET or add it to blenny.json for any non-development deployment.",
+    );
+  } else {
+    console.error(
+      "FATAL: auth.jwt_secret is still the embedded default. " +
+      "Set BLENNY_AUTH_JWT_SECRET or add it to blenny.json before deploying to production.",
+    );
+    Deno.exit(1);
+  }
 }
 
 const hub = new TransportHub({
@@ -39,7 +46,7 @@ const logger = await createLogger(config);
 const state: AppState = { hub, conduit, config, logger };
 const app = new Hono();
 app.use(requestLogger(logger));
-app.use(cors());
+app.use(cors({ origin: config.corsOrigin }));
 app.use(async (c, next) => {
   const cl = c.req.header("content-length");
   if (cl) {
@@ -86,7 +93,10 @@ if (config.devMode) {
   }
 }
 
-// 1. Initialize — inject dependencies
+// 1. Connect database (before module init — modules may need state.db)
+state.db = (await connectDatabase(config)) ?? undefined;
+
+// 2. Initialize — inject dependencies
 for (const mod of modules) {
   await mod.initialize?.(state);
   logger.info("Module initialized: {name}", { name: mod.name });
@@ -131,9 +141,6 @@ for (const mod of modules) {
     }
   }
 }
-
-// 4a. Connect database
-state.db = (await connectDatabase(config)) ?? undefined;
 
 // 5. Start — background tasks
 for (const mod of modules) {
@@ -189,7 +196,7 @@ app.get("/ws", async (c, next) => {
   return wsHandler(c, next);
 });
 
-app.use("/static/*", serveStatic({ root: "./" }));
+app.use("/static/*", serveStatic({ root: "./static" }));
 
 // ── Server with graceful shutdown ───────────────────────────────
 
@@ -203,34 +210,23 @@ const server = Deno.serve({
   signal: controller.signal,
   onListen: ({ port: p }) => {
     publish("platform:ready", { timestamp: Date.now() });
+    hub.startReaper(config.idleTimeoutMs);
     logger.info("blenny-ts listening on port {port}", { port: p });
-
-    const idleMs = config.idleTimeoutMs;
-    setInterval(() => {
-      const now = Date.now();
-      let reaped = 0;
-      for (const conn of hub.getConnections()) {
-        if (conn.connType === "sse" && conn.lastWriteAt && now - conn.lastWriteAt > idleMs) {
-          hub.removeConnection(conn.id);
-          reaped++;
-        }
-      }
-      if (reaped > 0) {
-        logger.info("Reaped {count} idle SSE connections", { count: reaped });
-      }
-    }, idleMs);
   },
 }, app.fetch);
 
 await server.finished;
 
-// 6. Stop modules in reverse order
+// 6. Stop reaper before shutting down modules
+hub.stopReaper();
+
+// 7. Stop modules in reverse order
 for (const mod of modules.toReversed()) {
   await mod.stop?.();
   if (mod.stop) logger.info("Module stopped: {name}", { name: mod.name });
 }
 
-// 7. Close database
+// 8. Close database
 await state.db?.close();
 
 logger.info("blenny-ts shutdown complete");

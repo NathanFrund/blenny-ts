@@ -47,12 +47,37 @@ export interface Connection {
 export class TransportHub {
   private conns = new Map<ConnId, Connection>();
   private userConns = new Map<string, Map<ConnId, true>>();
+  private reaperTimer: ReturnType<typeof setInterval> | null = null;
+  private reaperIdleMs = 300_000;
   maxConns: number;
   maxConnsPerUser: number;
 
   constructor(opts?: { maxConns?: number; maxConnsPerUser?: number }) {
     this.maxConns = opts?.maxConns ?? 10_000;
     this.maxConnsPerUser = opts?.maxConnsPerUser ?? 100;
+  }
+
+  // ── SSE connection reaper ────────────────────────────────────
+
+  startReaper(idleTimeoutMs: number): void {
+    this.reaperIdleMs = idleTimeoutMs;
+    if (this.reaperTimer !== null) return;
+    this.reaperTimer = setInterval(() => {
+      const now = Date.now();
+      for (const conn of this.conns.values()) {
+        if (conn.connType === "sse" && conn.lastWriteAt &&
+            now - conn.lastWriteAt > this.reaperIdleMs) {
+          this.removeConnection(conn.id);
+        }
+      }
+    }, 30_000);
+  }
+
+  stopReaper(): void {
+    if (this.reaperTimer !== null) {
+      clearInterval(this.reaperTimer);
+      this.reaperTimer = null;
+    }
   }
 
   // ── Connection management ───────────────────────────────────
