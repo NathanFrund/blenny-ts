@@ -22,6 +22,8 @@ const DEFAULTS: Record<string, string> = {
   "transport.idle_timeout_ms": "300000",
   "server.max_body_bytes": "1048576",
   "cors.origin": "*",
+  "ratelimit.window_ms": "60000",
+  "ratelimit.max_requests": "30",
 };
 
 export interface ConfigOverrides {

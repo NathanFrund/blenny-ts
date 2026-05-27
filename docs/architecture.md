@@ -93,6 +93,8 @@ config.at("any.dotted.key") // Raw access
 | `surreal.db` | `blenny` |
 | `surreal.user` | `root` |
 | `surreal.pass` | `root` |
+| `ratelimit.window_ms` | `60000` |
+| `ratelimit.max_requests` | `30` |
 
 ## Auth System
 

@@ -4,6 +4,7 @@ import { cors } from "@hono/hono/cors";
 import { serveStatic } from "@hono/hono/deno";
 import { BlennyConfig } from "./src/core/config.ts";
 import { BlennyError, errorResponse } from "./src/core/error.ts";
+import { createRateLimiter } from "./src/core/rate-limiter.ts";
 import { connectDatabase } from "./src/core/database.ts";
 import { BlennyPublisher } from "./src/core/publisher.ts";
 import { publish, subscribe, TransportHub } from "./src/core/hub.ts";
@@ -47,6 +48,11 @@ const state: AppState = { hub, conduit, config, logger };
 const app = new Hono();
 app.use(requestLogger(logger));
 app.use(cors({ origin: config.corsOrigin }));
+
+const rateLimiter = createRateLimiter(config);
+app.use("/sse", rateLimiter);
+app.use("/ws", rateLimiter);
+
 app.use(async (c, next) => {
   const cl = c.req.header("content-length");
   if (cl) {

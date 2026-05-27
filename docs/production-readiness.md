@@ -83,6 +83,30 @@ Large POST bodies are accepted without limit, opening a resource-exhaustion vect
 
 ---
 
+---
+
+## Priority 7: Rate-limit real-time transports
+
+**Files:** `src/core/rate-limiter.ts`, `main.ts`
+
+Without rate limiting, `/sse` and `/ws` endpoints can be hammered with connection requests, overwhelming the server.
+
+**Implementation:**
+- In-memory fixed-window rate limiter per IP, configurable via `ratelimit.window_ms` (default `60000`) and `ratelimit.max_requests` (default `30`).
+- Applies to `/sse` and `/ws` before any transport logic runs.
+- Returns `429 Too Many Requests` with JSON error body (`{ error: { type: "too_many_requests", message } }`) and `Retry-After` header.
+- Client IP resolved from `x-forwarded-for` or `x-real-ip` header (set these in your reverse proxy).
+
+**Config:**
+```json
+{
+  "ratelimit.window_ms": "60000",
+  "ratelimit.max_requests": "30"
+}
+```
+
+---
+
 ## Verification
 
 After each priority:

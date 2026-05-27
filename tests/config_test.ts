@@ -40,6 +40,12 @@ Deno.test("BlennyConfig defaults", async (t) => {
     assertEquals(cfg.surrealUser, "root");
     assertEquals(cfg.surrealPass, "root");
   });
+
+  await t.step("returns embedded default ratelimit values", () => {
+    const cfg = new BlennyConfig({ env: {}, args: [] });
+    assertEquals(cfg.at("ratelimit.window_ms"), "60000");
+    assertEquals(cfg.at("ratelimit.max_requests"), "30");
+  });
 });
 
 Deno.test("BlennyConfig overrides", async (t) => {

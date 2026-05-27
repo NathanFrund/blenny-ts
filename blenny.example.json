@@ -10,6 +10,9 @@
 
   "cors.origin": "*",
 
+  "ratelimit.window_ms": "60000",
+  "ratelimit.max_requests": "30",
+
   "dev_mode": "true",
 
   "surreal.url": "ws://127.0.0.1:8000/rpc",
