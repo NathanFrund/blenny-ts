@@ -9,7 +9,6 @@ const DEFAULTS: Record<string, string> = {
   "auth.session_duration_hours": "720",
   "auth.cookie_name": "blenny_session",
   "dev_mode": "true",
-  "transport.auth_required": "true",
   "surreal.url": "ws://127.0.0.1:8000/rpc",
   "surreal.ns": "blenny",
   "surreal.db": "blenny",
@@ -21,7 +20,7 @@ const DEFAULTS: Record<string, string> = {
   "transport.max_per_user": "100",
   "transport.idle_timeout_ms": "300000",
   "server.max_body_bytes": "1048576",
-  "cors.origin": "*",
+  "cors.origin": "",
   "ratelimit.window_ms": "60000",
   "ratelimit.max_requests": "30",
 };
@@ -58,7 +57,7 @@ export class BlennyConfig {
   // ── Convenience getters ─────────────────────────────────────────
 
   get port(): number {
-    return Number(this.data.get("server.port"));
+    return this.getNumeric("server.port", 1, 65535);
   }
 
   get bindAddress(): string {
@@ -70,7 +69,7 @@ export class BlennyConfig {
   }
 
   get sessionDurationHours(): number {
-    return Number(this.data.get("auth.session_duration_hours"));
+    return this.getNumeric("auth.session_duration_hours", 1, 876000);
   }
 
   get cookieName(): string {
@@ -117,19 +116,19 @@ export class BlennyConfig {
   }
 
   get maxConnections(): number {
-    return Number(this.data.get("transport.max_connections"));
+    return this.getNumeric("transport.max_connections", 1, 1_000_000);
   }
 
   get maxConnectionsPerUser(): number {
-    return Number(this.data.get("transport.max_per_user"));
+    return this.getNumeric("transport.max_per_user", 1, 100_000);
   }
 
   get idleTimeoutMs(): number {
-    return Number(this.data.get("transport.idle_timeout_ms"));
+    return this.getNumeric("transport.idle_timeout_ms", 0, 86_400_000);
   }
 
   get maxBodyBytes(): number {
-    return Number(this.data.get("server.max_body_bytes"));
+    return this.getNumeric("server.max_body_bytes", 1, 1_073_741_824);
   }
 
   get corsOrigin(): string {
@@ -160,6 +159,17 @@ export class BlennyConfig {
       this.data.set(key, value);
       this.sources.set(key, source);
     }
+  }
+
+  private getNumeric(key: string, min: number, max: number): number {
+    const raw = this.data.get(key);
+    const num = Number(raw);
+    if (isNaN(num) || num < min || num > max) {
+      throw new Error(
+        `[config] ${key}: expected a number between ${min} and ${max}, got "${raw ?? ""}"`,
+      );
+    }
+    return num;
   }
 
   private applyDefaults(): void {
@@ -204,28 +214,7 @@ export class BlennyConfig {
   }
 
   private applyCli(): void {
-    const args = Deno.args;
-    for (let i = 0; i < args.length; i++) {
-      const arg = args[i];
-      if (!arg.startsWith("--")) continue;
-      const eqIdx = arg.indexOf("=");
-      if (eqIdx !== -1) {
-        const key = arg.slice(2, eqIdx);
-        const value = arg.slice(eqIdx + 1);
-        if (key in DEFAULTS || key.includes(".")) {
-          this.set(key, value, "cli");
-        }
-      } else {
-        const key = arg.slice(2);
-        if (key in DEFAULTS || key.includes(".")) {
-          if (i + 1 < args.length && !args[i + 1].startsWith("--") && !args[i + 1].startsWith("-")) {
-            this.set(key, args[++i], "cli");
-          } else {
-            this.set(key, "true", "cli");
-          }
-        }
-      }
-    }
+    this.parseCliArgs(Deno.args, "cli");
   }
 
   // ── Test override providers ──────────────────────────────────────
@@ -261,6 +250,10 @@ export class BlennyConfig {
 
   private applyCliOverride(args: string[] | undefined): void {
     if (!args) return;
+    this.parseCliArgs(args, "cli");
+  }
+
+  private parseCliArgs(args: string[], source: ConfigSource): void {
     for (let i = 0; i < args.length; i++) {
       const arg = args[i];
       if (!arg.startsWith("--")) continue;
@@ -269,18 +262,15 @@ export class BlennyConfig {
         const key = arg.slice(2, eqIdx);
         const value = arg.slice(eqIdx + 1);
         if (key in DEFAULTS || key.includes(".")) {
-          this.set(key, value, "cli");
+          this.set(key, value, source);
         }
       } else {
         const key = arg.slice(2);
         if (key in DEFAULTS || key.includes(".")) {
-          if (
-            i + 1 < args.length && !args[i + 1].startsWith("--") &&
-            !args[i + 1].startsWith("-")
-          ) {
-            this.set(key, args[++i], "cli");
+          if (i + 1 < args.length && !args[i + 1].startsWith("--") && !args[i + 1].startsWith("-")) {
+            this.set(key, args[++i], source);
           } else {
-            this.set(key, "true", "cli");
+            this.set(key, "true", source);
           }
         }
       }

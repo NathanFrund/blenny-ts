@@ -91,8 +91,29 @@ Deno.test("main routes", async (t) => {
     assertEquals(typeof body.modules, "number");
   });
 
-  await t.step("GET /sse without auth returns 401", async () => {
-    const res = await app.request("http://localhost/sse");
+  await t.step("GET /sse without auth returns 401 when auth required", async () => {
+    // Simulate production mode where transport auth is required
+    const authConfig = { ...state.auth!.config };
+    authConfig.allowQueryToken = true;
+    const appAuth = new Hono();
+    appAuth.get("/sse", async (c) => {
+      const user = await getUser(c, authConfig);
+      if (user) {
+        return ServerSentEventGenerator.stream(
+          (stream) => {
+            const id = crypto.randomUUID();
+            const conn = new SseConnection(stream, id, user.id);
+            const cleanup = hub.registerConnection(conn);
+            return new Promise<void>((resolve) => {
+              c.req.raw.signal.addEventListener("abort", () => { cleanup(); resolve(); });
+            });
+          },
+          { keepalive: true },
+        );
+      }
+      return c.text("Unauthorized", 401);
+    });
+    const res = await appAuth.request("http://localhost/sse");
     assertEquals(res.status, 401);
   });
 

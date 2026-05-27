@@ -6,9 +6,7 @@
   "auth.session_duration_hours": "720",
   "auth.cookie_name": "blenny_session",
 
-  "transport.auth_required": "true",
-
-  "cors.origin": "*",
+  "cors.origin": "",
 
   "ratelimit.window_ms": "60000",
   "ratelimit.max_requests": "30",

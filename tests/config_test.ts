@@ -1,4 +1,4 @@
-import { assertEquals } from "@std/assert";
+import { assertEquals, assertThrows } from "@std/assert";
 import { BlennyConfig } from "../src/core/config.ts";
 
 Deno.test("BlennyConfig defaults", async (t) => {
@@ -45,6 +45,25 @@ Deno.test("BlennyConfig defaults", async (t) => {
     const cfg = new BlennyConfig({ env: {}, args: [] });
     assertEquals(cfg.at("ratelimit.window_ms"), "60000");
     assertEquals(cfg.at("ratelimit.max_requests"), "30");
+  });
+
+  await t.step("returns embedded default cors origin", () => {
+    const cfg = new BlennyConfig({ env: {}, args: [] });
+    assertEquals(cfg.corsOrigin, "");
+  });
+
+  await t.step("transport auth defaults to false in dev mode", () => {
+    const cfg = new BlennyConfig({ env: {}, args: [] });
+    assertEquals(cfg.transportAuthRequired, false);
+  });
+
+  await t.step("transport auth can be explicitly enabled", () => {
+    const cfg = new BlennyConfig({
+      fileContent: JSON.stringify({ "transport.auth_required": "true" }),
+      env: {},
+      args: [],
+    });
+    assertEquals(cfg.transportAuthRequired, true);
   });
 });
 
@@ -168,5 +187,62 @@ Deno.test("BlennyConfig edge cases", async (t) => {
       args: [],
     });
     assertEquals(cfg.devMode, false);
+  });
+});
+
+Deno.test("BlennyConfig numeric validation", async (t) => {
+  await t.step("port must be between 1 and 65535", () => {
+    assertThrows(
+      () => new BlennyConfig({ fileContent: JSON.stringify({ "server.port": "0" }), env: {}, args: [] }).port,
+      Error,
+      "between 1 and 65535",
+    );
+    assertThrows(
+      () => new BlennyConfig({ fileContent: JSON.stringify({ "server.port": "65536" }), env: {}, args: [] }).port,
+      Error,
+      "between 1 and 65535",
+    );
+    assertThrows(
+      () => new BlennyConfig({ fileContent: JSON.stringify({ "server.port": "bogus" }), env: {}, args: [] }).port,
+      Error,
+      "between 1 and 65535",
+    );
+  });
+
+  await t.step("sessionDurationHours must be >= 1", () => {
+    assertThrows(
+      () => new BlennyConfig({ fileContent: JSON.stringify({ "auth.session_duration_hours": "0" }), env: {}, args: [] }).sessionDurationHours,
+      Error,
+      "between 1 and 876000",
+    );
+  });
+
+  await t.step("maxConnections must be >= 1", () => {
+    assertThrows(
+      () => new BlennyConfig({ fileContent: JSON.stringify({ "transport.max_connections": "0" }), env: {}, args: [] }).maxConnections,
+      Error,
+      "between 1 and 1000000",
+    );
+  });
+
+  await t.step("maxBodyBytes must be >= 1", () => {
+    assertThrows(
+      () => new BlennyConfig({ fileContent: JSON.stringify({ "server.max_body_bytes": "0" }), env: {}, args: [] }).maxBodyBytes,
+      Error,
+      "between 1 and 1073741824",
+    );
+  });
+
+  await t.step("idleTimeoutMs accepts 0 (no timeout)", () => {
+    const cfg = new BlennyConfig({ fileContent: JSON.stringify({ "transport.idle_timeout_ms": "0" }), env: {}, args: [] });
+    assertEquals(cfg.idleTimeoutMs, 0);
+  });
+
+  await t.step("idleTimeoutMs rejects negative", () => {
+    assertThrows(
+      () => new BlennyConfig({ fileContent: JSON.stringify({ "transport.idle_timeout_ms": "-1" }), env: {}, args: [] }).idleTimeoutMs,
+      Error,
+      "between 0 and 86400000",
+    );
   });
 });
