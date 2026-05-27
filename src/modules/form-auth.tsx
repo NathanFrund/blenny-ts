@@ -170,6 +170,7 @@ const authModule: BlennyModule = {
       sessionExpiry: state.config.sessionDurationHours * 3600,
       secureCookies: false,
       allowQueryToken: false,
+      logger: state.logger,
     };
     state.auth = {
       config,
