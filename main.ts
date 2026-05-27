@@ -90,7 +90,7 @@ if (config.devMode) {
 }
 
 // 1. Connect database (before module init — modules may need state.db)
-state.db = (await connectDatabase(config)) ?? undefined;
+state.db = (await connectDatabase(config, logger)) ?? undefined;
 
 // 2. Initialize — inject dependencies
 for (const mod of modules) {
