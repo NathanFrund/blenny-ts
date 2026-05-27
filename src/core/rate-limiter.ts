@@ -5,7 +5,6 @@ import type { BlennyLogger } from "./logger.ts";
 
 interface RateLimitEntry {
   count: number;
-  resetAt: number;
 }
 
 const CLEANUP_INTERVAL = 300_000;
@@ -18,9 +17,11 @@ function getClientIP(c: Context): string {
   }
   const realIp = c.req.header("x-real-ip");
   if (realIp) return realIp;
-  // On direct connections, c.env may contain the remote address
-  // from Deno.serve's handler info. Fallback to "unknown".
   return "unknown";
+}
+
+function parseWindowIndex(key: string): number {
+  return Number(key.split(":").at(-1));
 }
 
 export function createRateLimiter(
@@ -31,11 +32,11 @@ export function createRateLimiter(
   const MAX_REQUESTS = Number(config.at("ratelimit.max_requests") ?? "30");
   const store = new Map<string, RateLimitEntry>();
 
-  // Periodic cleanup to prevent memory leak from abandoned window keys
+  // Periodic cleanup: remove entries whose window index is stale
   setInterval(() => {
-    const now = Date.now();
-    for (const [key, entry] of store) {
-      if (now >= entry.resetAt) {
+    const currentWindow = Math.floor(Date.now() / WINDOW_MS);
+    for (const [key] of store) {
+      if (parseWindowIndex(key) < currentWindow) {
         store.delete(key);
       }
     }
@@ -44,17 +45,19 @@ export function createRateLimiter(
   return async (c: Context, next: Next) => {
     const ip = getClientIP(c);
     const now = Date.now();
-    const windowKey = `${ip}:${Math.floor(now / WINDOW_MS)}`;
+    const windowIndex = Math.floor(now / WINDOW_MS);
+    const windowKey = `${ip}:${windowIndex}`;
 
     let entry = store.get(windowKey);
-    if (!entry || now >= entry.resetAt) {
-      entry = { count: 0, resetAt: now + WINDOW_MS };
+    if (!entry) {
+      entry = { count: 0 };
       store.set(windowKey, entry);
     }
 
     entry.count++;
     if (entry.count > MAX_REQUESTS) {
-      const retryAfter = Math.ceil((entry.resetAt - now) / 1000);
+      const nextWindowStart = (windowIndex + 1) * WINDOW_MS;
+      const retryAfter = Math.ceil((nextWindowStart - now) / 1000);
       c.header("Retry-After", String(retryAfter));
       if (logger) {
         logger.warn("Rate limit exceeded for IP {ip}", { ip });
