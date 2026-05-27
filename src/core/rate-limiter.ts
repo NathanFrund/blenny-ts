@@ -4,7 +4,6 @@ import type { BlennyLogger } from "./logger.ts";
 
 interface RateLimitEntry {
   count: number;
-  windowIndex: number;
 }
 
 function getClientIP(c: Context): string {
@@ -18,6 +17,10 @@ function getClientIP(c: Context): string {
   return "unknown";
 }
 
+function parseWindowIndex(key: string): number {
+  return Number(key.split(":").at(-1));
+}
+
 export function createRateLimiter(
   windowMs: number,
   maxRequests: number,
@@ -28,8 +31,8 @@ export function createRateLimiter(
 
   setInterval(() => {
     const currentWindow = Math.floor(Date.now() / windowMs);
-    for (const [key, entry] of store) {
-      if (entry.windowIndex < currentWindow) {
+    for (const [key] of store) {
+      if (parseWindowIndex(key) < currentWindow) {
         store.delete(key);
       }
     }
@@ -43,11 +46,8 @@ export function createRateLimiter(
 
     let entry = store.get(windowKey);
     if (!entry) {
-      entry = { count: 1, windowIndex };
+      entry = { count: 1 };
       store.set(windowKey, entry);
-    } else if (entry.windowIndex < windowIndex) {
-      entry.count = 1;
-      entry.windowIndex = windowIndex;
     } else {
       entry.count++;
     }
