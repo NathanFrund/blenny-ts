@@ -6,14 +6,26 @@ interface RateLimitEntry {
   count: number;
 }
 
-function getClientIP(c: Context): string {
-  const forwarded = c.req.header("x-forwarded-for");
-  if (forwarded) {
-    const ip = forwarded.split(",")[0]?.trim();
-    if (ip) return ip;
+function getClientIP(c: Context, trustProxy: boolean): string {
+  if (trustProxy) {
+    const forwarded = c.req.header("x-forwarded-for");
+    if (forwarded) {
+      const ip = forwarded.split(",")[0]?.trim();
+      if (ip) return ip;
+    }
+    const realIp = c.req.header("x-real-ip");
+    if (realIp) return realIp;
   }
-  const realIp = c.req.header("x-real-ip");
-  if (realIp) return realIp;
+
+  try {
+    const info = c.env as { remoteAddr?: Deno.NetAddr } | undefined;
+    if (info?.remoteAddr?.hostname) {
+      return info.remoteAddr.hostname;
+    }
+  } catch {
+    // env access may fail in some environments
+  }
+
   return "unknown";
 }
 
@@ -26,6 +38,7 @@ export function createRateLimiter(
   maxRequests: number,
   cleanupIntervalMs = 60_000,
   logger?: BlennyLogger,
+  trustProxy = false,
 ): MiddlewareHandler {
   const store = new Map<string, RateLimitEntry>();
 
@@ -39,7 +52,7 @@ export function createRateLimiter(
   }, cleanupIntervalMs);
 
   return async (c: Context, next: Next) => {
-    const ip = getClientIP(c);
+    const ip = getClientIP(c, trustProxy);
     const now = Date.now();
     const windowIndex = Math.floor(now / windowMs);
     const windowKey = `${ip}:${windowIndex}`;

@@ -1,6 +1,5 @@
 import { assertEquals, assertExists } from "@std/assert";
 import { Context, Hono } from "@hono/hono";
-import * as v from "@valibot/valibot";
 import {
   createToken,
   getUser,

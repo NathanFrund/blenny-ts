@@ -91,6 +91,13 @@ function validateModule(candidate: unknown, fileName: string): { mod?: BlennyMod
     }));
   }
 
+  if (obj.capabilities !== undefined) {
+    if (!Array.isArray(obj.capabilities) || !obj.capabilities.every((c: unknown) => typeof c === "string")) {
+      return { err: "capabilities must be an array of strings" };
+    }
+    mod.capabilities = obj.capabilities as string[];
+  }
+
   if (typeof obj.initialize === "function") mod.initialize = obj.initialize as BlennyModule["initialize"];
   if (typeof obj.start === "function") mod.start = obj.start as BlennyModule["start"];
   if (typeof obj.stop === "function") mod.stop = obj.stop as BlennyModule["stop"];

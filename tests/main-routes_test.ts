@@ -44,6 +44,7 @@ Deno.test("main routes", async (t) => {
 
     return ServerSentEventGenerator.stream(
       (stream) => {
+        if (c.req.raw.signal.aborted) return;
         const id = crypto.randomUUID();
         const conn = new SseConnection(stream, id, userId, intents);
         const cleanup = hub.registerConnection(conn);

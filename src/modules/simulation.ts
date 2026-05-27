@@ -1,5 +1,5 @@
 import { publish } from "../core/hub.ts";
-import type { BlennyEvents, BlennyModule } from "../types.ts";
+import type { BlennyEvents as _BlennyEvents, BlennyModule } from "../types.ts";
 
 declare module "../types.ts" {
   interface BlennyEvents {

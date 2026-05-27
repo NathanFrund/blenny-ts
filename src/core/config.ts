@@ -25,6 +25,7 @@ const DEFAULTS: Record<string, string> = {
   "ratelimit.max_requests": "30",
   "ratelimit.auth_window_ms": "300000",
   "ratelimit.auth_max_requests": "5",
+  "server.trust_proxy": "false",
 };
 
 export interface ConfigOverrides {
@@ -135,6 +136,26 @@ export class BlennyConfig {
 
   get corsOrigin(): string {
     return this.data.get("cors.origin")!;
+  }
+
+  get ratelimitWindowMs(): number {
+    return this.getNumeric("ratelimit.window_ms", 100, 3_600_000);
+  }
+
+  get ratelimitMaxRequests(): number {
+    return this.getNumeric("ratelimit.max_requests", 1, 100_000);
+  }
+
+  get ratelimitAuthWindowMs(): number {
+    return this.getNumeric("ratelimit.auth_window_ms", 100, 3_600_000);
+  }
+
+  get ratelimitAuthMaxRequests(): number {
+    return this.getNumeric("ratelimit.auth_max_requests", 1, 100_000);
+  }
+
+  get trustProxy(): boolean {
+    return this.data.get("server.trust_proxy") === "true";
   }
 
   // ── Logging helper ───────────────────────────────────────────────

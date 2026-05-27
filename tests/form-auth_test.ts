@@ -170,7 +170,23 @@ Deno.test("registration", async (t) => {
     });
     assertEquals(res.status, 200);
     const html = await res.text();
-    assertEquals(html.includes("All fields are required"), true);
+    assertEquals(html.includes("Username is required"), true);
+  });
+
+  await t.step("POST /auth/register with short password shows error", async () => {
+    const body = new URLSearchParams({
+      username: "validuser",
+      display_name: "Valid User",
+      password: "short",
+    });
+    const res = await app.request("http://localhost/auth/register", {
+      method: "POST",
+      body: body.toString(),
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    });
+    assertEquals(res.status, 200);
+    const html = await res.text();
+    assertEquals(html.includes("Password must be at least 8 characters"), true);
   });
 
   await t.step("newly registered user can sign in", async () => {

@@ -51,16 +51,18 @@ app.use(requestLogger(logger));
 app.use(cors({ origin: config.corsOrigin }));
 
 const transportLimiter = createRateLimiter(
-  Number(config.at("ratelimit.window_ms")),
-  Number(config.at("ratelimit.max_requests")),
+  config.ratelimitWindowMs,
+  config.ratelimitMaxRequests,
   60_000,
   logger,
+  config.trustProxy,
 );
 const authLimiter = createRateLimiter(
-  Number(config.at("ratelimit.auth_window_ms")),
-  Number(config.at("ratelimit.auth_max_requests")),
+  config.ratelimitAuthWindowMs,
+  config.ratelimitAuthMaxRequests,
   60_000,
   logger,
+  config.trustProxy,
 );
 app.use("/sse", transportLimiter);
 app.use("/ws", transportLimiter);
@@ -100,6 +102,21 @@ if (config.devMode) {
 } else {
   for (const f of failures) {
     logger.warn("Module load failure: {file}", { file: f.file });
+  }
+}
+
+// Detect capability conflicts
+const capabilityOwners = new Map<string, string>();
+for (const mod of modules) {
+  if (!mod.capabilities) continue;
+  for (const cap of mod.capabilities) {
+    const existing = capabilityOwners.get(cap);
+    if (existing) {
+      throw new Error(
+        `Capability "${cap}" conflict: "${existing}" and "${mod.name}" both declare it`,
+      );
+    }
+    capabilityOwners.set(cap, mod.name);
   }
 }
 
@@ -199,13 +216,13 @@ app.get("/sse", async (c) => {
 });
 
 const wsHandler = createWsHandler(hub, config.idleTimeoutMs);
-app.get("/ws", async (c, next) => {
+app.get("/ws", async (c) => {
   if (state.auth && config.transportAuthRequired) {
     const transportConfig = { ...state.auth.config, allowQueryToken: true };
     const user = await getUser(c, transportConfig);
     if (!user) return c.text("Unauthorized", 401);
   }
-  return wsHandler(c, next);
+  return wsHandler(c);
 });
 
 app.use("/static/*", serveStatic({ root: "./static" }));

@@ -247,4 +247,20 @@ Deno.test("BlennyConfig numeric validation", async (t) => {
       "between 0 and 86400000",
     );
   });
+
+  await t.step("ratelimitWindowMs rejects out-of-range", () => {
+    assertThrows(
+      () => new BlennyConfig({ fileContent: JSON.stringify({ "ratelimit.window_ms": "50" }), env: {}, args: [] }).ratelimitWindowMs,
+      Error,
+      "between 100 and 3600000",
+    );
+  });
+
+  await t.step("ratelimitMaxRequests rejects zero", () => {
+    assertThrows(
+      () => new BlennyConfig({ fileContent: JSON.stringify({ "ratelimit.max_requests": "0" }), env: {}, args: [] }).ratelimitMaxRequests,
+      Error,
+      "between 1 and 100000",
+    );
+  });
 });

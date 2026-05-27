@@ -6,6 +6,8 @@ Checklist and implementation plan for taking blenny-ts from development to produ
 
 ## Priority 1: Block the default JWT secret at boot
 
+**Status:** ✅ Complete
+
 **File:** `main.ts`
 
 If `auth.jwt_secret` is still the embedded placeholder `"CHANGE-ME-EMBEDDED-DEFAULT"` and the server is not in dev mode, exit immediately with a clear error.
@@ -18,6 +20,8 @@ If `auth.jwt_secret` is still the embedded placeholder `"CHANGE-ME-EMBEDDED-DEFA
 ---
 
 ## Priority 2: Guard every `conn.send()` with try/catch
+
+**Status:** ✅ Complete
 
 **File:** `src/core/hub.ts`
 
@@ -32,18 +36,22 @@ Without this, a single dead connection throws and the entire broadcast `for` loo
 
 ## Priority 3: Add CORS middleware
 
+**Status:** ✅ Complete
+
 **File:** `main.ts`
 
 Any cross-origin frontend (HTMX client on a different port/domain) is silently blocked without this.
 
 **Implementation:**
 - Import `cors` from `@hono/hono/cors`.
-- Apply `app.use(cors())` before all routes.
-- Add `"server.cors_origin": "*"` to config defaults for future customization.
+- Apply `app.use(cors({ origin: config.corsOrigin }))` before all routes.
+- Origin configurable via `cors.origin` key (defaults to empty string, strict same-origin).
 
 ---
 
 ## Priority 4: Connection limits + zombie reaper
+
+**Status:** ✅ Complete
 
 **Files:** `src/core/hub.ts`, `src/core/sse-connection.ts`, `main.ts`
 
@@ -53,12 +61,14 @@ Without limits, a few thousand open SSE sockets exhaust memory. Without a reaper
 1. `TransportHub` constructor accepts `{ maxConns, maxConnsPerUser }` (defaults 10_000 / 100).
 2. `registerConnection()` checks both limits before registering.
 3. `SseConnection` tracks `lastWriteAt`, updated on every `send()`.
-4. After `platform:ready`, a `setInterval` sweeps connections every 60s, removing SSE connections idle for >5 minutes.
+4. After `platform:ready`, `hub.startReaper()` runs a `setInterval` sweeping every 30s, removing SSE connections idle for >5 minutes.
 5. Config keys: `transport.max_connections`, `transport.max_per_user`, `transport.idle_timeout_ms`.
 
 ---
 
 ## Priority 5: Fix SSE abort race
+
+**Status:** ✅ Complete
 
 **File:** `main.ts`
 
@@ -72,20 +82,22 @@ If `c.req.raw.signal` is already `aborted` when the SSE handler runs, `addEventL
 
 ## Priority 6: Request body size limit
 
+**Status:** ✅ Complete
+
 **File:** `main.ts`
 
 Large POST bodies are accepted without limit, opening a resource-exhaustion vector.
 
 **Implementation:**
-- Add a small middleware that checks `content-length` header.
-- Reject requests exceeding 1 MB (configurable) with 413.
+- Add `bodyLimit` middleware from Hono.
+- Reject requests exceeding configurable limit (default 1 MB) with 413.
 - Config key: `server.max_body_bytes`.
 
 ---
 
----
-
 ## Priority 7: Rate-limit real-time transports
+
+**Status:** ✅ Complete
 
 **Files:** `src/core/rate-limiter.ts`, `main.ts`
 
@@ -96,20 +108,106 @@ Without rate limiting, `/sse` and `/ws` endpoints can be hammered with connectio
 - Applies to `/sse` and `/ws` before any transport logic runs.
 - Returns `429 Too Many Requests` with JSON error body (`{ error: { type: "too_many_requests", message } }`) and `Retry-After` header.
 - Client IP resolved from `x-forwarded-for` or `x-real-ip` header (set these in your reverse proxy).
+- Separate auth limiter for `/auth/*` with tighter window.
+- Rate limit values validated via `getNumeric()` with range bounds at boot.
 
-**Config:**
-```json
-{
-  "ratelimit.window_ms": "60000",
-  "ratelimit.max_requests": "30"
-}
+---
+
+## Priority 8: Module test coverage
+
+**Status:** ✅ Complete
+
+**Files:** `tests/hello_test.ts`, `tests/demo_test.ts`, `tests/simulation_test.ts`
+
+Core module routes and lifecycle hooks are tested:
+- `hello` — GET `/` returns HTML, GET `/hello` returns text
+- `demo` — GET `/demo` returns HTML, trigger-broadcast endpoints, POST `/demo/broadcast`
+- `simulation` — GET `/simulation/status`, `start()` publishes `spatial:tick`, `stop()` clears timer
+
+---
+
+## Priority 9: Core test coverage
+
+**Status:** ✅ Complete
+
+**Files:** `tests/module-loader_test.ts`, `tests/validation_test.ts`, `tests/user-store_test.ts`, `tests/layout_test.tsx`
+
+Core infrastructure modules have dedicated tests:
+- `module-loader` — loads all 5 modules, validates route shapes, lifecycle hooks, capabilities
+- `validation` — SignalSchema (rejects arrays/null/primitives), UsernameSchema, PasswordSchema, UserInfoSchema
+- `user-store` — CRUD operations, password verification, duplicate detection, role defaults
+- `layout` — DefaultLayout renders slot content and HTMX script tag
+
+---
+
+## Priority 10: Wire UsernameSchema/PasswordSchema into form-auth.tsx
+
+**Status:** ✅ Complete
+
+**File:** `src/modules/form-auth.tsx`
+
+Registration now validates username and password against Valibot schemas before creating the user:
+- Empty username returns "Username is required"
+- Passwords under 8 characters return "Password must be at least 8 characters"
+- Overly long values are rejected with descriptive messages
+
+---
+
+## Priority 11: Capabilities system
+
+**Status:** ✅ Complete
+
+**Files:** `src/types.ts`, `src/core/module-loader.ts`, `main.ts`, `src/modules/form-auth.tsx`
+
+- `BlennyModule` interface now has optional `capabilities?: string[]`
+- `module-loader.ts` validates capabilities as arrays of strings
+- `main.ts` detects capability conflicts at boot (e.g., two modules declaring `"auth"`) and throws
+- `form-auth` module declares `capabilities: ["auth"]`
+
+---
+
+## Priority 12: Rate limit numeric validation
+
+**Status:** ✅ Complete
+
+**File:** `src/core/config.ts`
+
+Rate limit config values now use typed getters with `getNumeric()` range validation:
+- `ratelimit.window_ms` — validated between 100ms and 1 hour
+- `ratelimit.max_requests` — validated between 1 and 100,000
+- `ratelimit.auth_window_ms` — validated between 100ms and 1 hour
+- `ratelimit.auth_max_requests` — validated between 1 and 100,000
+
+Invalid values throw a clear boot-time error instead of producing NaN behavior.
+
+---
+
+## Priority 13: Admin credentials warning
+
+**Status:** ✅ Complete
+
+**File:** `src/modules/form-auth.tsx`
+
+When the default admin user is seeded outside of dev mode, a log warning is emitted:
 ```
+WARN: Default admin credentials (admin/admin) are in use — change them immediately
+```
+
+---
+
+## Priority 14: SSE abort check in test handler
+
+**Status:** ✅ Complete
+
+**File:** `tests/main-routes_test.ts`
+
+The test SSE handler now includes the `c.req.raw.signal.aborted` check at the top of the stream callback, matching the production handler in `main.ts`.
 
 ---
 
 ## Verification
 
-After each priority:
+Run the full suite:
 
 ```bash
 deno check main.ts src/ tests/

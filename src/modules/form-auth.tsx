@@ -13,7 +13,9 @@ import {
 import { createUserStore } from "../core/user-store.ts";
 import { publish } from "../core/hub.ts";
 import type { AppState } from "../core/app-state.ts";
-import type { BlennyEvents } from "../types.ts";
+import type { BlennyEvents as _BlennyEvents } from "../types.ts";
+import * as v from "@valibot/valibot";
+import { UsernameSchema, PasswordSchema } from "../core/validation.ts";
 
 declare module "../types.ts" {
   interface BlennyEvents {
@@ -124,8 +126,16 @@ async function handleRegister(c: Context): Promise<Response> {
   const displayName = (body.display_name as string).trim();
   const password = body.password as string;
 
-  if (!username || !displayName || !password) {
-    return renderRegister(c, "All fields are required");
+  const usernameResult = v.safeParse(UsernameSchema, username);
+  const passwordResult = v.safeParse(PasswordSchema, password);
+  if (!usernameResult.success) {
+    return renderRegister(c, usernameResult.issues[0].message);
+  }
+  if (!passwordResult.success) {
+    return renderRegister(c, passwordResult.issues[0].message);
+  }
+  if (!displayName) {
+    return renderRegister(c, "Display name is required");
   }
 
   const user = await userStore.createUser(username, password, displayName);
@@ -163,6 +173,7 @@ function handleSignOut(c: Context): Response {
 
 const authModule: BlennyModule = {
   name: "form-auth",
+  capabilities: ["auth"],
   routes: [
     { method: "GET", path: "/auth/signin", handler: (c) => renderSignIn(c) },
     { method: "POST", path: "/auth/signin", handler: handleSignIn },
@@ -176,7 +187,7 @@ const authModule: BlennyModule = {
       jwtSecret: state.config.jwtSecret,
       cookieName: state.config.cookieName,
       sessionExpiry: state.config.sessionDurationHours * 3600,
-      secureCookies: false,
+      secureCookies: !state.config.devMode,
       allowQueryToken: false,
       logger: state.logger,
     };
@@ -187,11 +198,16 @@ const authModule: BlennyModule = {
       requireRole: requireRole,
     };
 
-    // Seed a default admin user
-    const existing = await userStore.findByUsername("admin");
-    if (!existing) {
-      await userStore.createUser("admin", "admin", "Administrator", "admin");
+  // Seed a default admin user
+  const existing = await userStore.findByUsername("admin");
+  if (!existing) {
+    await userStore.createUser("admin", "admin", "Administrator", "admin");
+    if (!state.config.devMode) {
+      state.logger.warn(
+        "Default admin credentials (admin/admin) are in use — change them immediately",
+      );
     }
+  }
   },
 };
 
