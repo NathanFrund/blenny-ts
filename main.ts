@@ -216,6 +216,7 @@ const server = Deno.serve({
 await server.finished;
 
 // 6. Stop reaper before shutting down modules
+hub.closeAllConnections();
 hub.stopReaper();
 
 // 7. Stop modules in reverse order

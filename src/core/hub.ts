@@ -1,5 +1,6 @@
 import type { Intent, ServerMessage } from "./envelope.ts";
 import type { BlennyEvents } from "../types.ts";
+import { BlennyError } from "./error.ts";
 
 // ── Typed event bus ──────────────────────────────────────────────
 
@@ -80,19 +81,29 @@ export class TransportHub {
     }
   }
 
+  closeAllConnections(): void {
+    for (const id of this.conns.keys()) {
+      this.removeConnection(id);
+    }
+  }
+
   // ── Connection management ───────────────────────────────────
 
   registerConnection(conn: Connection): () => void {
     if (this.conns.size >= this.maxConns) {
-      throw new Error(
+      throw new BlennyError(
+        "too_many_connections",
         `connection limit reached (${this.maxConns})`,
+        503,
       );
     }
     if (conn.userId) {
       const existing = this.userConns.get(conn.userId);
       if (existing && existing.size >= this.maxConnsPerUser) {
-        throw new Error(
+        throw new BlennyError(
+          "too_many_connections",
           `per-user connection limit reached (${this.maxConnsPerUser})`,
+          429,
         );
       }
       this.conns.set(conn.id, conn);
@@ -166,6 +177,11 @@ export class TransportHub {
     }
   }
 
+  /**
+   * Execute JavaScript on connected clients.
+   * Script is sent verbatim — only use with trusted content.
+   * For untrusted input, use `patchElements` or `mergeSignals` instead.
+   */
   executeScript(
     script: string,
     opts?: { intent?: Intent; userId?: string },

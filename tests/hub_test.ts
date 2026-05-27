@@ -1,5 +1,6 @@
-import { assertEquals } from "@std/assert";
+import { assertEquals, assertThrows } from "@std/assert";
 import { TransportHub, type ConnId, type Connection } from "../src/core/hub.ts";
+import { BlennyError } from "../src/core/error.ts";
 import type { Intent, ServerMessage } from "../src/core/envelope.ts";
 
 class CaptureConnection implements Connection {
@@ -108,5 +109,44 @@ Deno.test("TransportHub", async (t) => {
   await t.step("nop direct to nonexistent user is safe", () => {
     const hub = new TransportHub();
     hub.patchElements("<div>hello</div>", { userId: "ghost" });
+  });
+
+  await t.step("closeAllConnections removes all connections", () => {
+    const hub = new TransportHub();
+    const a = new CaptureConnection(crypto.randomUUID());
+    const b = new CaptureConnection(crypto.randomUUID());
+    hub.registerConnection(a);
+    hub.registerConnection(b);
+    assertEquals(hub.getConnections().length, 2);
+
+    hub.closeAllConnections();
+    assertEquals(hub.getConnections().length, 0);
+  });
+
+  await t.step("closeAllConnections is safe on empty hub", () => {
+    const hub = new TransportHub();
+    hub.closeAllConnections();
+    assertEquals(hub.getConnections().length, 0);
+  });
+
+  await t.step("registerConnection throws BlennyError on global limit", () => {
+    const hub = new TransportHub({ maxConns: 1 });
+    hub.registerConnection(new CaptureConnection(crypto.randomUUID()));
+    assertThrows(
+      () => hub.registerConnection(new CaptureConnection(crypto.randomUUID())),
+      BlennyError,
+      "connection limit reached",
+    );
+  });
+
+  await t.step("registerConnection throws BlennyError on per-user limit", () => {
+    const hub = new TransportHub({ maxConnsPerUser: 1 });
+    const userId = crypto.randomUUID();
+    hub.registerConnection(new CaptureConnection(crypto.randomUUID(), userId));
+    assertThrows(
+      () => hub.registerConnection(new CaptureConnection(crypto.randomUUID(), userId)),
+      BlennyError,
+      "per-user connection limit reached",
+    );
   });
 });
