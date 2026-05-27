@@ -120,11 +120,20 @@ The reference `form-auth.tsx` module provides in-memory user storage with SHA-25
 Zero-ceremony static API for pushing real-time updates from anywhere:
 
 ```ts
+// JSX (auto-escaped — prefer this for user content)
+BlennyPublisher.broadcastJsx(<div>Hello, {username}</div>);
+BlennyPublisher.directJsx(<div>Private</div>, userId);
+
+// Raw HTML (no escaping — for pre-escaped content only)
 BlennyPublisher.broadcastHtml("<div>Hello</div>");
 BlennyPublisher.directHtml("<div>Private</div>", userId);
+
+// Signals (always JSON)
 BlennyPublisher.broadcastData('{"score":42}');
 BlennyPublisher.directData('{"msg":"hi"}', userId);
 ```
+
+> **HTML safety**: `broadcastJsx`/`directJsx` render via Hono's JSX runtime, which auto-escapes text and attribute bindings — use these for any content that includes user input. `broadcastHtml`/`directHtml` send strings verbatim; use them only when you have pre-escaped HTML (e.g., from a template engine or markdown renderer).
 
 Initialized once at boot by `main.ts`. No wiring needed in modules.
 

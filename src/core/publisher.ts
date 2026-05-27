@@ -1,6 +1,7 @@
 import { TransportHub } from "./hub.ts";
 import { SignalSchema } from "./validation.ts";
 import type { SignalData } from "./validation.ts";
+import type { Child } from "@hono/hono/jsx";
 import * as v from "@valibot/valibot";
 
 let hubInstance: TransportHub | null = null;
@@ -33,6 +34,8 @@ export class BlennyPublisher {
    * Broadcast HTML to all connected clients.
    * Content is sent verbatim — escape user-provided text with `escapeHtml()`
    * from `src/core/validation.ts` to avoid XSS.
+   *
+   * Prefer `broadcastJsx()` for JSX content — it auto-escapes via Hono's JSX runtime.
    */
   static broadcastHtml(html: string): void {
     if (!hubInstance) throw new PublisherError("BlennyPublisher not initialized — call BlennyPublisher.init(hub) at boot");
@@ -43,10 +46,34 @@ export class BlennyPublisher {
    * Send HTML to a specific user.
    * Content is sent verbatim — escape user-provided text with `escapeHtml()`
    * from `src/core/validation.ts` to avoid XSS.
+   *
+   * Prefer `directJsx()` for JSX content — it auto-escapes via Hono's JSX runtime.
    */
   static directHtml(html: string, userId: string): void {
     if (!hubInstance) throw new PublisherError("BlennyPublisher not initialized — call BlennyPublisher.init(hub) at boot");
     hubInstance.patchElements(html, { userId });
+  }
+
+  /**
+   * Broadcast JSX to all connected clients.
+   * Content is rendered to HTML via Hono's JSX runtime, which auto-escapes
+   * text and attribute bindings. This is the safe default for real-time updates.
+   *
+   * Use `broadcastHtml()` when you have a pre-escaped string.
+   */
+  static broadcastJsx(content: Child): void {
+    this.broadcastHtml(String(content));
+  }
+
+  /**
+   * Send JSX to a specific user.
+   * Content is rendered to HTML via Hono's JSX runtime, which auto-escapes
+   * text and attribute bindings. This is the safe default for targeted updates.
+   *
+   * Use `directHtml()` when you have a pre-escaped string.
+   */
+  static directJsx(content: Child, userId: string): void {
+    this.directHtml(String(content), userId);
   }
 
   static broadcastData(data: string): void {

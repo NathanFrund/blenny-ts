@@ -1,6 +1,7 @@
 import { assertEquals, assertThrows } from "@std/assert";
 import { BlennyPublisher, PublisherError } from "../src/core/publisher.ts";
 import { TransportHub } from "../src/core/hub.ts";
+import { jsx } from "@hono/hono/jsx";
 import type { ServerMessage, Intent } from "../src/core/envelope.ts";
 
 class CaptureConnection {
@@ -182,6 +183,74 @@ Deno.test("BlennyPublisher directData to specific user", () => {
   const msg = JSON.parse(alice.sent[0]) as ServerMessage;
   assertEquals(msg.signals, { msg: "secret" });
   assertEquals(msg.intent, "data");
+});
+
+Deno.test("BlennyPublisher broadcastJsx auto-escapes text content", () => {
+  BlennyPublisher.reset();
+  const hub = new TransportHub();
+  BlennyPublisher.init(hub);
+
+  const conn = new CaptureConnection("test-1");
+  hub.registerConnection(conn);
+
+  BlennyPublisher.broadcastJsx(
+    jsx("p", null, "<script>alert(1)</script>"),
+  );
+  assertEquals(conn.sent.length, 1);
+  const msg = JSON.parse(conn.sent[0]) as ServerMessage;
+  assertEquals(msg.html, "<p>&lt;script&gt;alert(1)&lt;/script&gt;</p>");
+});
+
+Deno.test("BlennyPublisher broadcastJsx escapes attribute bindings", () => {
+  BlennyPublisher.reset();
+  const hub = new TransportHub();
+  BlennyPublisher.init(hub);
+
+  const conn = new CaptureConnection("test-1");
+  hub.registerConnection(conn);
+
+  BlennyPublisher.broadcastJsx(
+    jsx("div", { class: "msg", "data-x": "\"><script>alert(1)</script>" }, "hello"),
+  );
+  assertEquals(conn.sent.length, 1);
+  const msg = JSON.parse(conn.sent[0]) as ServerMessage;
+  assertEquals(
+    msg.html,
+    "<div class=\"msg\" data-x=\"&quot;&gt;&lt;script&gt;alert(1)&lt;/script&gt;\">hello</div>",
+  );
+});
+
+Deno.test("BlennyPublisher directJsx targets specific user", () => {
+  BlennyPublisher.reset();
+  const hub = new TransportHub();
+  BlennyPublisher.init(hub);
+
+  const alice = new CaptureConnection("alice-1", "alice");
+  const bob = new CaptureConnection("bob-1", "bob");
+  hub.registerConnection(alice);
+  hub.registerConnection(bob);
+
+  BlennyPublisher.directJsx(
+    jsx("strong", null, "Private message"),
+    "alice",
+  );
+  assertEquals(alice.sent.length, 1);
+  assertEquals(bob.sent.length, 0);
+
+  const msg = JSON.parse(alice.sent[0]) as ServerMessage;
+  assertEquals(msg.html, "<strong>Private message</strong>");
+});
+
+Deno.test("BlennyPublisher broadcastJsx throws before init", () => {
+  BlennyPublisher.reset();
+  assertThrows(
+    () => BlennyPublisher.broadcastJsx(jsx("div", null, "test")),
+    PublisherError,
+  );
+  assertThrows(
+    () => BlennyPublisher.directJsx(jsx("div", null, "test"), "alice"),
+    PublisherError,
+  );
 });
 
 Deno.test("BlennyPublisher nop when no connections", () => {
