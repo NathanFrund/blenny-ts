@@ -184,7 +184,7 @@ app.get("/sse", async (c) => {
   );
 });
 
-const wsHandler = createWsHandler(hub);
+const wsHandler = createWsHandler(hub, config.idleTimeoutMs);
 app.get("/ws", async (c, next) => {
   if (state.auth && config.transportAuthRequired) {
     const transportConfig = { ...state.auth.config, allowQueryToken: true };

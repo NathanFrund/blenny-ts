@@ -1,5 +1,3 @@
-import { upgradeWebSocket } from "@hono/hono/deno";
-import type { WSContext } from "@hono/hono/ws";
 import type { Context } from "@hono/hono";
 import type { TransportHub, Connection } from "./hub.ts";
 import { publish } from "./hub.ts";
@@ -12,7 +10,7 @@ export class WsConnection implements Connection {
   connType = "ws" as const;
 
   constructor(
-    private ws: WSContext,
+    private ws: WebSocket,
     id: string,
     userId?: string,
     intents?: Set<Intent>,
@@ -43,35 +41,54 @@ export function dispatchWsMessage(raw: string): void {
   }
 }
 
-export function createWsHandler(hub: TransportHub) {
-  return upgradeWebSocket((c: Context) => {
+export function createWsHandler(hub: TransportHub, idleTimeoutMs: number) {
+  return (c: Context): Response => {
+    const user = c.get("user") as { id: string } | undefined;
     const intentParam = c.req.query("intent");
     const intents = intentParam
       ? new Set(intentParam.split(",") as Intent[])
       : undefined;
-
-    const user = c.get("user") as { id: string } | undefined;
     const userId = user?.id;
-    let cleanup: (() => void) | undefined;
 
-    return {
-      onOpen(_evt: Event, ws: WSContext) {
-        const id = crypto.randomUUID();
-        const conn = new WsConnection(ws, id, userId, intents);
+    try {
+      const { socket, response } = Deno.upgradeWebSocket(c.req.raw, {
+        idleTimeout: idleTimeoutMs > 0
+          ? Math.floor(idleTimeoutMs / 1000)
+          : undefined,
+      });
+
+      let cleanup: (() => void) | undefined;
+
+      socket.onopen = () => {
+        const conn = new WsConnection(
+          socket,
+          crypto.randomUUID(),
+          userId,
+          intents,
+        );
         cleanup = hub.registerConnection(conn);
-      },
-      onMessage(evt: MessageEvent, _ws: WSContext) {
+      };
+
+      socket.onmessage = (evt: MessageEvent) => {
         const raw = typeof evt.data === "string"
           ? evt.data
           : new TextDecoder().decode(evt.data as ArrayBuffer);
         dispatchWsMessage(raw);
-      },
-      onClose(_evt: CloseEvent, _ws: WSContext) {
-        if (cleanup) {
-          cleanup();
-          cleanup = undefined;
-        }
-      },
-    };
-  });
+      };
+
+      socket.onclose = () => {
+        cleanup?.();
+        cleanup = undefined;
+      };
+
+      socket.onerror = () => {
+        cleanup?.();
+        cleanup = undefined;
+      };
+
+      return response;
+    } catch {
+      return c.text("WebSocket upgrade failed", 500);
+    }
+  };
 }
