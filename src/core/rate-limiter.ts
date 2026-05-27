@@ -1,13 +1,11 @@
 import type { Context, Next } from "@hono/hono";
 import type { MiddlewareHandler } from "@hono/hono";
-import type { BlennyConfig } from "./config.ts";
 import type { BlennyLogger } from "./logger.ts";
 
 interface RateLimitEntry {
   count: number;
+  windowIndex: number;
 }
-
-const CLEANUP_INTERVAL = 300_000;
 
 function getClientIP(c: Context): string {
   const forwarded = c.req.header("x-forwarded-for");
@@ -20,43 +18,42 @@ function getClientIP(c: Context): string {
   return "unknown";
 }
 
-function parseWindowIndex(key: string): number {
-  return Number(key.split(":").at(-1));
-}
-
 export function createRateLimiter(
-  config: BlennyConfig,
+  windowMs: number,
+  maxRequests: number,
+  cleanupIntervalMs = 60_000,
   logger?: BlennyLogger,
 ): MiddlewareHandler {
-  const WINDOW_MS = Number(config.at("ratelimit.window_ms") ?? "60000");
-  const MAX_REQUESTS = Number(config.at("ratelimit.max_requests") ?? "30");
   const store = new Map<string, RateLimitEntry>();
 
-  // Periodic cleanup: remove entries whose window index is stale
   setInterval(() => {
-    const currentWindow = Math.floor(Date.now() / WINDOW_MS);
-    for (const [key] of store) {
-      if (parseWindowIndex(key) < currentWindow) {
+    const currentWindow = Math.floor(Date.now() / windowMs);
+    for (const [key, entry] of store) {
+      if (entry.windowIndex < currentWindow) {
         store.delete(key);
       }
     }
-  }, CLEANUP_INTERVAL);
+  }, cleanupIntervalMs);
 
   return async (c: Context, next: Next) => {
     const ip = getClientIP(c);
     const now = Date.now();
-    const windowIndex = Math.floor(now / WINDOW_MS);
+    const windowIndex = Math.floor(now / windowMs);
     const windowKey = `${ip}:${windowIndex}`;
 
     let entry = store.get(windowKey);
     if (!entry) {
-      entry = { count: 0 };
+      entry = { count: 1, windowIndex };
       store.set(windowKey, entry);
+    } else if (entry.windowIndex < windowIndex) {
+      entry.count = 1;
+      entry.windowIndex = windowIndex;
+    } else {
+      entry.count++;
     }
 
-    entry.count++;
-    if (entry.count > MAX_REQUESTS) {
-      const nextWindowStart = (windowIndex + 1) * WINDOW_MS;
+    if (entry.count > maxRequests) {
+      const nextWindowStart = (windowIndex + 1) * windowMs;
       const retryAfter = Math.ceil((nextWindowStart - now) / 1000);
       c.header("Retry-After", String(retryAfter));
       if (logger) {

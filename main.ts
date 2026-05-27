@@ -50,9 +50,21 @@ const app = new Hono();
 app.use(requestLogger(logger));
 app.use(cors({ origin: config.corsOrigin }));
 
-const rateLimiter = createRateLimiter(config, logger);
-app.use("/sse", rateLimiter);
-app.use("/ws", rateLimiter);
+const transportLimiter = createRateLimiter(
+  Number(config.at("ratelimit.window_ms")),
+  Number(config.at("ratelimit.max_requests")),
+  60_000,
+  logger,
+);
+const authLimiter = createRateLimiter(
+  Number(config.at("ratelimit.auth_window_ms")),
+  Number(config.at("ratelimit.auth_max_requests")),
+  60_000,
+  logger,
+);
+app.use("/sse", transportLimiter);
+app.use("/ws", transportLimiter);
+app.use("/auth/*", authLimiter);
 
 const bodyLimit = createRequestSizeLimit(config.maxBodyBytes);
 app.use("*", bodyLimit);

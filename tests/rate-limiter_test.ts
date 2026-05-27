@@ -1,20 +1,10 @@
 import { assertEquals, assertExists, assertGreater, assertLessOrEqual } from "@std/assert";
 import { Hono } from "@hono/hono";
-import { BlennyConfig } from "../src/core/config.ts";
 import { createRateLimiter } from "../src/core/rate-limiter.ts";
-
-function makeConfig(overrides: Record<string, string>): BlennyConfig {
-  return new BlennyConfig({
-    fileContent: JSON.stringify(overrides),
-    env: {},
-    args: [],
-  });
-}
 
 Deno.test("rate limiter", async (t) => {
   await t.step("passes requests under the limit", async () => {
-    const config = makeConfig({ "ratelimit.max_requests": "3" });
-    const rateLimiter = createRateLimiter(config);
+    const rateLimiter = createRateLimiter(60_000, 3);
     const app = new Hono();
     app.use("/test", rateLimiter);
     app.get("/test", (c) => c.text("ok"));
@@ -26,8 +16,7 @@ Deno.test("rate limiter", async (t) => {
   });
 
   await t.step("blocks requests over the limit with 429", async () => {
-    const config = makeConfig({ "ratelimit.max_requests": "2" });
-    const rateLimiter = createRateLimiter(config);
+    const rateLimiter = createRateLimiter(60_000, 2);
     const app = new Hono();
     app.use("/test", rateLimiter);
     app.get("/test", (c) => c.text("ok"));
@@ -46,8 +35,7 @@ Deno.test("rate limiter", async (t) => {
   });
 
   await t.step("sets Retry-After header on 429", async () => {
-    const config = makeConfig({ "ratelimit.max_requests": "1", "ratelimit.window_ms": "60000" });
-    const rateLimiter = createRateLimiter(config);
+    const rateLimiter = createRateLimiter(60_000, 1);
     const app = new Hono();
     app.use("/test", rateLimiter);
     app.get("/test", (c) => c.text("ok"));
@@ -62,8 +50,7 @@ Deno.test("rate limiter", async (t) => {
   });
 
   await t.step("tracks different IPs independently", async () => {
-    const config = makeConfig({ "ratelimit.max_requests": "1" });
-    const rateLimiter = createRateLimiter(config);
+    const rateLimiter = createRateLimiter(60_000, 1);
     const app = new Hono();
     app.use("/test", rateLimiter);
     app.get("/test", (c) => c.text("ok"));
@@ -85,8 +72,7 @@ Deno.test("rate limiter", async (t) => {
   });
 
   await t.step("window resets after expiry", async () => {
-    const config = makeConfig({ "ratelimit.max_requests": "2", "ratelimit.window_ms": "50" });
-    const rateLimiter = createRateLimiter(config);
+    const rateLimiter = createRateLimiter(50, 2);
     const app = new Hono();
     app.use("/test", rateLimiter);
     app.get("/test", (c) => c.text("ok"));
@@ -102,5 +88,28 @@ Deno.test("rate limiter", async (t) => {
 
     const passed = await app.request("http://localhost/test");
     assertEquals(passed.status, 200);
+  });
+
+  await t.step("resets count when request crosses window boundary", async () => {
+    // Use a small window so we can test boundary crossing
+    const rateLimiter = createRateLimiter(50, 1);
+    const app = new Hono();
+    app.use("/test", rateLimiter);
+    app.get("/test", (c) => c.text("ok"));
+
+    // First request succeeds
+    const res1 = await app.request("http://localhost/test");
+    assertEquals(res1.status, 200);
+
+    // Second request in same window is blocked
+    const res2 = await app.request("http://localhost/test");
+    assertEquals(res2.status, 429);
+
+    // Wait for next window
+    await new Promise((r) => setTimeout(r, 60));
+
+    // Now succeeds — count reset because windowIndex changed
+    const res3 = await app.request("http://localhost/test");
+    assertEquals(res3.status, 200);
   });
 });

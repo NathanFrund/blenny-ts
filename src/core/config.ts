@@ -23,6 +23,8 @@ const DEFAULTS: Record<string, string> = {
   "cors.origin": "",
   "ratelimit.window_ms": "60000",
   "ratelimit.max_requests": "30",
+  "ratelimit.auth_window_ms": "300000",
+  "ratelimit.auth_max_requests": "5",
 };
 
 export interface ConfigOverrides {
