@@ -15,7 +15,7 @@ import { SseConnection } from "./src/core/sse-connection.ts";
 import { createWsHandler } from "./src/core/ws.ts";
 import { loadModules } from "./src/core/module-loader.ts";
 import type { AppState } from "./src/core/app-state.ts";
-import type { BlennyEvents } from "./src/types.ts";
+import type { BlennyEvents, HttpMethod } from "./src/types.ts";
 import { createLogger, requestLogger } from "./src/core/logger.ts";
 
 const config = new BlennyConfig();
@@ -72,7 +72,19 @@ app.notFound((_c) => {
   );
 });
 
-const modules = await loadModules();
+const { modules, failures } = await loadModules();
+for (const mod of modules) {
+  logger.info("Module loaded: {name}", { name: mod.name });
+}
+if (config.devMode) {
+  for (const f of failures) {
+    logger.error("Module load failure: {file} — {error}", { file: f.file, error: f.error, stack: f.stack });
+  }
+} else {
+  for (const f of failures) {
+    logger.warn("Module load failure: {file}", { file: f.file });
+  }
+}
 
 // 1. Initialize — inject dependencies
 for (const mod of modules) {
@@ -88,7 +100,7 @@ if (state.auth) {
 // 3. Register routes
 for (const mod of modules) {
   for (const route of mod.routes) {
-    const method = route.method as "GET" | "POST" | "PUT" | "DELETE";
+    const method = route.method as HttpMethod;
     const handler = route.handler as unknown as MiddlewareHandler;
     if (route.auth && state.auth) {
       const guard: MiddlewareHandler =

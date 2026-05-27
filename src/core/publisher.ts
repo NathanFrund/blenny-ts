@@ -2,6 +2,16 @@ import { TransportHub } from "./hub.ts";
 
 let hubInstance: TransportHub | null = null;
 
+/**
+ * Zero-ceremony real-time broadcast for ad-hoc use.
+ *
+ * Module code should prefer `state.hub.action(...)` for explicitness.
+ * This static API exists for timers, event callbacks, and CLI tools
+ * where threading a hub reference is overhead.
+ *
+ * Singleton tradeoff: tests use BlennyPublisher.reset() for isolation.
+ * In production there is one hub per process; the singleton mirrors that.
+ */
 export class BlennyPublisher {
   static init(hub: TransportHub): void {
     hubInstance = hub;

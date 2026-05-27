@@ -31,6 +31,8 @@ Hypermedia-driven, real-time, single-binary platform.
 - Initialized once at boot via `BlennyPublisher.init(hub)`. Testable via `BlennyPublisher.reset()`.
 - `broadcastHtml`/`directHtml` delegate to `hub.patchElements()`.
 - `broadcastData`/`directData` parse JSON internally and delegate to `hub.mergeSignals()`.
+- **Prefer `state.hub.action(...)` in module code** for explicitness and testability. Use `BlennyPublisher.*` in timers, event callbacks, and CLI tools where threading a hub reference is overhead.
+- Singleton tradeoff: mirrors the one-hub-per-process runtime. Tests use `reset()` for isolation.
 
 ### Auth
 - Pluggable by convention: a module sets `state.auth` (an `AuthBundle`) during `initialize()`.

@@ -7,6 +7,7 @@ import { BlennyConfig } from "../src/core/config.ts";
 import { getUser } from "../src/core/auth.ts";
 import type { Intent } from "../src/core/envelope.ts";
 import type { AppState } from "../src/core/app-state.ts";
+import type { HttpMethod } from "../src/types.ts";
 import { NULL_LOGGER } from "../src/core/logger.ts";
 import { ServerSentEventGenerator } from "@starfederation/datastar-sdk/web";
 import { SseConnection } from "../src/core/sse-connection.ts";
@@ -69,7 +70,7 @@ Deno.test("main routes", async (t) => {
   await dashMod.initialize?.(state);
 
   for (const route of dashMod.routes) {
-    const method = route.method as "GET" | "POST" | "PUT" | "DELETE";
+    const method = route.method as HttpMethod;
     const handler = route.handler as unknown as MiddlewareHandler;
     if (route.auth && state.auth) {
       const guard: MiddlewareHandler =

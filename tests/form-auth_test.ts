@@ -6,6 +6,7 @@ import { Conduit } from "../src/core/conduit.ts";
 import { BlennyConfig } from "../src/core/config.ts";
 import authModule from "../src/modules/form-auth.tsx";
 import type { AppState } from "../src/core/app-state.ts";
+import type { HttpMethod } from "../src/types.ts";
 import { NULL_LOGGER } from "../src/core/logger.ts";
 
 async function buildApp(): Promise<Hono> {
@@ -22,7 +23,7 @@ async function buildApp(): Promise<Hono> {
   }
 
   for (const route of authModule.routes) {
-    const method = route.method as "GET" | "POST" | "PUT" | "DELETE";
+    const method = route.method as HttpMethod;
     const handler = route.handler as unknown as MiddlewareHandler;
     app.on(method, route.path, handler);
   }
