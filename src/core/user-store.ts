@@ -1,3 +1,6 @@
+// DEVELOPMENT ONLY – In‑memory user store.
+// Do not use in production. Replace with a persistent, secure store.
+
 export interface StoredUser {
   id: string;
   username: string;
