@@ -156,7 +156,8 @@ app.get("/sse", async (c) => {
 
   let userId: string | undefined;
   if (state.auth) {
-    const user = await getUser(c, state.auth.config);
+    const transportConfig = { ...state.auth.config, allowQueryToken: true };
+    const user = await getUser(c, transportConfig);
     if (user) userId = user.id;
   }
 
@@ -186,7 +187,8 @@ app.get("/sse", async (c) => {
 const wsHandler = createWsHandler(hub);
 app.get("/ws", async (c, next) => {
   if (state.auth && config.transportAuthRequired) {
-    const user = await getUser(c, state.auth.config);
+    const transportConfig = { ...state.auth.config, allowQueryToken: true };
+    const user = await getUser(c, transportConfig);
     if (!user) return c.text("Unauthorized", 401);
   }
   return wsHandler(c, next);
