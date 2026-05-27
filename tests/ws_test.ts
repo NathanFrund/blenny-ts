@@ -1,6 +1,5 @@
 import { assertEquals } from "@std/assert";
-import { dispatchWsMessage, WsConnection } from "../src/core/ws.ts";
-import { subscribe } from "../src/core/hub.ts";
+import { WsConnection } from "../src/core/ws.ts";
 
 Deno.test("WsConnection", async (t) => {
   await t.step("send() delivers bare HTML for html messages", () => {
@@ -56,30 +55,5 @@ Deno.test("WsConnection", async (t) => {
     conn.send({});
 
     assertEquals(sent, []);
-  });
-});
-
-Deno.test("dispatchWsMessage", async (t) => {
-  await t.step("parses valid topic/payload and publishes", () => {
-    const received: unknown[] = [];
-    // deno-lint-ignore no-explicit-any
-    const unsub = subscribe("spatial:tick" as any, (p: unknown) => {
-      received.push(p);
-    });
-    dispatchWsMessage(JSON.stringify({ topic: "spatial:tick", payload: { x: 10 } }));
-    assertEquals(received, [{ x: 10 }]);
-    unsub();
-  });
-
-  await t.step("ignores invalid JSON silently", () => {
-    dispatchWsMessage("not json");
-  });
-
-  await t.step("ignores missing topic silently", () => {
-    dispatchWsMessage(JSON.stringify({ payload: { x: 1 } }));
-  });
-
-  await t.step("ignores missing payload silently", () => {
-    dispatchWsMessage(JSON.stringify({ topic: "spatial:tick" }));
   });
 });

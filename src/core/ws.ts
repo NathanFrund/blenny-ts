@@ -1,6 +1,5 @@
 import type { Context } from "@hono/hono";
 import type { TransportHub, Connection } from "./hub.ts";
-import { publish } from "./hub.ts";
 import type { Intent, ServerMessage } from "./envelope.ts";
 
 export class WsConnection implements Connection {
@@ -27,20 +26,6 @@ export class WsConnection implements Connection {
   }
 }
 
-export function dispatchWsMessage(raw: string): void {
-  try {
-    const msg = JSON.parse(raw);
-    if (typeof msg.topic === "string" && msg.payload !== undefined) {
-      (publish as unknown as (t: string, p: unknown) => void)(
-        msg.topic,
-        msg.payload,
-      );
-    }
-  } catch {
-    // silently ignore malformed messages
-  }
-}
-
 export function createWsHandler(hub: TransportHub, idleTimeoutMs: number) {
   return (c: Context): Response => {
     const user = c.get("user") as { id: string } | undefined;
@@ -53,7 +38,7 @@ export function createWsHandler(hub: TransportHub, idleTimeoutMs: number) {
     try {
       const { socket, response } = Deno.upgradeWebSocket(c.req.raw, {
         idleTimeout: idleTimeoutMs > 0
-          ? Math.floor(idleTimeoutMs / 1000)
+          ? Math.max(1, Math.floor(idleTimeoutMs / 1000))
           : undefined,
       });
 
@@ -67,13 +52,6 @@ export function createWsHandler(hub: TransportHub, idleTimeoutMs: number) {
           intents,
         );
         cleanup = hub.registerConnection(conn);
-      };
-
-      socket.onmessage = (evt: MessageEvent) => {
-        const raw = typeof evt.data === "string"
-          ? evt.data
-          : new TextDecoder().decode(evt.data as ArrayBuffer);
-        dispatchWsMessage(raw);
       };
 
       socket.onclose = () => {
