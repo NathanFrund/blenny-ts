@@ -5,6 +5,7 @@ import { serveStatic } from "@hono/hono/deno";
 import { BlennyConfig } from "./src/core/config.ts";
 import { BlennyError, errorResponse } from "./src/core/error.ts";
 import { createRateLimiter } from "./src/core/rate-limiter.ts";
+import { createRequestSizeLimit } from "./src/core/request-size.ts";
 import { connectDatabase } from "./src/core/database.ts";
 import { BlennyPublisher } from "./src/core/publisher.ts";
 import { publish, subscribe, TransportHub } from "./src/core/hub.ts";
@@ -53,19 +54,8 @@ const rateLimiter = createRateLimiter(config);
 app.use("/sse", rateLimiter);
 app.use("/ws", rateLimiter);
 
-app.use(async (c, next) => {
-  const cl = c.req.header("content-length");
-  if (cl) {
-    const bytes = parseInt(cl, 10);
-    if (bytes > config.maxBodyBytes) {
-      return c.json(
-        { error: { type: "request_too_large", message: "Request body too large" } },
-        413,
-      );
-    }
-  }
-  await next();
-});
+const bodyLimit = createRequestSizeLimit(config.maxBodyBytes);
+app.use("*", bodyLimit);
 
 app.onError((err, _c) => {
   if (err instanceof BlennyError) {
