@@ -26,10 +26,20 @@ export interface BlennyModule {
   stop?(): void | Promise<void>;
 }
 
-// Strictly type pub/sub topics
+/**
+ * Event bus topics.
+ *
+ * Framework core events are defined here. Modules extend this interface
+ * via declaration merging — do NOT add module-specific events to this file.
+ *
+ * ```ts
+ * declare module "../types.ts" {
+ *   interface BlennyEvents {
+ *     "my:event": { field: string };
+ *   }
+ * }
+ * ```
+ */
 export interface BlennyEvents {
-  "auth:signin": { userId: string; timestamp: number };
-  "auth:signout": { userId: string; timestamp: number };
-  "spatial:tick": { cycle: number; activeAgents: number };
   "platform:ready": { timestamp: number };
 }

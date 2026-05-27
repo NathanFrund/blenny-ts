@@ -1,5 +1,11 @@
 import { publish } from "../core/hub.ts";
-import type { BlennyModule } from "../types.ts";
+import type { BlennyEvents, BlennyModule } from "../types.ts";
+
+declare module "../types.ts" {
+  interface BlennyEvents {
+    "spatial:tick": { cycle: number; activeAgents: number };
+  }
+}
 
 let cycle = 0;
 let timer: ReturnType<typeof setInterval> | undefined;

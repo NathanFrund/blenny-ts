@@ -13,6 +13,14 @@ import {
 import { createUserStore } from "../core/user-store.ts";
 import { publish } from "../core/hub.ts";
 import type { AppState } from "../core/app-state.ts";
+import type { BlennyEvents } from "../types.ts";
+
+declare module "../types.ts" {
+  interface BlennyEvents {
+    "auth:signin": { userId: string; timestamp: number };
+    "auth:signout": { userId: string; timestamp: number };
+  }
+}
 import type { BlennyModule } from "../types.ts";
 
 let conduit: Conduit;
