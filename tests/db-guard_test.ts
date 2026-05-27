@@ -16,6 +16,14 @@ Deno.test("requireDb", async (t) => {
     const result = requireDb(fakeDb);
     assertEquals(result, fakeDb);
   });
+
+  await t.step("includes context string in error message", () => {
+    assertThrows(
+      () => requireDb(undefined, "chat-history"),
+      DbError,
+      "Database is not connected (chat-history)",
+    );
+  });
 });
 
 Deno.test("withDb", async (t) => {
