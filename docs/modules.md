@@ -100,13 +100,12 @@ subscriptions: [
 
 ### Available Event Topics
 
-Only `platform:ready` is guaranteed by the framework. All other topics fire only when the emitting module is loaded.
+Only `platform:ready` is guaranteed by the framework. All other topics fire only when the emitting module is loaded. Each topic is fully typed — see [Types & TypeScript Patterns](#types--typescript-patterns) for how modules declare event payloads.
 
 | Topic | Payload | Emitted By |
 |-------|---------|------------|
 | `auth:signin` | `{ userId, timestamp }` | Auth module (`form-auth`) |
 | `auth:signout` | `{ userId, timestamp }` | Auth module (`form-auth`) |
-| `spatial:tick` | `{ cycle, activeAgents }` | Simulation module (`simulation`) |
 | `platform:ready` | `{ timestamp }` | Framework (`main.ts`) |
 
 ### Publishing Events
@@ -114,7 +113,7 @@ Only `platform:ready` is guaranteed by the framework. All other topics fire only
 ```ts
 import { publish } from "../core/hub.ts";
 
-publish("spatial:tick", { cycle: 42, activeAgents: 5 });
+publish("auth:signin", { userId: "abc", timestamp: Date.now() });
 ```
 
 The typed event system is fully decoupled — any module can publish any topic, and subscribers react only if the publishing module is present at runtime.
@@ -262,6 +261,172 @@ stop() {
 }
 ```
 
+## Types & TypeScript Patterns
+
+A module relies on types from two layers: **framework types** (always available, defined in core) and **module types** (declared by individual modules, merged at compile time).
+
+### Framework Types
+
+These are defined in `src/types.ts` and `src/core/` — every module can import them regardless of which other modules are loaded.
+
+| Type | Location | Purpose |
+|------|----------|---------|
+| `BlennyModule` | `../types.ts` | Shape of a module (routes, lifecycle hooks, capabilities) |
+| `Route` | `../types.ts` | A single route entry (method, path, handler, auth) |
+| `BlennyEvents` | `../types.ts` | Typed event bus topics (extended by modules) |
+| `AppState` | `../core/app-state.ts` | Everything injected into `initialize()` |
+| `AuthBundle` | `../core/app-state.ts` | Auth middleware bundle set on `state.auth` |
+| `UserInfo` | `../core/auth.ts` | Decoded JWT payload: `{ id, role, exp }` |
+| `AuthConfig` | `../core/auth.ts` | Auth module configuration (secret, cookie name, etc.) |
+| `Conduit` | `../core/conduit.ts` | Layout-aware response renderer |
+| `TransportHub` | `../core/hub.ts` | Low-level connection broadcast |
+
+#### AppState reference
+
+The `state` object passed to `initialize()` gives you access to the entire framework:
+
+```ts
+interface AppState {
+  hub: TransportHub;       // Broadcast to SSE/WS connections
+  conduit: Conduit;        // Render JSX with layout support
+  config: BlennyConfig;    // All configuration values
+  logger: BlennyLogger;    // Structured logger
+  auth?: AuthBundle;       // Set by the auth module if loaded
+  db?: Surreal;            // SurrealDB instance if connected
+}
+```
+
+A module that provides auth sets `state.auth` during its `initialize()` — other modules don't need to know which module did it, they just check `if (state.auth)` at boot.
+
+### Module Types (Declaration Merging)
+
+Each module declares its **own event topics** using TypeScript's declaration merging. This is the most important type pattern to understand.
+
+Instead of a central file where you add every event in the project, each module extends the `BlennyEvents` interface from its own source:
+
+```ts
+// src/modules/chat.tsx
+import type { BlennyEvents, BlennyModule } from "../types.ts";
+
+declare module "../types.ts" {
+  interface BlennyEvents {
+    "chat:message": { roomId: string; userId: string; text: string };
+    "chat:join": { roomId: string; userId: string };
+  }
+}
+```
+
+**How it works:**
+
+1. Place the `declare module "../types.ts"` block anywhere at the top level of your module file.
+2. You must `import type { BlennyEvents } from "../types.ts"` in the same file for the declaration to merge.
+3. Once the file is part of the compilation, the new topics are visible project-wide — other modules can subscribe with full type safety without importing your module.
+4. Do **not** edit `src/types.ts` to add module events. The interface there is reserved for framework core events only.
+
+**Real example — `form-auth` declares auth events, `simulation` subscribes without an import:**
+
+```ts
+// form-auth.tsx — declares:
+declare module "../types.ts" {
+  interface BlennyEvents {
+    "auth:signin": { userId: string; timestamp: number };
+    "auth:signout": { userId: string; timestamp: number };
+  }
+}
+
+// Any other module — subscribes with full typing:
+subscribe("auth:signin", (payload) => {
+  // payload is inferred as { userId: string; timestamp: number }
+  console.log(`User ${payload.userId} signed in`);
+});
+```
+
+The subscriber never imports `form-auth.tsx` — the type is merged globally because `form-auth.tsx` is loaded by the framework at boot.
+
+### Route Auth Typing
+
+The `auth` field on a route accepts three patterns:
+
+| Value | Meaning |
+|-------|---------|
+| undefined / omitted | Public — no authentication required |
+| `true` | Any authenticated user |
+| `"admin"` / `"moderator"` | Specific role — checked against the user's JWT `role` field |
+
+```ts
+routes: [
+  { method: "GET",  path: "/public", handler: publicHandler },
+  { method: "GET",  path: "/profile", handler: profileHandler, auth: true },
+  { method: "GET",  path: "/admin", handler: adminHandler, auth: "admin" },
+]
+```
+
+The auth guard is applied automatically by `main.ts` at boot — your handler never needs to check auth status for these routes.
+
+### Getting the User in Handlers
+
+Routes marked `auth: true` or `auth: "admin"` are guaranteed to have a valid user. Access it via `c.get("user")`:
+
+```ts
+import type { UserInfo } from "../core/auth.ts";
+
+function handleProfile(c: Context): Response | Promise<Response> {
+  const user = c.get("user") as UserInfo; // guaranteed by auth guard
+  return c.text(`Hello ${user.id}`);
+}
+```
+
+For routes without `auth`, check explicitly:
+
+```ts
+const user = c.get("user") as UserInfo | undefined;
+if (!user) return c.redirect("/auth/signin");
+```
+
+### Capabilities
+
+Modules can declare what framework capabilities they provide:
+
+```ts
+const chatModule: BlennyModule = {
+  name: "chat",
+  capabilities: ["realtime:chat"],
+  routes: [ /* ... */ ],
+};
+```
+
+At boot, `main.ts` detects conflicting declarations — if two modules both declare `"auth"`, the server throws a clear error and exits. This prevents subtle bugs where a second auth module silently overrides the first.
+
+Capabilities are strings, not a fixed enum — modules define their own. The only convention so far is `"auth"` for modules that set `state.auth`.
+
+### Type-Safe Testing
+
+When registering module routes in tests, cast the handler properly instead of using `as any`:
+
+```ts
+import type { MiddlewareHandler } from "@hono/hono";
+
+for (const route of myModule.routes) {
+  const method = route.method as "GET" | "POST" | "PUT" | "DELETE";
+  const handler = route.handler as unknown as MiddlewareHandler;
+  app.on(method, route.path, handler);
+}
+```
+
+This preserves type safety through the Hono middleware chain without silencing the type checker.
+
+### Pattern Summary
+
+| What | Where it lives | How to use it |
+|------|---------------|---------------|
+| Module shape | `../types.ts` | Import `BlennyModule` |
+| Framework state | `../core/app-state.ts` | Import `AppState`, use in `initialize()` |
+| Auth helpers | `../core/auth.ts` | Import `UserInfo`, `AuthConfig`, `createToken`, etc. |
+| Event topics | In the module that fires them | `declare module "../types.ts" { interface BlennyEvents { ... } }` |
+| Capabilities | In the module that provides them | `capabilities: ["my-feature"]` |
+
+Every module is self-documenting — its event declarations and capability declarations tell the framework and other modules what it provides, without a central manifest.
+
 ## Full Example
 
 ```ts
@@ -309,11 +474,13 @@ Test files live in `tests/` and mirror the module structure. Use Hono's `app.req
 ```ts
 import { assertEquals } from "@std/assert";
 import { Hono } from "@hono/hono";
+import type { MiddlewareHandler } from "@hono/hono";
 import myModule from "../src/modules/my-module.ts";
 import { BlennyConfig } from "../src/core/config.ts";
 import { TransportHub } from "../src/core/hub.ts";
 import { Conduit } from "../src/core/conduit.ts";
 import type { AppState } from "../src/core/app-state.ts";
+import type { HttpMethod } from "../src/types.ts";
 
 async function buildApp(): Promise<Hono> {
   const config = new BlennyConfig();
@@ -325,7 +492,9 @@ async function buildApp(): Promise<Hono> {
   await myModule.initialize?.(state);
 
   for (const route of myModule.routes) {
-    app.on(route.method as "GET", route.path, route.handler as any);
+    const method = route.method as HttpMethod;
+    const handler = route.handler as unknown as MiddlewareHandler;
+    app.on(method, route.path, handler);
   }
 
   return app;
