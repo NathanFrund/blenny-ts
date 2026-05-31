@@ -1,68 +1,63 @@
-// DEVELOPMENT ONLY – In‑memory user store.
-// Do not use in production. Replace with a persistent, secure store.
+import type { NewUserInput } from "./validation.ts";
+import type { StoredUser } from "./store.ts";
 
-export interface StoredUser {
-  id: string;
-  username: string;
-  passwordHash: string;
-  displayName: string;
-  role: string;
-  createdAt: number;
-}
-
-async function sha256(input: string): Promise<string> {
-  const hash = await crypto.subtle.digest(
-    "SHA-256",
-    new TextEncoder().encode(input),
-  );
-  return Array.from(new Uint8Array(hash))
-    .map((b) => b.toString(16).padStart(2, "0"))
-    .join("");
-}
-
-export function createUserStore() {
+export function createInMemoryUserStore() {
   const users = new Map<string, StoredUser>();
   const byUsername = new Map<string, StoredUser>();
 
+  const findByUsername = (
+    username: string,
+  ): Promise<StoredUser | null> => {
+    return Promise.resolve(byUsername.get(username) ?? null);
+  };
+
+  const findById = (id: string): Promise<StoredUser | null> => {
+    return Promise.resolve(users.get(id) ?? null);
+  };
+
   return {
-    async createUser(
-      username: string,
-      password: string,
-      displayName: string,
-      role = "user",
-    ): Promise<StoredUser | null> {
-      if (byUsername.has(username)) return null;
+    findById,
+
+    findByUsername,
+
+    createUser(data: NewUserInput): Promise<StoredUser> {
+      if (byUsername.has(data.username)) {
+        return Promise.reject(new Error("Username is already taken"));
+      }
       const id = crypto.randomUUID();
-      const passwordHash = await sha256(password);
       const user: StoredUser = {
         id,
-        username,
-        passwordHash,
-        displayName,
-        role,
+        username: data.username,
+        passwordHash: data.passwordHash,
+        displayName: data.displayName,
+        role: data.role ?? "user",
         createdAt: Date.now(),
       };
       users.set(id, user);
-      byUsername.set(username, user);
-      return user;
+      byUsername.set(data.username, user);
+      return Promise.resolve(user);
     },
 
-    findByUsername(username: string): Promise<StoredUser | null> {
-      return Promise.resolve(byUsername.get(username) ?? null);
+    updatePasswordHash(id: string, newHash: string): Promise<void> {
+      const user = users.get(id);
+      if (!user) return Promise.reject(new Error(`User ${id} not found`));
+      user.passwordHash = newHash;
+      return Promise.resolve();
     },
 
-    findById(id: string): Promise<StoredUser | null> {
-      return Promise.resolve(users.get(id) ?? null);
+    updateAvatarKey(id: string, key: string): Promise<void> {
+      const user = users.get(id);
+      if (!user) return Promise.reject(new Error(`User ${id} not found`));
+      user.avatarKey = key;
+      return Promise.resolve();
     },
 
-    async verifyPassword(
-      username: string,
-      password: string,
-    ): Promise<StoredUser | null> {
-      const user = byUsername.get(username);
-      if (!user) return null;
-      const hash = await sha256(password);
-      return hash === user.passwordHash ? user : null;
+    deleteUser(id: string): Promise<boolean> {
+      const user = users.get(id);
+      if (!user) return Promise.resolve(false);
+      users.delete(id);
+      byUsername.delete(user.username);
+      return Promise.resolve(true);
     },
   };
 }

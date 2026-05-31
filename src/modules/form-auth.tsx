@@ -3,19 +3,21 @@ import type { Context } from "@hono/hono";
 import type { Conduit } from "../core/conduit.ts";
 import type { AuthConfig, UserInfo } from "../core/auth.ts";
 import {
-  createToken,
-  createAuthMiddleware,
-  requireUser,
-  requireRole,
-  setSessionCookie,
   clearSessionCookie,
+  createAuthMiddleware,
+  createToken,
+  requireRole,
+  requireUser,
+  setSessionCookie,
 } from "../core/auth.ts";
-import { createUserStore } from "../core/user-store.ts";
 import { publish } from "../core/hub.ts";
 import type { AppState } from "../core/app-state.ts";
 import type { BlennyEvents as _BlennyEvents } from "../types.ts";
+import type { BlobStore, UserStore } from "../core/store.ts";
+import { openKvStore } from "../core/kv-store.ts";
+import { createInMemoryUserStore } from "../core/user-store.ts";
 import * as v from "@valibot/valibot";
-import { UsernameSchema, PasswordSchema } from "../core/validation.ts";
+import { PasswordSchema, UsernameSchema } from "../core/validation.ts";
 
 declare module "../types.ts" {
   interface BlennyEvents {
@@ -25,9 +27,39 @@ declare module "../types.ts" {
 }
 import type { BlennyModule } from "../types.ts";
 
+// ── PBKDF2 ─────────────────────────────────────────────────────
+
+async function deriveKey(password: string, salt: string): Promise<string> {
+  const encoder = new TextEncoder();
+  const keyMaterial = await crypto.subtle.importKey(
+    "raw",
+    encoder.encode(password),
+    "PBKDF2",
+    false,
+    ["deriveBits"],
+  );
+  const bits = await crypto.subtle.deriveBits(
+    {
+      name: "PBKDF2",
+      salt: encoder.encode(salt),
+      iterations: 100_000,
+      hash: "SHA-256",
+    },
+    keyMaterial,
+    256,
+  );
+  return Array.from(new Uint8Array(bits))
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+}
+
+// ── Module state ────────────────────────────────────────────────
+
+let store: UserStore;
+let blobStore: BlobStore | undefined;
+let kv: Deno.Kv | undefined;
 let conduit: Conduit;
 let config: AuthConfig;
-const userStore = createUserStore();
 
 // ── Pages ────────────────────────────────────────────────────
 
@@ -84,7 +116,10 @@ const RegisterPage: FC<{ error?: string }> = (props) => (
 
 // ── Sign-in ────────────────────────────────────────────────────
 
-function renderSignIn(c: Context, error?: string): Response | Promise<Response> {
+function renderSignIn(
+  c: Context,
+  error?: string,
+): Response | Promise<Response> {
   return conduit.respond(c, <SignInPage error={error} />);
 }
 
@@ -93,8 +128,13 @@ async function handleSignIn(c: Context): Promise<Response> {
   const username = body.username as string;
   const password = body.password as string;
 
-  const user = await userStore.verifyPassword(username, password);
+  const user = await store.findByUsername(username);
   if (!user) {
+    return renderSignIn(c, "Invalid username or password");
+  }
+
+  const hash = await deriveKey(password, user.username);
+  if (user.passwordHash !== hash) {
     return renderSignIn(c, "Invalid username or password");
   }
 
@@ -138,10 +178,17 @@ async function handleRegister(c: Context): Promise<Response> {
     return renderRegister(c, "Display name is required");
   }
 
-  const user = await userStore.createUser(username, password, displayName);
-  if (!user) {
-    return renderRegister(c, "Username is already taken");
-  }
+  const user = await store.createUser({
+    username,
+    passwordHash: await deriveKey(password, username),
+    displayName,
+    role: "user",
+  }).catch((err: unknown) => {
+    const msg = err instanceof Error ? err.message : "Registration failed";
+    return renderRegister(c, msg);
+  });
+
+  if (user instanceof Response) return user;
 
   const token = await createToken(
     { id: user.id, role: user.role },
@@ -169,6 +216,56 @@ function handleSignOut(c: Context): Response {
   return c.redirect("/");
 }
 
+// ── Avatar upload ───────────────────────────────────────────────
+// POST /auth/avatar  multipart/form-data  field: "avatar" (File)
+
+async function handleAvatarUpload(c: Context): Promise<Response> {
+  if (!blobStore) {
+    return c.json(
+      { error: "Avatar storage requires KV mode (form-auth.store = 'kv')" },
+      501,
+    );
+  }
+
+  const user = c.get("user") as UserInfo | undefined;
+  if (!user) return c.json({ error: "Unauthorized" }, 401);
+
+  const form = await c.req.parseBody();
+  const file = form.avatar;
+
+  if (!(file instanceof File)) {
+    return c.json({ error: "avatar field must be a file" }, 400);
+  }
+
+  if (!file.type.startsWith("image/")) {
+    return c.json({ error: "Only image files are accepted" }, 415);
+  }
+
+  const key = await blobStore.set("avatars", user.id, file);
+  await store.updateAvatarKey(user.id, key);
+
+  return c.json({ ok: true, key });
+}
+
+// ── Avatar serving ──────────────────────────────────────────────
+// GET /avatars/:userId
+
+async function handleAvatarServe(c: Context): Promise<Response> {
+  if (!blobStore) {
+    return c.json({ error: "No avatar found" }, 404);
+  }
+
+  const userId = c.req.param("userId");
+  if (!userId) return c.json({ error: "Missing userId" }, 400);
+
+  const user = await store.findById(userId);
+  if (!user?.avatarKey) {
+    return c.json({ error: "No avatar found" }, 404);
+  }
+
+  return blobStore.getAsResponse("avatars", userId);
+}
+
 // ── Module ─────────────────────────────────────────────────────
 
 const authModule: BlennyModule = {
@@ -177,9 +274,20 @@ const authModule: BlennyModule = {
   routes: [
     { method: "GET", path: "/auth/signin", handler: (c) => renderSignIn(c) },
     { method: "POST", path: "/auth/signin", handler: handleSignIn },
-    { method: "GET", path: "/auth/register", handler: (c) => renderRegister(c) },
+    {
+      method: "GET",
+      path: "/auth/register",
+      handler: (c) => renderRegister(c),
+    },
     { method: "POST", path: "/auth/register", handler: handleRegister },
     { method: "POST", path: "/auth/signout", handler: handleSignOut },
+    {
+      method: "POST",
+      path: "/auth/avatar",
+      handler: handleAvatarUpload,
+      auth: true,
+    },
+    { method: "GET", path: "/avatars/:userId", handler: handleAvatarServe },
   ],
   async initialize(state: AppState) {
     conduit = state.conduit;
@@ -191,6 +299,17 @@ const authModule: BlennyModule = {
       allowQueryToken: false,
       logger: state.logger,
     };
+
+    const driver = state.config.at("form-auth.store") ?? "memory";
+    if (driver === "kv") {
+      const stores = await openKvStore(state.config.at("form-auth.db.path"));
+      store = stores.store;
+      blobStore = stores.blobStore;
+      kv = stores.kv;
+    } else {
+      store = createInMemoryUserStore();
+    }
+
     state.auth = {
       config,
       middleware: createAuthMiddleware(config),
@@ -198,16 +317,24 @@ const authModule: BlennyModule = {
       requireRole: requireRole,
     };
 
-  // Seed a default admin user
-  const existing = await userStore.findByUsername("admin");
-  if (!existing) {
-    await userStore.createUser("admin", "admin", "Administrator", "admin");
-    if (!state.config.devMode) {
-      state.logger.warn(
-        "Default admin credentials (admin/admin) are in use — change them immediately",
-      );
+    const existing = await store.findByUsername("admin");
+    if (!existing) {
+      await store.createUser({
+        username: "admin",
+        passwordHash: await deriveKey("admin", "admin"),
+        displayName: "Administrator",
+        role: "admin",
+      });
+      if (!state.config.devMode) {
+        state.logger.warn(
+          "Default admin credentials (admin/admin) are in use — change them immediately",
+        );
+      }
     }
-  }
+  },
+
+  async stop() {
+    await kv?.close();
   },
 };
 

@@ -27,12 +27,12 @@ if (config.jwtSecret === "CHANGE-ME-EMBEDDED-DEFAULT") {
   if (config.devMode) {
     console.warn(
       "WARNING: auth.jwt_secret is the embedded default. " +
-      "Set BLENNY_AUTH_JWT_SECRET or add it to blenny.json for any non-development deployment.",
+        "Set BLENNY_AUTH_JWT_SECRET or add it to blenny.json for any non-development deployment.",
     );
   } else {
     console.error(
       "FATAL: auth.jwt_secret is still the embedded default. " +
-      "Set BLENNY_AUTH_JWT_SECRET or add it to blenny.json before deploying to production.",
+        "Set BLENNY_AUTH_JWT_SECRET or add it to blenny.json before deploying to production.",
     );
     Deno.exit(1);
   }
@@ -45,6 +45,7 @@ const hub = new TransportHub({
 BlennyPublisher.init(hub);
 const conduit = new Conduit();
 const logger = await createLogger(config);
+
 const state: AppState = { hub, conduit, config, logger };
 const app = new Hono();
 app.use(requestLogger(logger));
@@ -70,14 +71,20 @@ app.use("/auth/*", authLimiter);
 
 app.use(bodyLimit({
   maxSize: config.maxBodyBytes,
-  onError: (c) => c.json({ error: { type: "request_too_large", message: "Request body too large" } }, 413),
+  onError: (c) =>
+    c.json({
+      error: { type: "request_too_large", message: "Request body too large" },
+    }, 413),
 }));
 
 app.onError((err, _c) => {
   if (err instanceof BlennyError) {
     return errorResponse(err.toJSON(), err.statusCode);
   }
-  logger.error("Uncaught error: {error}", { error: err.message, stack: err.stack });
+  logger.error("Uncaught error: {error}", {
+    error: err.message,
+    stack: err.stack,
+  });
   return errorResponse(
     { error: { type: "internal", message: "Internal Server Error" } },
     500,
@@ -97,7 +104,11 @@ for (const mod of modules) {
 }
 if (config.devMode) {
   for (const f of failures) {
-    logger.error("Module load failure: {file} — {error}", { file: f.file, error: f.error, stack: f.stack });
+    logger.error("Module load failure: {file} — {error}", {
+      file: f.file,
+      error: f.error,
+      stack: f.stack,
+    });
   }
 } else {
   for (const f of failures) {
@@ -140,10 +151,9 @@ for (const mod of modules) {
     const method = route.method as HttpMethod;
     const handler = route.handler as unknown as MiddlewareHandler;
     if (route.auth && state.auth) {
-      const guard: MiddlewareHandler =
-        typeof route.auth === "string"
-          ? state.auth.requireRole(route.auth)
-          : state.auth.requireUser;
+      const guard: MiddlewareHandler = typeof route.auth === "string"
+        ? state.auth.requireRole(route.auth)
+        : state.auth.requireUser;
       app.on(method, route.path, guard, handler);
     } else {
       app.on(method, route.path, handler);
@@ -160,7 +170,10 @@ for (const mod of modules) {
 for (const mod of modules) {
   if (mod.subscriptions) {
     for (const sub of mod.subscriptions) {
-      subscribe(sub.topic as keyof BlennyEvents, sub.handler as (payload: unknown) => void);
+      subscribe(
+        sub.topic as keyof BlennyEvents,
+        sub.handler as (payload: unknown) => void,
+      );
       logger.debug("Event subscription: {module} -> {topic}", {
         module: mod.name,
         topic: sub.topic,

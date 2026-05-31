@@ -59,21 +59,27 @@ Deno.test("form-auth module", async (t) => {
     assertEquals(html.includes("Invalid username or password"), true);
   });
 
-  await t.step("POST /auth/signin with admin/admin returns 302 + cookie", async () => {
-    const body = new URLSearchParams({ username: "admin", password: "admin" });
-    const res = await app.request("http://localhost/auth/signin", {
-      method: "POST",
-      body: body.toString(),
-      headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    });
-    assertEquals(res.status, 302);
-    assertEquals(res.headers.get("location"), "/dashboard");
+  await t.step(
+    "POST /auth/signin with admin/admin returns 302 + cookie",
+    async () => {
+      const body = new URLSearchParams({
+        username: "admin",
+        password: "admin",
+      });
+      const res = await app.request("http://localhost/auth/signin", {
+        method: "POST",
+        body: body.toString(),
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      });
+      assertEquals(res.status, 302);
+      assertEquals(res.headers.get("location"), "/dashboard");
 
-    const setCookie = res.headers.get("set-cookie");
-    assertExists(setCookie);
-    assertEquals(setCookie.includes("blenny_session"), true);
-    assertEquals(setCookie.includes("HttpOnly"), true);
-  });
+      const setCookie = res.headers.get("set-cookie");
+      assertExists(setCookie);
+      assertEquals(setCookie.includes("blenny_session"), true);
+      assertEquals(setCookie.includes("HttpOnly"), true);
+    },
+  );
 
   await t.step("authenticated request passes requireUser guard", async () => {
     // First sign in to get the cookie
@@ -121,73 +127,88 @@ Deno.test("registration", async (t) => {
     assertEquals(html.includes('/auth/signin"'), true);
   });
 
-  await t.step("POST /auth/register creates user and returns 302 + cookie", async () => {
-    const body = new URLSearchParams({
-      username: "regtest-user",
-      display_name: "Reg User",
-      password: "secret123",
-    });
-    const res = await app.request("http://localhost/auth/register", {
-      method: "POST",
-      body: body.toString(),
-      headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    });
-    assertEquals(res.status, 302);
-    assertEquals(res.headers.get("location"), "/dashboard");
+  await t.step(
+    "POST /auth/register creates user and returns 302 + cookie",
+    async () => {
+      const body = new URLSearchParams({
+        username: "regtest-user",
+        display_name: "Reg User",
+        password: "secret123",
+      });
+      const res = await app.request("http://localhost/auth/register", {
+        method: "POST",
+        body: body.toString(),
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      });
+      assertEquals(res.status, 302);
+      assertEquals(res.headers.get("location"), "/dashboard");
 
-    const setCookie = res.headers.get("set-cookie");
-    assertExists(setCookie);
-    assertEquals(setCookie.includes("blenny_session"), true);
-    assertEquals(setCookie.includes("HttpOnly"), true);
-  });
+      const setCookie = res.headers.get("set-cookie");
+      assertExists(setCookie);
+      assertEquals(setCookie.includes("blenny_session"), true);
+      assertEquals(setCookie.includes("HttpOnly"), true);
+    },
+  );
 
-  await t.step("POST /auth/register with taken username shows error", async () => {
-    const body = new URLSearchParams({
-      username: "admin",
-      display_name: "Should Fail",
-      password: "whatever",
-    });
-    const res = await app.request("http://localhost/auth/register", {
-      method: "POST",
-      body: body.toString(),
-      headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    });
-    assertEquals(res.status, 200);
-    const html = await res.text();
-    assertEquals(html.includes("Username is already taken"), true);
-  });
+  await t.step(
+    "POST /auth/register with taken username shows error",
+    async () => {
+      const body = new URLSearchParams({
+        username: "admin",
+        display_name: "Should Fail",
+        password: "whatever",
+      });
+      const res = await app.request("http://localhost/auth/register", {
+        method: "POST",
+        body: body.toString(),
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      });
+      assertEquals(res.status, 200);
+      const html = await res.text();
+      assertEquals(html.includes("Username is already taken"), true);
+    },
+  );
 
-  await t.step("POST /auth/register with empty fields shows error", async () => {
-    const body = new URLSearchParams({
-      username: "",
-      display_name: "",
-      password: "",
-    });
-    const res = await app.request("http://localhost/auth/register", {
-      method: "POST",
-      body: body.toString(),
-      headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    });
-    assertEquals(res.status, 200);
-    const html = await res.text();
-    assertEquals(html.includes("Username is required"), true);
-  });
+  await t.step(
+    "POST /auth/register with empty fields shows error",
+    async () => {
+      const body = new URLSearchParams({
+        username: "",
+        display_name: "",
+        password: "",
+      });
+      const res = await app.request("http://localhost/auth/register", {
+        method: "POST",
+        body: body.toString(),
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      });
+      assertEquals(res.status, 200);
+      const html = await res.text();
+      assertEquals(html.includes("Username is required"), true);
+    },
+  );
 
-  await t.step("POST /auth/register with short password shows error", async () => {
-    const body = new URLSearchParams({
-      username: "validuser",
-      display_name: "Valid User",
-      password: "short",
-    });
-    const res = await app.request("http://localhost/auth/register", {
-      method: "POST",
-      body: body.toString(),
-      headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    });
-    assertEquals(res.status, 200);
-    const html = await res.text();
-    assertEquals(html.includes("Password must be at least 8 characters"), true);
-  });
+  await t.step(
+    "POST /auth/register with short password shows error",
+    async () => {
+      const body = new URLSearchParams({
+        username: "validuser",
+        display_name: "Valid User",
+        password: "short",
+      });
+      const res = await app.request("http://localhost/auth/register", {
+        method: "POST",
+        body: body.toString(),
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      });
+      assertEquals(res.status, 200);
+      const html = await res.text();
+      assertEquals(
+        html.includes("Password must be at least 8 characters"),
+        true,
+      );
+    },
+  );
 
   await t.step("newly registered user can sign in", async () => {
     const body = new URLSearchParams({

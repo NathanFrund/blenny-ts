@@ -31,3 +31,26 @@ export const UserInfoSchema = v.object({
 });
 
 export type UserInfoData = v.InferOutput<typeof UserInfoSchema>;
+
+// ── Entity schemas ──────────────────────────────────────────────
+
+export const UserSchema = v.object({
+  username: v.pipe(v.string(), v.minLength(1), v.maxLength(64)),
+  passwordHash: v.string(),
+  displayName: v.pipe(v.string(), v.minLength(1)),
+  role: v.string(),
+  avatarKey: v.optional(v.string()),
+  createdAt: v.number(),
+});
+
+export type UserData = v.InferOutput<typeof UserSchema>;
+
+export const NewUserSchema = v.object({
+  username: UserSchema.entries.username,
+  passwordHash: UserSchema.entries.passwordHash,
+  displayName: UserSchema.entries.displayName,
+  role: v.optional(v.string(), "user"),
+});
+
+export type NewUser = v.InferOutput<typeof NewUserSchema>;
+export type NewUserInput = v.InferInput<typeof NewUserSchema>;

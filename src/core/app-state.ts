@@ -5,7 +5,6 @@ import type { Conduit } from "./conduit.ts";
 import type { AuthConfig } from "./auth.ts";
 import type { BlennyConfig } from "./config.ts";
 import type { BlennyLogger } from "./logger.ts";
-
 export interface AuthBundle {
   config: AuthConfig;
   middleware: MiddlewareHandler;

@@ -74,10 +74,9 @@ Deno.test("main routes", async (t) => {
     const method = route.method as HttpMethod;
     const handler = route.handler as unknown as MiddlewareHandler;
     if (route.auth && state.auth) {
-      const guard: MiddlewareHandler =
-        typeof route.auth === "string"
-          ? state.auth.requireRole(route.auth)
-          : state.auth.requireUser;
+      const guard: MiddlewareHandler = typeof route.auth === "string"
+        ? state.auth.requireRole(route.auth)
+        : state.auth.requireUser;
       app.on(method, route.path, guard, handler);
     } else {
       app.on(method, route.path, handler);
@@ -92,53 +91,65 @@ Deno.test("main routes", async (t) => {
     assertEquals(typeof body.modules, "number");
   });
 
-  await t.step("GET /sse without auth returns 401 when auth required", async () => {
-    // Simulate production mode where transport auth is required
-    const authConfig = { ...state.auth!.config };
-    authConfig.allowQueryToken = true;
-    const appAuth = new Hono();
-    appAuth.get("/sse", async (c) => {
-      const user = await getUser(c, authConfig);
-      if (user) {
-        return ServerSentEventGenerator.stream(
-          (stream) => {
-            const id = crypto.randomUUID();
-            const conn = new SseConnection(stream, id, user.id);
-            const cleanup = hub.registerConnection(conn);
-            return new Promise<void>((resolve) => {
-              c.req.raw.signal.addEventListener("abort", () => { cleanup(); resolve(); });
-            });
-          },
-          { keepalive: true },
-        );
-      }
-      return c.text("Unauthorized", 401);
-    });
-    const res = await appAuth.request("http://localhost/sse");
-    assertEquals(res.status, 401);
-  });
+  await t.step(
+    "GET /sse without auth returns 401 when auth required",
+    async () => {
+      // Simulate production mode where transport auth is required
+      const authConfig = { ...state.auth!.config };
+      authConfig.allowQueryToken = true;
+      const appAuth = new Hono();
+      appAuth.get("/sse", async (c) => {
+        const user = await getUser(c, authConfig);
+        if (user) {
+          return ServerSentEventGenerator.stream(
+            (stream) => {
+              const id = crypto.randomUUID();
+              const conn = new SseConnection(stream, id, user.id);
+              const cleanup = hub.registerConnection(conn);
+              return new Promise<void>((resolve) => {
+                c.req.raw.signal.addEventListener("abort", () => {
+                  cleanup();
+                  resolve();
+                });
+              });
+            },
+            { keepalive: true },
+          );
+        }
+        return c.text("Unauthorized", 401);
+      });
+      const res = await appAuth.request("http://localhost/sse");
+      assertEquals(res.status, 401);
+    },
+  );
 
-  await t.step("GET /sse with valid token returns SSE content-type", async () => {
-    const { createToken } = await import("../src/core/auth.ts");
-    const token = await createToken(
-      { id: "admin", role: "admin" },
-      state.auth!.config,
-    );
-    const res = await app.request("http://localhost/sse", {
-      headers: { Cookie: "blenny_session=" + token },
-    });
-    assertEquals(res.status, 200);
-    const ctype = res.headers.get("content-type");
-    assertExists(ctype);
-    assertEquals(ctype.includes("text/event-stream"), true);
-    assertEquals(res.headers.get("cache-control"), "no-cache");
-  });
+  await t.step(
+    "GET /sse with valid token returns SSE content-type",
+    async () => {
+      const { createToken } = await import("../src/core/auth.ts");
+      const token = await createToken(
+        { id: "admin", role: "admin" },
+        state.auth!.config,
+      );
+      const res = await app.request("http://localhost/sse", {
+        headers: { Cookie: "blenny_session=" + token },
+      });
+      assertEquals(res.status, 200);
+      const ctype = res.headers.get("content-type");
+      assertExists(ctype);
+      assertEquals(ctype.includes("text/event-stream"), true);
+      assertEquals(res.headers.get("cache-control"), "no-cache");
+    },
+  );
 
-  await t.step("GET /dashboard (no auth) redirects to /auth/signin", async () => {
-    const res = await app.request("http://localhost/dashboard");
-    assertEquals(res.status, 302);
-    assertEquals(res.headers.get("location"), "/auth/signin");
-  });
+  await t.step(
+    "GET /dashboard (no auth) redirects to /auth/signin",
+    async () => {
+      const res = await app.request("http://localhost/dashboard");
+      assertEquals(res.status, 302);
+      assertEquals(res.headers.get("location"), "/auth/signin");
+    },
+  );
 
   await t.step("GET /sse with token and intent works", async () => {
     const { createToken } = await import("../src/core/auth.ts");
@@ -152,15 +163,18 @@ Deno.test("main routes", async (t) => {
     assertEquals(res.status, 200);
   });
 
-  await t.step("GET /sse with token creates authenticated connection", async () => {
-    const { createToken } = await import("../src/core/auth.ts");
-    const token = await createToken(
-      { id: "admin", role: "admin" },
-      state.auth!.config,
-    );
-    const res = await app.request("http://localhost/sse", {
-      headers: { Cookie: "blenny_session=" + token },
-    });
-    assertEquals(res.status, 200);
-  });
+  await t.step(
+    "GET /sse with token creates authenticated connection",
+    async () => {
+      const { createToken } = await import("../src/core/auth.ts");
+      const token = await createToken(
+        { id: "admin", role: "admin" },
+        state.auth!.config,
+      );
+      const res = await app.request("http://localhost/sse", {
+        headers: { Cookie: "blenny_session=" + token },
+      });
+      assertEquals(res.status, 200);
+    },
+  );
 });

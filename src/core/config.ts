@@ -189,7 +189,9 @@ export class BlennyConfig {
     const num = Number(raw);
     if (isNaN(num) || num < min || num > max) {
       throw new Error(
-        `[config] ${key}: expected a number between ${min} and ${max}, got "${raw ?? ""}"`,
+        `[config] ${key}: expected a number between ${min} and ${max}, got "${
+          raw ?? ""
+        }"`,
       );
     }
     return num;
@@ -290,7 +292,10 @@ export class BlennyConfig {
       } else {
         const key = arg.slice(2);
         if (key in DEFAULTS || key.includes(".")) {
-          if (i + 1 < args.length && !args[i + 1].startsWith("--") && !args[i + 1].startsWith("-")) {
+          if (
+            i + 1 < args.length && !args[i + 1].startsWith("--") &&
+            !args[i + 1].startsWith("-")
+          ) {
             this.set(key, args[++i], source);
           } else {
             this.set(key, "true", source);
