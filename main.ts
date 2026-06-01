@@ -11,6 +11,7 @@ import { BlennyPublisher } from "./src/core/publisher.ts";
 import { publish, subscribe, TransportHub } from "./src/core/hub.ts";
 import { Conduit } from "./src/core/conduit.ts";
 import { getUser } from "./src/core/auth.ts";
+import { trace, SpanStatusCode } from "@opentelemetry/api";
 import type { Intent } from "./src/core/envelope.ts";
 import { ServerSentEventGenerator } from "@starfederation/datastar-sdk/web";
 import { SseConnection } from "./src/core/sse-connection.ts";
@@ -78,6 +79,11 @@ app.use(bodyLimit({
 }));
 
 app.onError((err, _c) => {
+  const span = trace.getActiveSpan();
+  if (span) {
+    span.setStatus({ code: SpanStatusCode.ERROR, message: err.message });
+    span.recordException(err);
+  }
   if (err instanceof BlennyError) {
     return errorResponse(err.toJSON(), err.statusCode);
   }
@@ -149,7 +155,15 @@ if (state.auth) {
 for (const mod of modules) {
   for (const route of mod.routes) {
     const method = route.method as HttpMethod;
-    const handler = route.handler as unknown as MiddlewareHandler;
+    const originalHandler = route.handler as unknown as MiddlewareHandler;
+    const handler: MiddlewareHandler = (c, next) => {
+      const span = trace.getActiveSpan();
+      if (span) {
+        span.setAttribute("http.route", route.path);
+        span.updateName(`${route.method.toUpperCase()} ${route.path}`);
+      }
+      return originalHandler(c, next);
+    };
     if (route.auth && state.auth) {
       const guard: MiddlewareHandler = typeof route.auth === "string"
         ? state.auth.requireRole(route.auth)

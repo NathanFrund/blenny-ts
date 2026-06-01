@@ -1,6 +1,13 @@
 import type { Intent, ServerMessage } from "./envelope.ts";
 import type { BlennyEvents } from "../types.ts";
 import { BlennyError } from "./error.ts";
+import {
+  activeConnections,
+  messagesSent,
+  messageDuration,
+  tracer,
+} from "./tracing.ts";
+import { SpanStatusCode } from "@opentelemetry/api";
 
 // ── Typed event bus ──────────────────────────────────────────────
 
@@ -134,12 +141,14 @@ export class TransportHub {
     } else {
       this.noIntentConns.add(conn.id);
     }
+    activeConnections.add(1, { "conn.type": conn.connType });
     return () => this.removeConnection(conn.id);
   }
 
   removeConnection(id: ConnId): void {
     const conn = this.conns.get(id);
     if (!conn) return;
+    activeConnections.add(-1, { "conn.type": conn.connType });
     this.conns.delete(id);
     this.sseConns.delete(conn);
     if (conn.intents) {
@@ -167,13 +176,22 @@ export class TransportHub {
     if (msg.intent && conn.intents && !conn.intents.has(msg.intent)) {
       return;
     }
+    const start = performance.now();
     try {
       const result = conn.send(msg);
       if (result instanceof Promise) await result;
       conn.lastWriteAt = Date.now();
+      messagesSent.add(1, {
+        "conn.type": conn.connType,
+        "msg.intent": msg.intent ?? "none",
+      });
+      messageDuration.record(performance.now() - start, {
+        "conn.type": conn.connType,
+      });
     } catch (err) {
       console.warn(`[hub] Send failed for ${conn.id}, removing connection`, err);
       this.removeConnection(conn.id);
+      throw err;
     }
   }
 
@@ -188,15 +206,15 @@ export class TransportHub {
   patchElements(
     html: string,
     opts?: { intent?: Intent; userId?: string },
-  ): void {
-    this.sendMessage({ intent: opts?.intent, html }, opts?.userId);
+  ): Promise<void> {
+    return this.sendMessage({ intent: opts?.intent, html }, opts?.userId);
   }
 
   mergeSignals(
     data: Record<string, unknown>,
     opts?: { intent?: Intent; userId?: string },
-  ): void {
-    this.sendMessage({ intent: opts?.intent, signals: data }, opts?.userId);
+  ): Promise<void> {
+    return this.sendMessage({ intent: opts?.intent, signals: data }, opts?.userId);
   }
 
   /**
@@ -207,46 +225,89 @@ export class TransportHub {
   executeScript(
     script: string,
     opts?: { intent?: Intent; userId?: string },
-  ): void {
-    this.sendMessage({ intent: opts?.intent, script }, opts?.userId);
+  ): Promise<void> {
+    return this.sendMessage({ intent: opts?.intent, script }, opts?.userId);
   }
 
-  private sendMessage(msg: ServerMessage, targetUserId?: string): void {
+  private sendMessage(msg: ServerMessage, targetUserId?: string): Promise<void> {
     if (targetUserId) {
-      this.directToUser(msg, targetUserId);
+      return this.directToUser(msg, targetUserId);
     } else {
-      this.broadcastToAll(msg);
+      return this.broadcastToAll(msg);
     }
   }
 
   // ── Low-level broadcast ──────────────────────────────────────
 
-  private broadcastToAll(msg: ServerMessage): void {
-    if (msg.intent) {
-      const group = this.intentGroups.get(msg.intent);
-      if (group) {
-        for (const id of group) {
-          const conn = this.conns.get(id);
-          if (conn) this.write(msg, conn);
+  private async broadcastToAll(msg: ServerMessage): Promise<void> {
+    if (this.conns.size === 0) return;
+    await tracer.startActiveSpan("hub.broadcast", async (span) => {
+      try {
+        const writes: Promise<void>[] = [];
+        if (msg.intent) {
+          const group = this.intentGroups.get(msg.intent);
+          if (group) {
+            for (const id of group) {
+              const conn = this.conns.get(id);
+              if (conn) writes.push(this.write(msg, conn));
+            }
+          }
+          for (const id of this.noIntentConns) {
+            const conn = this.conns.get(id);
+            if (conn) writes.push(this.write(msg, conn));
+          }
+        } else {
+          for (const conn of this.conns.values()) {
+            writes.push(this.write(msg, conn));
+          }
         }
+        const results = await Promise.allSettled(writes);
+        const failed = results.filter((r) => r.status === "rejected");
+        span.setAttribute("conn.count", this.conns.size);
+        span.setAttribute("msg.intent", msg.intent ?? "none");
+        if (failed.length > 0) {
+          span.setAttribute("write.errors", failed.length);
+          span.setStatus({ code: SpanStatusCode.ERROR });
+        }
+      } catch (err) {
+        span.recordException(err as Error);
+        span.setStatus({
+          code: SpanStatusCode.ERROR,
+          message: (err as Error).message,
+        });
+      } finally {
+        span.end();
       }
-      for (const id of this.noIntentConns) {
-        const conn = this.conns.get(id);
-        if (conn) this.write(msg, conn);
-      }
-    } else {
-      for (const conn of this.conns.values()) {
-        this.write(msg, conn);
-      }
-    }
+    });
   }
 
-  private directToUser(msg: ServerMessage, userId: string): void {
+  private async directToUser(msg: ServerMessage, userId: string): Promise<void> {
     const userSet = this.userConns.get(userId);
-    if (!userSet) return;
-    for (const id of userSet) {
-      const conn = this.conns.get(id);
-      if (conn) this.write(msg, conn);
-    }
+    if (!userSet || userSet.size === 0) return;
+    await tracer.startActiveSpan("hub.directToUser", async (span) => {
+      try {
+        span.setAttribute("user.id", userId);
+        const writes: Promise<void>[] = [];
+        for (const id of userSet) {
+          const conn = this.conns.get(id);
+          if (conn) writes.push(this.write(msg, conn));
+        }
+        const results = await Promise.allSettled(writes);
+        const failed = results.filter((r) => r.status === "rejected");
+        span.setAttribute("conn.count", writes.length);
+        if (failed.length > 0) {
+          span.setAttribute("write.errors", failed.length);
+          span.setStatus({ code: SpanStatusCode.ERROR });
+        }
+      } catch (err) {
+        span.recordException(err as Error);
+        span.setStatus({
+          code: SpanStatusCode.ERROR,
+          message: (err as Error).message,
+        });
+      } finally {
+        span.end();
+      }
+    });
   }
 }
