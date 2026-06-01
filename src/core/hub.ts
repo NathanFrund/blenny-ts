@@ -5,9 +5,9 @@ import {
   activeConnections,
   messagesSent,
   messageDuration,
-  tracer,
+  withSpan,
+  SpanStatusCode,
 } from "./tracing.ts";
-import { SpanStatusCode } from "@opentelemetry/api";
 
 // ── Typed event bus ──────────────────────────────────────────────
 
@@ -241,42 +241,32 @@ export class TransportHub {
 
   private async broadcastToAll(msg: ServerMessage): Promise<void> {
     if (this.conns.size === 0) return;
-    await tracer.startActiveSpan("hub.broadcast", async (span) => {
-      try {
-        const writes: Promise<void>[] = [];
-        if (msg.intent) {
-          const group = this.intentGroups.get(msg.intent);
-          if (group) {
-            for (const id of group) {
-              const conn = this.conns.get(id);
-              if (conn) writes.push(this.write(msg, conn));
-            }
-          }
-          for (const id of this.noIntentConns) {
+    await withSpan("hub.broadcast", async (span) => {
+      const writes: Promise<void>[] = [];
+      if (msg.intent) {
+        const group = this.intentGroups.get(msg.intent);
+        if (group) {
+          for (const id of group) {
             const conn = this.conns.get(id);
             if (conn) writes.push(this.write(msg, conn));
           }
-        } else {
-          for (const conn of this.conns.values()) {
-            writes.push(this.write(msg, conn));
-          }
         }
-        const results = await Promise.allSettled(writes);
-        const failed = results.filter((r) => r.status === "rejected");
-        span.setAttribute("conn.count", this.conns.size);
-        span.setAttribute("msg.intent", msg.intent ?? "none");
-        if (failed.length > 0) {
-          span.setAttribute("write.errors", failed.length);
-          span.setStatus({ code: SpanStatusCode.ERROR });
+        for (const id of this.noIntentConns) {
+          const conn = this.conns.get(id);
+          if (conn) writes.push(this.write(msg, conn));
         }
-      } catch (err) {
-        span.recordException(err as Error);
-        span.setStatus({
-          code: SpanStatusCode.ERROR,
-          message: (err as Error).message,
-        });
-      } finally {
-        span.end();
+      } else {
+        for (const conn of this.conns.values()) {
+          writes.push(this.write(msg, conn));
+        }
+      }
+      const results = await Promise.allSettled(writes);
+      const failed = results.filter((r) => r.status === "rejected");
+      span.setAttribute("conn.count", this.conns.size);
+      span.setAttribute("msg.intent", msg.intent ?? "none");
+      if (failed.length > 0) {
+        span.setAttribute("write.errors", failed.length);
+        span.setStatus({ code: SpanStatusCode.ERROR });
       }
     });
   }
@@ -284,29 +274,19 @@ export class TransportHub {
   private async directToUser(msg: ServerMessage, userId: string): Promise<void> {
     const userSet = this.userConns.get(userId);
     if (!userSet || userSet.size === 0) return;
-    await tracer.startActiveSpan("hub.directToUser", async (span) => {
-      try {
-        span.setAttribute("user.id", userId);
-        const writes: Promise<void>[] = [];
-        for (const id of userSet) {
-          const conn = this.conns.get(id);
-          if (conn) writes.push(this.write(msg, conn));
-        }
-        const results = await Promise.allSettled(writes);
-        const failed = results.filter((r) => r.status === "rejected");
-        span.setAttribute("conn.count", writes.length);
-        if (failed.length > 0) {
-          span.setAttribute("write.errors", failed.length);
-          span.setStatus({ code: SpanStatusCode.ERROR });
-        }
-      } catch (err) {
-        span.recordException(err as Error);
-        span.setStatus({
-          code: SpanStatusCode.ERROR,
-          message: (err as Error).message,
-        });
-      } finally {
-        span.end();
+    await withSpan("hub.directToUser", async (span) => {
+      span.setAttribute("user.id", userId);
+      const writes: Promise<void>[] = [];
+      for (const id of userSet) {
+        const conn = this.conns.get(id);
+        if (conn) writes.push(this.write(msg, conn));
+      }
+      const results = await Promise.allSettled(writes);
+      const failed = results.filter((r) => r.status === "rejected");
+      span.setAttribute("conn.count", writes.length);
+      if (failed.length > 0) {
+        span.setAttribute("write.errors", failed.length);
+        span.setStatus({ code: SpanStatusCode.ERROR });
       }
     });
   }

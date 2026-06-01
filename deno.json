@@ -19,6 +19,7 @@
     "@valibot/valibot": "jsr:@valibot/valibot@^1.4.1",
     "@kitsonk/kv-toolbox": "jsr:@kitsonk/kv-toolbox@^0.28.1",
     "@blenny/types": "./src/types.ts",
-    "@opentelemetry/api": "npm:@opentelemetry/api@^1.9.0"
+    "@opentelemetry/api": "npm:@opentelemetry/api@^1.9.0",
+    "@opentelemetry/sdk-trace-base": "npm:@opentelemetry/sdk-trace-base@^1.30.0"
   }
 }

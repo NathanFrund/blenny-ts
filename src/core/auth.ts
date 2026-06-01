@@ -4,7 +4,7 @@ import { deleteCookie, getCookie, setCookie } from "@hono/hono/cookie";
 import * as v from "@valibot/valibot";
 import { UserInfoSchema } from "./validation.ts";
 import type { BlennyLogger } from "./logger.ts";
-import { tracer } from "./tracing.ts";
+import { withSpan } from "./tracing.ts";
 
 // ── Types ─────────────────────────────────────────────────────
 
@@ -30,15 +30,11 @@ export function createToken(
   user: UserInfo,
   config: AuthConfig,
 ): Promise<string> {
-  return tracer.startActiveSpan("auth.createToken", async (span) => {
-    try {
-      return await sign(
-        { ...user, exp: Math.floor(Date.now() / 1000) + config.sessionExpiry },
-        config.jwtSecret,
-      );
-    } finally {
-      span.end();
-    }
+  return withSpan("auth.createToken", async (_span) => {
+    return await sign(
+      { ...user, exp: Math.floor(Date.now() / 1000) + config.sessionExpiry },
+      config.jwtSecret,
+    );
   });
 }
 
@@ -46,31 +42,27 @@ export function getUser(
   c: Context,
   config: AuthConfig,
 ): Promise<UserInfo | null> {
-  return tracer.startActiveSpan("auth.getUser", async (span) => {
+  return withSpan("auth.getUser", async (_span) => {
+    let token = getCookie(c, config.cookieName);
+
+    if (!token && config.allowQueryToken === true) {
+      token = c.req.query("token");
+    }
+
+    if (!token) return null;
+
     try {
-      let token = getCookie(c, config.cookieName);
-
-      if (!token && config.allowQueryToken === true) {
-        token = c.req.query("token");
-      }
-
-      if (!token) return null;
-
-      try {
-        const payload = await verify(token, config.jwtSecret, "HS256");
-        const result = v.safeParse(UserInfoSchema, payload);
-        if (!result.success) {
-          config.logger?.debug("Invalid JWT payload structure", {
-            errors: result.issues,
-          });
-          return null;
-        }
-        return { id: result.output.id, role: result.output.role };
-      } catch {
+      const payload = await verify(token, config.jwtSecret, "HS256");
+      const result = v.safeParse(UserInfoSchema, payload);
+      if (!result.success) {
+        config.logger?.debug("Invalid JWT payload structure", {
+          errors: result.issues,
+        });
         return null;
       }
-    } finally {
-      span.end();
+      return { id: result.output.id, role: result.output.role };
+    } catch {
+      return null;
     }
   });
 }
