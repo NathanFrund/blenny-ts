@@ -13,9 +13,9 @@ provider.addSpanProcessor(new SimpleSpanProcessor(exporter));
 trace.setGlobalTracerProvider(provider);
 
 Deno.test("OTel withSpan wrapper", async (t) => {
-  await t.step("sync callback produces a finished span", () => {
+  await t.step("sync callback produces a finished span", async () => {
     exporter.reset();
-    withSpan("test.sync", (_span) => {
+    await withSpan("test.sync", (_span) => {
       return 42;
     });
 
