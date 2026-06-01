@@ -1,13 +1,13 @@
 import { assertEquals, assertExists } from "@std/assert";
 import { Context, Hono } from "@hono/hono";
 import {
+  clearSessionCookie,
+  createAuthMiddleware,
   createToken,
   getUser,
-  createAuthMiddleware,
-  requireUser,
   requireRole,
+  requireUser,
   setSessionCookie,
-  clearSessionCookie,
 } from "../src/core/auth.ts";
 import type { AuthConfig } from "../src/core/auth.ts";
 
@@ -37,23 +37,29 @@ Deno.test("auth", async (t) => {
     assertEquals(user?.role, "admin");
   });
 
-  await t.step("getUser decodes a valid token from query param when allowed", async () => {
-    const token = await createToken(adminUser, config);
-    const queryConfig = { ...config, allowQueryToken: true };
-    const req = new Request(`http://localhost/?token=${token}`);
-    const c = new Context(req);
-    const user = await getUser(c, queryConfig);
-    assertEquals(user?.id, "admin");
-    assertEquals(user?.role, "admin");
-  });
+  await t.step(
+    "getUser decodes a valid token from query param when allowed",
+    async () => {
+      const token = await createToken(adminUser, config);
+      const queryConfig = { ...config, allowQueryToken: true };
+      const req = new Request(`http://localhost/?token=${token}`);
+      const c = new Context(req);
+      const user = await getUser(c, queryConfig);
+      assertEquals(user?.id, "admin");
+      assertEquals(user?.role, "admin");
+    },
+  );
 
-  await t.step("getUser ignores query param when allowQueryToken is false", async () => {
-    const token = await createToken(adminUser, config);
-    const req = new Request(`http://localhost/?token=${token}`);
-    const c = new Context(req);
-    const user = await getUser(c, config);
-    assertEquals(user, null);
-  });
+  await t.step(
+    "getUser ignores query param when allowQueryToken is false",
+    async () => {
+      const token = await createToken(adminUser, config);
+      const req = new Request(`http://localhost/?token=${token}`);
+      const c = new Context(req);
+      const user = await getUser(c, config);
+      assertEquals(user, null);
+    },
+  );
 
   await t.step("getUser returns null for missing token", async () => {
     const req = new Request("http://localhost/");
@@ -82,21 +88,24 @@ Deno.test("auth", async (t) => {
     assertEquals(user, null);
   });
 
-  await t.step("getUser returns null for JWT with malformed payload", async () => {
-    const badUser = { id: 123, role: true, extra: "should be stripped" };
-    // Sign with matching config so verify passes, but Valibot should reject shape
-    const { sign } = await import("@hono/hono/jwt");
-    const token = await sign(
-      { ...badUser, exp: Math.floor(Date.now() / 1000) + 3600 },
-      config.jwtSecret,
-    );
-    const req = new Request("http://localhost/", {
-      headers: { Cookie: `test_session=${token}` },
-    });
-    const c = new Context(req);
-    const user = await getUser(c, config);
-    assertEquals(user, null);
-  });
+  await t.step(
+    "getUser returns null for JWT with malformed payload",
+    async () => {
+      const badUser = { id: 123, role: true, extra: "should be stripped" };
+      // Sign with matching config so verify passes, but Valibot should reject shape
+      const { sign } = await import("@hono/hono/jwt");
+      const token = await sign(
+        { ...badUser, exp: Math.floor(Date.now() / 1000) + 3600 },
+        config.jwtSecret,
+      );
+      const req = new Request("http://localhost/", {
+        headers: { Cookie: `test_session=${token}` },
+      });
+      const c = new Context(req);
+      const user = await getUser(c, config);
+      assertEquals(user, null);
+    },
+  );
 
   await t.step("setSessionCookie sets the cookie on context", () => {
     const req = new Request("http://localhost/");
@@ -127,37 +136,43 @@ Deno.test("auth", async (t) => {
 });
 
 Deno.test("auth middleware", async (t) => {
-  await t.step("createAuthMiddleware sets c.get('user') for valid token", async () => {
-    const token = await createToken(adminUser, config);
-    const app = new Hono();
-    app.use("*", createAuthMiddleware(config));
-    // deno-lint-ignore no-explicit-any
-    app.get("/test", (c: any) => {
-      const user = c.get("user");
-      return c.json({ id: user?.id, role: user?.role });
-    });
+  await t.step(
+    "createAuthMiddleware sets c.get('user') for valid token",
+    async () => {
+      const token = await createToken(adminUser, config);
+      const app = new Hono();
+      app.use("*", createAuthMiddleware(config));
+      // deno-lint-ignore no-explicit-any
+      app.get("/test", (c: any) => {
+        const user = c.get("user");
+        return c.json({ id: user?.id, role: user?.role });
+      });
 
-    const res = await app.request("http://localhost/test", {
-      headers: { Cookie: `test_session=${token}` },
-    });
-    const body = await res.json();
-    assertEquals(body.id, "admin");
-    assertEquals(body.role, "admin");
-  });
+      const res = await app.request("http://localhost/test", {
+        headers: { Cookie: `test_session=${token}` },
+      });
+      const body = await res.json();
+      assertEquals(body.id, "admin");
+      assertEquals(body.role, "admin");
+    },
+  );
 
-  await t.step("createAuthMiddleware does not set user for missing token", async () => {
-    const app = new Hono();
-    app.use("*", createAuthMiddleware(config));
-    // deno-lint-ignore no-explicit-any
-    app.get("/test", (c: any) => {
-      const user = c.get("user");
-      return c.json({ user: user ?? null });
-    });
+  await t.step(
+    "createAuthMiddleware does not set user for missing token",
+    async () => {
+      const app = new Hono();
+      app.use("*", createAuthMiddleware(config));
+      // deno-lint-ignore no-explicit-any
+      app.get("/test", (c: any) => {
+        const user = c.get("user");
+        return c.json({ user: user ?? null });
+      });
 
-    const res = await app.request("http://localhost/test");
-    const body = await res.json();
-    assertEquals(body.user, null);
-  });
+      const res = await app.request("http://localhost/test");
+      const body = await res.json();
+      assertEquals(body.user, null);
+    },
+  );
 
   await t.step("requireUser redirects to sign-in when no user", async () => {
     const app = new Hono();
@@ -235,7 +250,11 @@ Deno.test("auth middleware", async (t) => {
   await t.step("requireUser accepts custom redirectUrl", async () => {
     const app = new Hono();
     app.use("*", createAuthMiddleware(config));
-    app.get("/custom", requireUser({ redirectUrl: "/custom-login" }), (c) => c.text("ok"));
+    app.get(
+      "/custom",
+      requireUser({ redirectUrl: "/custom-login" }),
+      (c) => c.text("ok"),
+    );
 
     const res = await app.request("http://localhost/custom");
     assertEquals(res.status, 302);

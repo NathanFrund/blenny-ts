@@ -33,7 +33,9 @@ export async function withDb<T>(
   } catch (err) {
     if (err instanceof DbError) throw err;
     if (logger) {
-      logger.warn("Unexpected error in withDb: {error}", { error: String(err) });
+      logger.warn("Unexpected error in withDb: {error}", {
+        error: String(err),
+      });
     }
     return fallback;
   }

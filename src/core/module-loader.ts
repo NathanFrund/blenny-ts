@@ -16,7 +16,10 @@ export interface ModuleLoadResult {
   failures: ModuleLoadFailure[];
 }
 
-function validateModule(candidate: unknown, fileName: string): { mod?: BlennyModule; err?: string } {
+function validateModule(
+  candidate: unknown,
+  fileName: string,
+): { mod?: BlennyModule; err?: string } {
   if (!candidate || typeof candidate !== "object") {
     return { err: "no default BlennyModule export" };
   }
@@ -42,7 +45,10 @@ function validateModule(candidate: unknown, fileName: string): { mod?: BlennyMod
     if (typeof r.handler !== "function") {
       return { err: `routes[${i}].handler must be a function` };
     }
-    if (r.auth !== undefined && typeof r.auth !== "boolean" && typeof r.auth !== "string") {
+    if (
+      r.auth !== undefined && typeof r.auth !== "boolean" &&
+      typeof r.auth !== "string"
+    ) {
       return { err: `routes[${i}].auth must be a boolean or string` };
     }
     validatedRoutes.push({
@@ -85,22 +91,32 @@ function validateModule(candidate: unknown, fileName: string): { mod?: BlennyMod
   }
 
   if (obj.subscriptions !== undefined) {
-    mod.subscriptions = (obj.subscriptions as Array<Record<string, unknown>>).map((s) => ({
-      topic: String(s.topic),
-      handler: s.handler as (payload: unknown) => void,
-    }));
+    mod.subscriptions = (obj.subscriptions as Array<Record<string, unknown>>)
+      .map((s) => ({
+        topic: String(s.topic),
+        handler: s.handler as (payload: unknown) => void,
+      }));
   }
 
   if (obj.capabilities !== undefined) {
-    if (!Array.isArray(obj.capabilities) || !obj.capabilities.every((c: unknown) => typeof c === "string")) {
+    if (
+      !Array.isArray(obj.capabilities) ||
+      !obj.capabilities.every((c: unknown) => typeof c === "string")
+    ) {
       return { err: "capabilities must be an array of strings" };
     }
     mod.capabilities = obj.capabilities as string[];
   }
 
-  if (typeof obj.initialize === "function") mod.initialize = obj.initialize as BlennyModule["initialize"];
-  if (typeof obj.start === "function") mod.start = obj.start as BlennyModule["start"];
-  if (typeof obj.stop === "function") mod.stop = obj.stop as BlennyModule["stop"];
+  if (typeof obj.initialize === "function") {
+    mod.initialize = obj.initialize as BlennyModule["initialize"];
+  }
+  if (typeof obj.start === "function") {
+    mod.start = obj.start as BlennyModule["start"];
+  }
+  if (typeof obj.stop === "function") {
+    mod.stop = obj.stop as BlennyModule["stop"];
+  }
 
   return { mod };
 }
@@ -111,7 +127,10 @@ export async function loadModules(): Promise<ModuleLoadResult> {
 
   try {
     for await (const entry of Deno.readDir(modulesDir)) {
-      if (!entry.isFile || !(entry.name.endsWith(".ts") || entry.name.endsWith(".tsx"))) {
+      if (
+        !entry.isFile ||
+        !(entry.name.endsWith(".ts") || entry.name.endsWith(".tsx"))
+      ) {
         continue;
       }
       const fileName = String(entry.name);
@@ -134,7 +153,10 @@ export async function loadModules(): Promise<ModuleLoadResult> {
     }
   } catch (err) {
     if (err instanceof Deno.errors.NotFound) {
-      failures.push({ file: String(modulesDir), error: "modules dir not found" });
+      failures.push({
+        file: String(modulesDir),
+        error: "modules dir not found",
+      });
     } else {
       failures.push({
         file: String(modulesDir),

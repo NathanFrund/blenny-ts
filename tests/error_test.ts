@@ -6,7 +6,9 @@ Deno.test("BlennyError notFound factory", () => {
   assertEquals(err.type, "not_found");
   assertEquals(err.message, "Not Found");
   assertEquals(err.statusCode, 404);
-  assertEquals(err.toJSON(), { error: { type: "not_found", message: "Not Found" } });
+  assertEquals(err.toJSON(), {
+    error: { type: "not_found", message: "Not Found" },
+  });
 });
 
 Deno.test("BlennyError unauthorized factory", () => {
@@ -38,7 +40,9 @@ Deno.test("BlennyError thrown in app returns structured JSON", async () => {
       return errorResponse(err.toJSON(), err.statusCode);
     }
     console.error(err);
-    return errorResponse({ error: { type: "internal", message: "Internal Server Error" } }, 500);
+    return errorResponse({
+      error: { type: "internal", message: "Internal Server Error" },
+    }, 500);
   });
 
   app.get("/throws-blenny", () => {
@@ -50,18 +54,25 @@ Deno.test("BlennyError thrown in app returns structured JSON", async () => {
   });
 
   app.notFound((_c) => {
-    return errorResponse({ error: { type: "not_found", message: "Not Found" } }, 404);
+    return errorResponse(
+      { error: { type: "not_found", message: "Not Found" } },
+      404,
+    );
   });
 
   const res1 = await app.request("http://localhost/throws-blenny");
   assertEquals(res1.status, 404);
   const body1 = await res1.json() as Record<string, unknown>;
-  assertEquals(body1, { error: { type: "not_found", message: "User not found" } });
+  assertEquals(body1, {
+    error: { type: "not_found", message: "User not found" },
+  });
 
   const res2 = await app.request("http://localhost/throws-generic");
   assertEquals(res2.status, 500);
   const body2 = await res2.json() as Record<string, unknown>;
-  assertEquals(body2, { error: { type: "internal", message: "Internal Server Error" } });
+  assertEquals(body2, {
+    error: { type: "internal", message: "Internal Server Error" },
+  });
 
   const res3 = await app.request("http://localhost/unknown-path");
   assertEquals(res3.status, 404);

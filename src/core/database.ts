@@ -15,14 +15,18 @@ export async function connectDatabase(
       password: config.surrealPass,
     });
     if (logger) {
-      logger.info("Connected to SurrealDB at {url}", { url: config.surrealUrl });
+      logger.info("Connected to SurrealDB at {url}", {
+        url: config.surrealUrl,
+      });
     } else {
       console.log("[db] connected to SurrealDB at " + config.surrealUrl);
     }
     return db;
   } catch (err) {
     if (logger) {
-      logger.warn("Failed to connect to SurrealDB: {error}", { error: String(err) });
+      logger.warn("Failed to connect to SurrealDB: {error}", {
+        error: String(err),
+      });
     } else {
       console.warn("[db] failed to connect to SurrealDB:", String(err));
     }

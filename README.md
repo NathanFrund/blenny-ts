@@ -1,6 +1,7 @@
 # Blenny-ts
 
-A Deno/TypeScript port of the [Blenny](https://github.com/NathanFrund/blenny) web framework — a hypermedia-driven, real-time, single-binary platform.
+A Deno/TypeScript port of the [Blenny](https://github.com/NathanFrund/blenny)
+web framework — a hypermedia-driven, real-time, single-binary platform.
 
 ## Quick Start
 
@@ -40,13 +41,13 @@ tests/         Test suite matching src/ layout
 
 ## Key Concepts
 
-| Concept | Description |
-|---------|-------------|
-| **Modules** | Self-contained route + subscription units. Drop a `.ts` file into `src/modules/` and it loads automatically. |
-| **TransportHub** | Manages SSE and WebSocket connections. Broadcasts messages to clients with intent-based filtering. |
-| **Conduit** | HTMX-aware JSX renderer. Wraps content in a layout on full page loads, returns fragments on HTMX swaps. |
-| **Config** | Composite provider — CLI > env > `blenny.json` > embedded defaults. All dotted keys. |
-| **Auth** | Pluggable via modules. Ships with a reference in-memory auth module (SHA-256, registration, JWT cookies). |
+| Concept          | Description                                                                                                  |
+| ---------------- | ------------------------------------------------------------------------------------------------------------ |
+| **Modules**      | Self-contained route + subscription units. Drop a `.ts` file into `src/modules/` and it loads automatically. |
+| **TransportHub** | Manages SSE and WebSocket connections. Broadcasts messages to clients with intent-based filtering.           |
+| **Conduit**      | HTMX-aware JSX renderer. Wraps content in a layout on full page loads, returns fragments on HTMX swaps.      |
+| **Config**       | Composite provider — CLI > env > `blenny.json` > embedded defaults. All dotted keys.                         |
+| **Auth**         | Pluggable via modules. Ships with a reference in-memory auth module (SHA-256, registration, JWT cookies).    |
 
 ## Test
 

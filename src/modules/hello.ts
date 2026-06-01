@@ -28,7 +28,11 @@ const helloModule: BlennyModule = {
   name: "hello",
   routes: [
     { method: "GET", path: "/", handler: (c) => app.fetch(c.req.raw) },
-    { method: "GET", path: "/hello", handler: (c) => c.text("hello from blenny-ts") },
+    {
+      method: "GET",
+      path: "/hello",
+      handler: (c) => c.text("hello from blenny-ts"),
+    },
   ],
   subscriptions: [
     {

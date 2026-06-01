@@ -1,7 +1,11 @@
 import { assertEquals } from "@std/assert";
 import { Hono } from "@hono/hono";
 import { BlennyConfig } from "../src/core/config.ts";
-import { createLogger, resetLogger, requestLogger } from "../src/core/logger.ts";
+import {
+  createLogger,
+  requestLogger,
+  resetLogger,
+} from "../src/core/logger.ts";
 import type { BlennyLogger } from "../src/core/logger.ts";
 
 Deno.test("createLogger returns a working BlennyLogger", async () => {

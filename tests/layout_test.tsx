@@ -10,11 +10,12 @@ Deno.test("DefaultLayout", async (t) => {
     const app = new Hono();
     app.get("/", (c) =>
       c.html(
-        <LayoutComponent>
-          <p>hello</p>
-        </LayoutComponent> as unknown as string,
-      )
-    );
+        (
+          <LayoutComponent>
+            <p>hello</p>
+          </LayoutComponent>
+        ) as unknown as string,
+      ));
 
     const res = await app.request("http://localhost/");
     assertEquals(res.status, 200);
@@ -28,9 +29,8 @@ Deno.test("DefaultLayout", async (t) => {
     const app = new Hono();
     app.get("/", (c) =>
       c.html(
-        <LayoutComponent> </LayoutComponent> as unknown as string,
-      )
-    );
+        <LayoutComponent>{""}</LayoutComponent> as unknown as string,
+      ));
 
     const res = await app.request("http://localhost/");
     assertEquals(res.status, 200);

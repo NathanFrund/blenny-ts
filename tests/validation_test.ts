@@ -1,10 +1,10 @@
 import { assertEquals } from "@std/assert";
 import * as v from "@valibot/valibot";
 import {
-  SignalSchema,
-  UsernameSchema,
   PasswordSchema,
+  SignalSchema,
   UserInfoSchema,
+  UsernameSchema,
 } from "../src/core/validation.ts";
 
 Deno.test("SignalSchema", async (t) => {
@@ -72,7 +72,10 @@ Deno.test("PasswordSchema", async (t) => {
   await t.step("rejects password under 8 characters", () => {
     const result = v.safeParse(PasswordSchema, "short");
     assertEquals(result.success, false);
-    assertEquals(result.issues?.[0]?.message, "Password must be at least 8 characters");
+    assertEquals(
+      result.issues?.[0]?.message,
+      "Password must be at least 8 characters",
+    );
   });
 
   await t.step("rejects password over 256 characters", () => {
@@ -94,7 +97,11 @@ Deno.test("UserInfoSchema", async (t) => {
   });
 
   await t.step("accepts user info with optional exp", () => {
-    const result = v.safeParse(UserInfoSchema, { id: "abc", role: "user", exp: 1234567890 });
+    const result = v.safeParse(UserInfoSchema, {
+      id: "abc",
+      role: "user",
+      exp: 1234567890,
+    });
     assertEquals(result.success, true);
   });
 

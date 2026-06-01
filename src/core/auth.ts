@@ -1,6 +1,6 @@
 import { Context, type MiddlewareHandler } from "@hono/hono";
 import { sign, verify } from "@hono/hono/jwt";
-import { getCookie, setCookie, deleteCookie } from "@hono/hono/cookie";
+import { deleteCookie, getCookie, setCookie } from "@hono/hono/cookie";
 import * as v from "@valibot/valibot";
 import { UserInfoSchema } from "./validation.ts";
 import type { BlennyLogger } from "./logger.ts";
@@ -51,7 +51,9 @@ export async function getUser(
     const payload = await verify(token, config.jwtSecret, "HS256");
     const result = v.safeParse(UserInfoSchema, payload);
     if (!result.success) {
-      config.logger?.debug("Invalid JWT payload structure", { errors: result.issues });
+      config.logger?.debug("Invalid JWT payload structure", {
+        errors: result.issues,
+      });
       return null;
     }
     return { id: result.output.id, role: result.output.role };
@@ -83,15 +85,21 @@ function shouldReturnJson(c: Context, config: AuthConfig): boolean {
   return false;
 }
 
-export function requireUser(options?: { redirectUrl?: string }): MiddlewareHandler {
+export function requireUser(
+  options?: { redirectUrl?: string },
+): MiddlewareHandler {
   return async (c, next) => {
     const user = c.get("user") as UserInfo | undefined;
     const authConfig = c.get("authConfig") as AuthConfig | undefined;
     if (!user) {
       if (authConfig && shouldReturnJson(c, authConfig)) {
-        return c.json({ error: "unauthorized", message: "Authentication required" }, 401);
+        return c.json({
+          error: "unauthorized",
+          message: "Authentication required",
+        }, 401);
       }
-      const redirect = options?.redirectUrl ?? authConfig?.redirectUrl ?? "/auth/signin";
+      const redirect = options?.redirectUrl ?? authConfig?.redirectUrl ??
+        "/auth/signin";
       return c.redirect(redirect);
     }
     await next();
@@ -104,7 +112,10 @@ export function requireRole(...roles: string[]): MiddlewareHandler {
     const authConfig = c.get("authConfig") as AuthConfig | undefined;
     if (!user) {
       if (authConfig && shouldReturnJson(c, authConfig)) {
-        return c.json({ error: "unauthorized", message: "Authentication required" }, 401);
+        return c.json({
+          error: "unauthorized",
+          message: "Authentication required",
+        }, 401);
       }
       const redirect = authConfig?.redirectUrl ?? "/auth/signin";
       return c.redirect(redirect);

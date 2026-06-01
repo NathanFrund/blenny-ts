@@ -56,7 +56,9 @@ const module: BlennyModule = {
       path: "/demo/broadcast",
       handler: async (c) => {
         const { intent, html } = await c.req.json();
-        hub.patchElements(html as string, { intent: intent as Intent | undefined });
+        hub.patchElements(html as string, {
+          intent: intent as Intent | undefined,
+        });
         return c.json({ ok: true });
       },
     },

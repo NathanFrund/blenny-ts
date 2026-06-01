@@ -23,7 +23,9 @@ Deno.test("demo module", async (t) => {
   });
 
   await t.step("GET /trigger-broadcast with ui returns JSON", async () => {
-    const res = await app.request("http://localhost/trigger-broadcast?category=ui");
+    const res = await app.request(
+      "http://localhost/trigger-broadcast?category=ui",
+    );
     assertEquals(res.status, 200);
     const body = await res.json();
     assertEquals(body.ok, true);
@@ -31,7 +33,9 @@ Deno.test("demo module", async (t) => {
   });
 
   await t.step("GET /trigger-broadcast with data returns JSON", async () => {
-    const res = await app.request("http://localhost/trigger-broadcast?category=data");
+    const res = await app.request(
+      "http://localhost/trigger-broadcast?category=data",
+    );
     assertEquals(res.status, 200);
     const body = await res.json();
     assertEquals(body.ok, true);
@@ -39,28 +43,40 @@ Deno.test("demo module", async (t) => {
   });
 
   await t.step("GET /trigger-broadcast with command returns JSON", async () => {
-    const res = await app.request("http://localhost/trigger-broadcast?category=command");
+    const res = await app.request(
+      "http://localhost/trigger-broadcast?category=command",
+    );
     assertEquals(res.status, 200);
     const body = await res.json();
     assertEquals(body.ok, true);
     assertEquals(body.category, "command");
   });
 
-  await t.step("GET /trigger-broadcast with notification returns JSON", async () => {
-    const res = await app.request("http://localhost/trigger-broadcast?category=notification");
-    assertEquals(res.status, 200);
-    const body = await res.json();
-    assertEquals(body.ok, true);
-    assertEquals(body.category, "notification");
-  });
+  await t.step(
+    "GET /trigger-broadcast with notification returns JSON",
+    async () => {
+      const res = await app.request(
+        "http://localhost/trigger-broadcast?category=notification",
+      );
+      assertEquals(res.status, 200);
+      const body = await res.json();
+      assertEquals(body.ok, true);
+      assertEquals(body.category, "notification");
+    },
+  );
 
-  await t.step("GET /trigger-broadcast with unknown category returns JSON", async () => {
-    const res = await app.request("http://localhost/trigger-broadcast?category=none");
-    assertEquals(res.status, 200);
-    const body = await res.json();
-    assertEquals(body.ok, true);
-    assertEquals(body.category, "none");
-  });
+  await t.step(
+    "GET /trigger-broadcast with unknown category returns JSON",
+    async () => {
+      const res = await app.request(
+        "http://localhost/trigger-broadcast?category=none",
+      );
+      assertEquals(res.status, 200);
+      const body = await res.json();
+      assertEquals(body.ok, true);
+      assertEquals(body.category, "none");
+    },
+  );
 
   await t.step("POST /demo/broadcast accepts JSON body", async () => {
     const res = await app.request("http://localhost/demo/broadcast", {

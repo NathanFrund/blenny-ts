@@ -16,7 +16,8 @@ const module: BlennyModule = {
     {
       method: "GET",
       path: "/simulation/status",
-      handler: (c) => c.json({ running: timer !== undefined, currentCycle: cycle }),
+      handler: (c) =>
+        c.json({ running: timer !== undefined, currentCycle: cycle }),
     },
   ],
   start() {

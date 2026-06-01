@@ -1,5 +1,5 @@
 import { Context } from "@hono/hono";
-import type { FC, Child } from "@hono/hono/jsx";
+import type { Child, FC } from "@hono/hono/jsx";
 import { DefaultLayout } from "./layout.tsx";
 
 export type LayoutComponent = FC<{ children: Child }>;

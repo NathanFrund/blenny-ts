@@ -2,7 +2,7 @@ import { assertEquals, assertThrows } from "@std/assert";
 import { BlennyPublisher, PublisherError } from "../src/core/publisher.ts";
 import { TransportHub } from "../src/core/hub.ts";
 import { jsx } from "@hono/hono/jsx";
-import type { ServerMessage, Intent } from "../src/core/envelope.ts";
+import type { Intent, ServerMessage } from "../src/core/envelope.ts";
 
 class CaptureConnection {
   id: string;
@@ -210,13 +210,17 @@ Deno.test("BlennyPublisher broadcastJsx escapes attribute bindings", () => {
   hub.registerConnection(conn);
 
   BlennyPublisher.broadcastJsx(
-    jsx("div", { class: "msg", "data-x": "\"><script>alert(1)</script>" }, "hello"),
+    jsx(
+      "div",
+      { class: "msg", "data-x": '"><script>alert(1)</script>' },
+      "hello",
+    ),
   );
   assertEquals(conn.sent.length, 1);
   const msg = JSON.parse(conn.sent[0]) as ServerMessage;
   assertEquals(
     msg.html,
-    "<div class=\"msg\" data-x=\"&quot;&gt;&lt;script&gt;alert(1)&lt;/script&gt;\">hello</div>",
+    '<div class="msg" data-x="&quot;&gt;&lt;script&gt;alert(1)&lt;/script&gt;">hello</div>',
   );
 });
 

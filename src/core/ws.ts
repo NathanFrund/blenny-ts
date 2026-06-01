@@ -1,5 +1,5 @@
 import type { Context } from "@hono/hono";
-import type { TransportHub, Connection } from "./hub.ts";
+import type { Connection, TransportHub } from "./hub.ts";
 import type { Intent, ServerMessage } from "./envelope.ts";
 
 export class WsConnection implements Connection {

@@ -5,7 +5,10 @@ import { BlennyError } from "./error.ts";
 // ── Typed event bus ──────────────────────────────────────────────
 
 type Handler<T> = (payload: T) => void;
-const eventSubs = new Map<keyof BlennyEvents, Set<(payload: unknown) => void>>();
+const eventSubs = new Map<
+  keyof BlennyEvents,
+  Set<(payload: unknown) => void>
+>();
 
 export function subscribe<K extends keyof BlennyEvents>(
   topic: K,
@@ -15,7 +18,8 @@ export function subscribe<K extends keyof BlennyEvents>(
     eventSubs.set(topic, new Set());
   }
   eventSubs.get(topic)!.add(handler as (payload: unknown) => void);
-  return () => eventSubs.get(topic)?.delete(handler as (payload: unknown) => void);
+  return () =>
+    eventSubs.get(topic)?.delete(handler as (payload: unknown) => void);
 }
 
 export function publish<K extends keyof BlennyEvents>(
@@ -66,8 +70,10 @@ export class TransportHub {
     this.reaperTimer = setInterval(() => {
       const now = Date.now();
       for (const conn of this.conns.values()) {
-        if (conn.connType === "sse" && conn.lastWriteAt &&
-            now - conn.lastWriteAt > this.reaperIdleMs) {
+        if (
+          conn.connType === "sse" && conn.lastWriteAt &&
+          now - conn.lastWriteAt > this.reaperIdleMs
+        ) {
           this.removeConnection(conn.id);
         }
       }

@@ -1,5 +1,5 @@
 import { assertEquals, assertThrows } from "@std/assert";
-import { TransportHub, type ConnId, type Connection } from "../src/core/hub.ts";
+import { type Connection, type ConnId, TransportHub } from "../src/core/hub.ts";
 import { BlennyError } from "../src/core/error.ts";
 import type { Intent, ServerMessage } from "../src/core/envelope.ts";
 
@@ -139,14 +139,22 @@ Deno.test("TransportHub", async (t) => {
     );
   });
 
-  await t.step("registerConnection throws BlennyError on per-user limit", () => {
-    const hub = new TransportHub({ maxConnsPerUser: 1 });
-    const userId = crypto.randomUUID();
-    hub.registerConnection(new CaptureConnection(crypto.randomUUID(), userId));
-    assertThrows(
-      () => hub.registerConnection(new CaptureConnection(crypto.randomUUID(), userId)),
-      BlennyError,
-      "per-user connection limit reached",
-    );
-  });
+  await t.step(
+    "registerConnection throws BlennyError on per-user limit",
+    () => {
+      const hub = new TransportHub({ maxConnsPerUser: 1 });
+      const userId = crypto.randomUUID();
+      hub.registerConnection(
+        new CaptureConnection(crypto.randomUUID(), userId),
+      );
+      assertThrows(
+        () =>
+          hub.registerConnection(
+            new CaptureConnection(crypto.randomUUID(), userId),
+          ),
+        BlennyError,
+        "per-user connection limit reached",
+      );
+    },
+  );
 });

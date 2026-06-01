@@ -1,4 +1,4 @@
-import type { FC, Child } from "@hono/hono/jsx";
+import type { Child, FC } from "@hono/hono/jsx";
 
 export const DefaultLayout: FC<{ children: Child }> = (props) => (
   <html>

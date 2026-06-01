@@ -1,4 +1,9 @@
-import { assertEquals, assertExists, assertGreater, assertLessOrEqual } from "@std/assert";
+import {
+  assertEquals,
+  assertExists,
+  assertGreater,
+  assertLessOrEqual,
+} from "@std/assert";
 import { Hono } from "@hono/hono";
 import { createRateLimiter } from "../src/core/rate-limiter.ts";
 
@@ -30,7 +35,10 @@ Deno.test("rate limiter", async (t) => {
     assertEquals(res.status, 429);
     const body = await res.json() as Record<string, unknown>;
     assertEquals(body, {
-      error: { type: "too_many_requests", message: "Too many requests, try again later." },
+      error: {
+        type: "too_many_requests",
+        message: "Too many requests, try again later.",
+      },
     });
   });
 
@@ -90,26 +98,29 @@ Deno.test("rate limiter", async (t) => {
     assertEquals(passed.status, 200);
   });
 
-  await t.step("resets count when request crosses window boundary", async () => {
-    // Use a small window so we can test boundary crossing
-    const rateLimiter = createRateLimiter(50, 1);
-    const app = new Hono();
-    app.use("/test", rateLimiter);
-    app.get("/test", (c) => c.text("ok"));
+  await t.step(
+    "resets count when request crosses window boundary",
+    async () => {
+      // Use a small window so we can test boundary crossing
+      const rateLimiter = createRateLimiter(50, 1);
+      const app = new Hono();
+      app.use("/test", rateLimiter);
+      app.get("/test", (c) => c.text("ok"));
 
-    // First request succeeds
-    const res1 = await app.request("http://localhost/test");
-    assertEquals(res1.status, 200);
+      // First request succeeds
+      const res1 = await app.request("http://localhost/test");
+      assertEquals(res1.status, 200);
 
-    // Second request in same window is blocked
-    const res2 = await app.request("http://localhost/test");
-    assertEquals(res2.status, 429);
+      // Second request in same window is blocked
+      const res2 = await app.request("http://localhost/test");
+      assertEquals(res2.status, 429);
 
-    // Wait for next window
-    await new Promise((r) => setTimeout(r, 60));
+      // Wait for next window
+      await new Promise((r) => setTimeout(r, 60));
 
-    // Now succeeds — count reset because windowIndex changed
-    const res3 = await app.request("http://localhost/test");
-    assertEquals(res3.status, 200);
-  });
+      // Now succeeds — count reset because windowIndex changed
+      const res3 = await app.request("http://localhost/test");
+      assertEquals(res3.status, 200);
+    },
+  );
 });

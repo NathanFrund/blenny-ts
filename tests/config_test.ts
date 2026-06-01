@@ -195,17 +195,32 @@ Deno.test("BlennyConfig edge cases", async (t) => {
 Deno.test("BlennyConfig numeric validation", async (t) => {
   await t.step("port must be between 1 and 65535", () => {
     assertThrows(
-      () => new BlennyConfig({ fileContent: JSON.stringify({ "server.port": "0" }), env: {}, args: [] }).port,
+      () =>
+        new BlennyConfig({
+          fileContent: JSON.stringify({ "server.port": "0" }),
+          env: {},
+          args: [],
+        }).port,
       Error,
       "between 1 and 65535",
     );
     assertThrows(
-      () => new BlennyConfig({ fileContent: JSON.stringify({ "server.port": "65536" }), env: {}, args: [] }).port,
+      () =>
+        new BlennyConfig({
+          fileContent: JSON.stringify({ "server.port": "65536" }),
+          env: {},
+          args: [],
+        }).port,
       Error,
       "between 1 and 65535",
     );
     assertThrows(
-      () => new BlennyConfig({ fileContent: JSON.stringify({ "server.port": "bogus" }), env: {}, args: [] }).port,
+      () =>
+        new BlennyConfig({
+          fileContent: JSON.stringify({ "server.port": "bogus" }),
+          env: {},
+          args: [],
+        }).port,
       Error,
       "between 1 and 65535",
     );
@@ -213,7 +228,12 @@ Deno.test("BlennyConfig numeric validation", async (t) => {
 
   await t.step("sessionDurationHours must be >= 1", () => {
     assertThrows(
-      () => new BlennyConfig({ fileContent: JSON.stringify({ "auth.session_duration_hours": "0" }), env: {}, args: [] }).sessionDurationHours,
+      () =>
+        new BlennyConfig({
+          fileContent: JSON.stringify({ "auth.session_duration_hours": "0" }),
+          env: {},
+          args: [],
+        }).sessionDurationHours,
       Error,
       "between 1 and 876000",
     );
@@ -221,7 +241,12 @@ Deno.test("BlennyConfig numeric validation", async (t) => {
 
   await t.step("maxConnections must be >= 1", () => {
     assertThrows(
-      () => new BlennyConfig({ fileContent: JSON.stringify({ "transport.max_connections": "0" }), env: {}, args: [] }).maxConnections,
+      () =>
+        new BlennyConfig({
+          fileContent: JSON.stringify({ "transport.max_connections": "0" }),
+          env: {},
+          args: [],
+        }).maxConnections,
       Error,
       "between 1 and 1000000",
     );
@@ -229,20 +254,34 @@ Deno.test("BlennyConfig numeric validation", async (t) => {
 
   await t.step("maxBodyBytes must be >= 1", () => {
     assertThrows(
-      () => new BlennyConfig({ fileContent: JSON.stringify({ "server.max_body_bytes": "0" }), env: {}, args: [] }).maxBodyBytes,
+      () =>
+        new BlennyConfig({
+          fileContent: JSON.stringify({ "server.max_body_bytes": "0" }),
+          env: {},
+          args: [],
+        }).maxBodyBytes,
       Error,
       "between 1 and 1073741824",
     );
   });
 
   await t.step("idleTimeoutMs accepts 0 (no timeout)", () => {
-    const cfg = new BlennyConfig({ fileContent: JSON.stringify({ "transport.idle_timeout_ms": "0" }), env: {}, args: [] });
+    const cfg = new BlennyConfig({
+      fileContent: JSON.stringify({ "transport.idle_timeout_ms": "0" }),
+      env: {},
+      args: [],
+    });
     assertEquals(cfg.idleTimeoutMs, 0);
   });
 
   await t.step("idleTimeoutMs rejects negative", () => {
     assertThrows(
-      () => new BlennyConfig({ fileContent: JSON.stringify({ "transport.idle_timeout_ms": "-1" }), env: {}, args: [] }).idleTimeoutMs,
+      () =>
+        new BlennyConfig({
+          fileContent: JSON.stringify({ "transport.idle_timeout_ms": "-1" }),
+          env: {},
+          args: [],
+        }).idleTimeoutMs,
       Error,
       "between 0 and 86400000",
     );
@@ -250,7 +289,12 @@ Deno.test("BlennyConfig numeric validation", async (t) => {
 
   await t.step("ratelimitWindowMs rejects out-of-range", () => {
     assertThrows(
-      () => new BlennyConfig({ fileContent: JSON.stringify({ "ratelimit.window_ms": "50" }), env: {}, args: [] }).ratelimitWindowMs,
+      () =>
+        new BlennyConfig({
+          fileContent: JSON.stringify({ "ratelimit.window_ms": "50" }),
+          env: {},
+          args: [],
+        }).ratelimitWindowMs,
       Error,
       "between 100 and 3600000",
     );
@@ -258,7 +302,12 @@ Deno.test("BlennyConfig numeric validation", async (t) => {
 
   await t.step("ratelimitMaxRequests rejects zero", () => {
     assertThrows(
-      () => new BlennyConfig({ fileContent: JSON.stringify({ "ratelimit.max_requests": "0" }), env: {}, args: [] }).ratelimitMaxRequests,
+      () =>
+        new BlennyConfig({
+          fileContent: JSON.stringify({ "ratelimit.max_requests": "0" }),
+          env: {},
+          args: [],
+        }).ratelimitMaxRequests,
       Error,
       "between 1 and 100000",
     );

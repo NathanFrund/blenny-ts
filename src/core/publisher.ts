@@ -38,7 +38,11 @@ export class BlennyPublisher {
    * Prefer `broadcastJsx()` for JSX content — it auto-escapes via Hono's JSX runtime.
    */
   static broadcastHtml(html: string): void {
-    if (!hubInstance) throw new PublisherError("BlennyPublisher not initialized — call BlennyPublisher.init(hub) at boot");
+    if (!hubInstance) {
+      throw new PublisherError(
+        "BlennyPublisher not initialized — call BlennyPublisher.init(hub) at boot",
+      );
+    }
     hubInstance.patchElements(html);
   }
 
@@ -50,7 +54,11 @@ export class BlennyPublisher {
    * Prefer `directJsx()` for JSX content — it auto-escapes via Hono's JSX runtime.
    */
   static directHtml(html: string, userId: string): void {
-    if (!hubInstance) throw new PublisherError("BlennyPublisher not initialized — call BlennyPublisher.init(hub) at boot");
+    if (!hubInstance) {
+      throw new PublisherError(
+        "BlennyPublisher not initialized — call BlennyPublisher.init(hub) at boot",
+      );
+    }
     hubInstance.patchElements(html, { userId });
   }
 
@@ -77,13 +85,21 @@ export class BlennyPublisher {
   }
 
   static broadcastData(data: string): void {
-    if (!hubInstance) throw new PublisherError("BlennyPublisher not initialized — call BlennyPublisher.init(hub) at boot");
+    if (!hubInstance) {
+      throw new PublisherError(
+        "BlennyPublisher not initialized — call BlennyPublisher.init(hub) at boot",
+      );
+    }
     const parsed = parseJsonData(data);
     hubInstance.mergeSignals(parsed, { intent: "data" });
   }
 
   static directData(data: string, userId: string): void {
-    if (!hubInstance) throw new PublisherError("BlennyPublisher not initialized — call BlennyPublisher.init(hub) at boot");
+    if (!hubInstance) {
+      throw new PublisherError(
+        "BlennyPublisher not initialized — call BlennyPublisher.init(hub) at boot",
+      );
+    }
     const parsed = parseJsonData(data);
     hubInstance.mergeSignals(parsed, { intent: "data", userId });
   }
@@ -99,7 +115,8 @@ function parseJsonData(data: string): SignalData {
   const result = v.safeParse(SignalSchema, parsed);
   if (!result.success) {
     throw new PublisherError(
-      "broadcastData/directData requires a JSON object — received: " + typeof parsed,
+      "broadcastData/directData requires a JSON object — received: " +
+        typeof parsed,
     );
   }
   return result.output;

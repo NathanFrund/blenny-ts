@@ -26,19 +26,31 @@ class LogTapeBlennyLogger implements BlennyLogger {
   constructor(private logger: Logger) {}
 
   debug(template: string, ...args: unknown[]): void {
-    (this.logger.debug as (msg: string, ...args: unknown[]) => void)(template, ...args);
+    (this.logger.debug as (msg: string, ...args: unknown[]) => void)(
+      template,
+      ...args,
+    );
   }
 
   info(template: string, ...args: unknown[]): void {
-    (this.logger.info as (msg: string, ...args: unknown[]) => void)(template, ...args);
+    (this.logger.info as (msg: string, ...args: unknown[]) => void)(
+      template,
+      ...args,
+    );
   }
 
   warn(template: string, ...args: unknown[]): void {
-    (this.logger.warn as (msg: string, ...args: unknown[]) => void)(template, ...args);
+    (this.logger.warn as (msg: string, ...args: unknown[]) => void)(
+      template,
+      ...args,
+    );
   }
 
   error(template: string, ...args: unknown[]): void {
-    (this.logger.error as (msg: string, ...args: unknown[]) => void)(template, ...args);
+    (this.logger.error as (msg: string, ...args: unknown[]) => void)(
+      template,
+      ...args,
+    );
   }
 
   child(context: Record<string, unknown>): BlennyLogger {
@@ -48,11 +60,15 @@ class LogTapeBlennyLogger implements BlennyLogger {
 
 // ── Factory ────────────────────────────────────────────────
 
-export async function createLogger(config: BlennyConfig): Promise<BlennyLogger> {
+export async function createLogger(
+  config: BlennyConfig,
+): Promise<BlennyLogger> {
   const level = config.logLevel;
   const format = config.logFormat;
 
-  const formatter = format === "json" ? getJsonLinesFormatter() : getAnsiColorFormatter();
+  const formatter = format === "json"
+    ? getJsonLinesFormatter()
+    : getAnsiColorFormatter();
   const { parseLogLevel } = await import("@logtape/logtape");
 
   await configure({
@@ -98,7 +114,12 @@ export function requestLogger(logger: BlennyLogger): MiddlewareHandler {
     const status = c.res.status;
     const method = c.req.method;
     const level = status >= 500 ? "error" : status >= 400 ? "warn" : "info";
-    const reqLog = logger.child({ method, path: url.pathname, status, duration });
+    const reqLog = logger.child({
+      method,
+      path: url.pathname,
+      status,
+      duration,
+    });
     reqLog[level](`${method} ${url.pathname} ${status} ${duration}ms`);
   };
 }
