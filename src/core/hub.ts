@@ -5,10 +5,7 @@ import { BlennyError } from "./error.ts";
 // ── Typed event bus ──────────────────────────────────────────────
 
 type Handler<T> = (payload: T) => void;
-const eventSubs = new Map<
-  keyof BlennyEvents,
-  Set<(payload: unknown) => void>
->();
+const eventSubs = new Map<keyof BlennyEvents, Set<Handler<unknown>>>();
 
 export function subscribe<K extends keyof BlennyEvents>(
   topic: K,
@@ -17,9 +14,9 @@ export function subscribe<K extends keyof BlennyEvents>(
   if (!eventSubs.has(topic)) {
     eventSubs.set(topic, new Set());
   }
-  eventSubs.get(topic)!.add(handler as (payload: unknown) => void);
+  eventSubs.get(topic)!.add(handler as Handler<unknown>);
   return () =>
-    eventSubs.get(topic)?.delete(handler as (payload: unknown) => void);
+    eventSubs.get(topic)?.delete(handler as Handler<unknown>);
 }
 
 export function publish<K extends keyof BlennyEvents>(
@@ -27,9 +24,12 @@ export function publish<K extends keyof BlennyEvents>(
   payload: BlennyEvents[K],
 ): void {
   const handlers = eventSubs.get(topic);
-  if (handlers) {
-    for (const handler of handlers) {
+  if (!handlers) return;
+  for (const handler of handlers) {
+    try {
       (handler as Handler<BlennyEvents[K]>)(payload);
+    } catch (err) {
+      console.error(`[hub] Error in handler for "${String(topic)}":`, err);
     }
   }
 }
@@ -43,15 +43,19 @@ export interface Connection {
   userId?: string;
   intents?: Set<Intent>;
   connType: string;
-  lastWriteAt?: number;
-  send(msg: ServerMessage): void;
+  lastWriteAt: number;
+  send(msg: ServerMessage): void | Promise<void>;
+  close?(): void;
 }
 
 // ── TransportHub ─────────────────────────────────────────────────
 
 export class TransportHub {
   private conns = new Map<ConnId, Connection>();
-  private userConns = new Map<string, Map<ConnId, true>>();
+  private userConns = new Map<string, Set<ConnId>>();
+  private sseConns = new Set<Connection>();
+  private intentGroups = new Map<Intent, Set<ConnId>>();
+  private noIntentConns = new Set<ConnId>();
   private reaperTimer: ReturnType<typeof setInterval> | null = null;
   private reaperIdleMs = 300_000;
   maxConns: number;
@@ -64,20 +68,25 @@ export class TransportHub {
 
   // ── SSE connection reaper ────────────────────────────────────
 
-  startReaper(idleTimeoutMs: number): void {
+  startReaper(idleTimeoutMs: number, intervalMs = 30_000): void {
     this.reaperIdleMs = idleTimeoutMs;
-    if (this.reaperTimer !== null) return;
-    this.reaperTimer = setInterval(() => {
-      const now = Date.now();
-      for (const conn of this.conns.values()) {
-        if (
-          conn.connType === "sse" && conn.lastWriteAt &&
-          now - conn.lastWriteAt > this.reaperIdleMs
-        ) {
-          this.removeConnection(conn.id);
-        }
+    if (this.reaperTimer !== null) clearInterval(this.reaperTimer);
+    this.reaperTimer = setInterval(
+      () => this.reapIdleConnections(),
+      intervalMs,
+    );
+  }
+
+  private reapIdleConnections(): void {
+    const now = Date.now();
+    for (const conn of this.sseConns) {
+      if (
+        conn.lastWriteAt &&
+        now - conn.lastWriteAt > this.reaperIdleMs
+      ) {
+        this.removeConnection(conn.id);
       }
-    }, 30_000);
+    }
   }
 
   stopReaper(): void {
@@ -104,21 +113,28 @@ export class TransportHub {
       );
     }
     if (conn.userId) {
-      const existing = this.userConns.get(conn.userId);
-      if (existing && existing.size >= this.maxConnsPerUser) {
+      const userSet = this.userConns.get(conn.userId) ?? new Set();
+      if (userSet.size >= this.maxConnsPerUser) {
         throw new BlennyError(
           "too_many_connections",
           `per-user connection limit reached (${this.maxConnsPerUser})`,
           429,
         );
       }
-      this.conns.set(conn.id, conn);
-      if (!this.userConns.has(conn.userId)) {
-        this.userConns.set(conn.userId, new Map());
+      this.userConns.set(conn.userId, userSet);
+      userSet.add(conn.id);
+    }
+    this.conns.set(conn.id, conn);
+    if (conn.connType === "sse") this.sseConns.add(conn);
+    if (conn.intents) {
+      for (const intent of conn.intents) {
+        if (!this.intentGroups.has(intent)) {
+          this.intentGroups.set(intent, new Set());
+        }
+        this.intentGroups.get(intent)!.add(conn.id);
       }
-      this.userConns.get(conn.userId)!.set(conn.id, true);
     } else {
-      this.conns.set(conn.id, conn);
+      this.noIntentConns.add(conn.id);
     }
     return () => this.removeConnection(conn.id);
   }
@@ -127,26 +143,34 @@ export class TransportHub {
     const conn = this.conns.get(id);
     if (!conn) return;
     this.conns.delete(id);
-    if (conn.userId) {
-      const userMap = this.userConns.get(conn.userId);
-      if (userMap) {
-        userMap.delete(id);
-        if (userMap.size === 0) {
-          this.userConns.delete(conn.userId);
-        }
+    this.sseConns.delete(conn);
+    if (conn.intents) {
+      for (const intent of conn.intents) {
+        this.intentGroups.get(intent)?.delete(id);
       }
+    } else {
+      this.noIntentConns.delete(id);
     }
+    if (conn.userId) {
+      const userSet = this.userConns.get(conn.userId);
+      userSet?.delete(id);
+      if (userSet?.size === 0) this.userConns.delete(conn.userId);
+    }
+    conn.close?.();
   }
 
   // ── Internal dispatch ───────────────────────────────────────
 
-  private write(msg: ServerMessage, conn: Connection): void {
+  private async write(msg: ServerMessage, conn: Connection): Promise<void> {
     if (msg.intent && conn.intents && !conn.intents.has(msg.intent)) {
       return;
     }
     try {
-      conn.send(msg);
-    } catch {
+      const result = conn.send(msg);
+      if (result instanceof Promise) await result;
+      conn.lastWriteAt = Date.now();
+    } catch (err) {
+      console.warn(`[hub] Send failed for ${conn.id}, removing connection`, err);
       this.removeConnection(conn.id);
     }
   }
@@ -163,24 +187,14 @@ export class TransportHub {
     html: string,
     opts?: { intent?: Intent; userId?: string },
   ): void {
-    const msg: ServerMessage = { intent: opts?.intent, html };
-    if (opts?.userId) {
-      this.directToUser(msg, opts.userId);
-    } else {
-      this.broadcastToAll(msg);
-    }
+    this.sendMessage({ intent: opts?.intent, html }, opts?.userId);
   }
 
   mergeSignals(
     data: Record<string, unknown>,
     opts?: { intent?: Intent; userId?: string },
   ): void {
-    const msg: ServerMessage = { intent: opts?.intent, signals: data };
-    if (opts?.userId) {
-      this.directToUser(msg, opts.userId);
-    } else {
-      this.broadcastToAll(msg);
-    }
+    this.sendMessage({ intent: opts?.intent, signals: data }, opts?.userId);
   }
 
   /**
@@ -192,9 +206,12 @@ export class TransportHub {
     script: string,
     opts?: { intent?: Intent; userId?: string },
   ): void {
-    const msg: ServerMessage = { intent: opts?.intent, script };
-    if (opts?.userId) {
-      this.directToUser(msg, opts.userId);
+    this.sendMessage({ intent: opts?.intent, script }, opts?.userId);
+  }
+
+  private sendMessage(msg: ServerMessage, targetUserId?: string): void {
+    if (targetUserId) {
+      this.directToUser(msg, targetUserId);
     } else {
       this.broadcastToAll(msg);
     }
@@ -203,15 +220,29 @@ export class TransportHub {
   // ── Low-level broadcast ──────────────────────────────────────
 
   private broadcastToAll(msg: ServerMessage): void {
-    for (const conn of this.conns.values()) {
-      this.write(msg, conn);
+    if (msg.intent) {
+      const group = this.intentGroups.get(msg.intent);
+      if (group) {
+        for (const id of group) {
+          const conn = this.conns.get(id);
+          if (conn) this.write(msg, conn);
+        }
+      }
+      for (const id of this.noIntentConns) {
+        const conn = this.conns.get(id);
+        if (conn) this.write(msg, conn);
+      }
+    } else {
+      for (const conn of this.conns.values()) {
+        this.write(msg, conn);
+      }
     }
   }
 
   private directToUser(msg: ServerMessage, userId: string): void {
-    const userMap = this.userConns.get(userId);
-    if (!userMap) return;
-    for (const id of userMap.keys()) {
+    const userSet = this.userConns.get(userId);
+    if (!userSet) return;
+    for (const id of userSet) {
       const conn = this.conns.get(id);
       if (conn) this.write(msg, conn);
     }

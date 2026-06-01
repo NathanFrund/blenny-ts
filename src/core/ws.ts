@@ -7,6 +7,7 @@ export class WsConnection implements Connection {
   userId?: string;
   intents?: Set<Intent>;
   connType = "ws" as const;
+  lastWriteAt: number;
 
   constructor(
     private ws: WebSocket,
@@ -17,6 +18,7 @@ export class WsConnection implements Connection {
     this.id = id;
     this.userId = userId;
     this.intents = intents;
+    this.lastWriteAt = Date.now();
   }
 
   send(msg: ServerMessage): void {

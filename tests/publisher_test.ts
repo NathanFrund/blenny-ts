@@ -10,9 +10,11 @@ class CaptureConnection {
   intents?: Set<Intent>;
   connType = "capture" as const;
   sent: string[] = [];
+  lastWriteAt: number;
 
   constructor(id: string, userId?: string, intents?: Set<Intent>) {
     this.id = id;
+    this.lastWriteAt = Date.now();
     this.userId = userId;
     this.intents = intents;
   }

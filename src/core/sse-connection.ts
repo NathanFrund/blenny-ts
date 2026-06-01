@@ -23,14 +23,12 @@ export class SseConnection implements Connection {
   }
 
   send(msg: ServerMessage): void {
-    this.lastWriteAt = Date.now();
     if (msg.html) this.stream.patchElements(msg.html);
     if (msg.signals) this.stream.patchSignals(JSON.stringify(msg.signals));
     if (msg.script) this.stream.executeScript(msg.script);
   }
 
   close(): void {
-    // No-op — SSE stream terminates on abort; the connection is
-    // removed from the hub by the abort listener.
+    this.stream.close();
   }
 }

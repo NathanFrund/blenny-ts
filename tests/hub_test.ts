@@ -1,5 +1,5 @@
 import { assertEquals, assertThrows } from "@std/assert";
-import { type Connection, type ConnId, TransportHub } from "../src/core/hub.ts";
+import { type Connection, type ConnId, TransportHub, subscribe, publish } from "../src/core/hub.ts";
 import { BlennyError } from "../src/core/error.ts";
 import type { Intent, ServerMessage } from "../src/core/envelope.ts";
 
@@ -7,17 +7,73 @@ class CaptureConnection implements Connection {
   id: ConnId;
   userId?: string;
   intents?: Set<Intent>;
-  connType = "capture" as const;
+  connType: string;
   sent: string[] = [];
+  closeCallCount = 0;
+  lastWriteAt: number;
 
-  constructor(id: string, userId?: string, intents?: Set<Intent>) {
+  constructor(
+    id: string,
+    userId?: string,
+    intents?: Set<Intent>,
+    connType = "capture",
+  ) {
     this.id = id;
     this.userId = userId;
     this.intents = intents;
+    this.connType = connType;
+    this.lastWriteAt = Date.now();
   }
 
   send(msg: ServerMessage): void {
     this.sent.push(JSON.stringify(msg));
+  }
+
+  close(): void {
+    this.closeCallCount++;
+  }
+}
+
+class ThrowingConnection implements Connection {
+  id: ConnId;
+  connType = "throwing" as const;
+  lastWriteAt: number;
+  private throwOnCall: number;
+  callCount = 0;
+
+  constructor(id: string, throwOnCall = 1) {
+    this.id = id;
+    this.lastWriteAt = Date.now();
+    this.throwOnCall = throwOnCall;
+  }
+
+  send(_msg: ServerMessage): void {
+    this.callCount++;
+    if (this.callCount >= this.throwOnCall) {
+      throw new Error("simulated send failure");
+    }
+  }
+}
+
+class AsyncRejectConnection implements Connection {
+  id: ConnId;
+  connType = "async" as const;
+  lastWriteAt: number;
+  private rejectOnCall: number;
+  callCount = 0;
+
+  constructor(id: string, rejectOnCall = 1) {
+    this.id = id;
+    this.lastWriteAt = Date.now();
+    this.rejectOnCall = rejectOnCall;
+  }
+
+  send(_msg: ServerMessage): Promise<void> {
+    this.callCount++;
+    if (this.callCount >= this.rejectOnCall) {
+      return Promise.reject(new Error("simulated async send failure"));
+    }
+    return Promise.resolve();
   }
 }
 
@@ -129,15 +185,73 @@ Deno.test("TransportHub", async (t) => {
     assertEquals(hub.getConnections().length, 0);
   });
 
-  await t.step("registerConnection throws BlennyError on global limit", () => {
-    const hub = new TransportHub({ maxConns: 1 });
-    hub.registerConnection(new CaptureConnection(crypto.randomUUID()));
-    assertThrows(
-      () => hub.registerConnection(new CaptureConnection(crypto.randomUUID())),
-      BlennyError,
-      "connection limit reached",
-    );
+  await t.step("closeAllConnections calls close() on each connection", () => {
+    const hub = new TransportHub();
+    const a = new CaptureConnection(crypto.randomUUID());
+    const b = new CaptureConnection(crypto.randomUUID());
+    hub.registerConnection(a);
+    hub.registerConnection(b);
+
+    hub.closeAllConnections();
+    assertEquals(a.closeCallCount, 1);
+    assertEquals(b.closeCallCount, 1);
   });
+
+  await t.step(
+    "write removes connection on sync send error",
+    () => {
+      const hub = new TransportHub();
+      const conn = new ThrowingConnection(crypto.randomUUID(), 1);
+      hub.registerConnection(conn);
+
+      hub.mergeSignals({ test: "value" });
+
+      assertEquals(hub.getConnections().length, 0);
+    },
+  );
+
+  await t.step(
+    "write removes connection on async send rejection",
+    async () => {
+      const hub = new TransportHub();
+      const conn = new AsyncRejectConnection(crypto.randomUUID(), 1);
+      hub.registerConnection(conn);
+
+      // Broadcast returns void but the internal write() is async;
+      // await hub.mergeSignals would not help since it's fire-and-forget.
+      // We flush microtasks to let the rejection be handled.
+      hub.mergeSignals({ test: "value" });
+      await new Promise((r) => setTimeout(r, 0));
+
+      assertEquals(hub.getConnections().length, 0);
+    },
+  );
+
+  await t.step(
+    "connection without intents receives intent-scoped broadcasts",
+    () => {
+      const hub = new TransportHub();
+      const any = new CaptureConnection(crypto.randomUUID());
+      hub.registerConnection(any);
+
+      hub.patchElements("<div>intent-scoped</div>", { intent: "ui" });
+
+      assertEquals(any.sent.length, 1);
+    },
+  );
+
+  await t.step(
+    "registerConnection throws BlennyError on global limit",
+    () => {
+      const hub = new TransportHub({ maxConns: 1 });
+      hub.registerConnection(new CaptureConnection(crypto.randomUUID()));
+      assertThrows(
+        () => hub.registerConnection(new CaptureConnection(crypto.randomUUID())),
+        BlennyError,
+        "connection limit reached",
+      );
+    },
+  );
 
   await t.step(
     "registerConnection throws BlennyError on per-user limit",
@@ -157,4 +271,91 @@ Deno.test("TransportHub", async (t) => {
       );
     },
   );
+
+  await t.step("multiple intent groups receive correct broadcasts", () => {
+    const hub = new TransportHub();
+    const ui = new CaptureConnection(
+      crypto.randomUUID(),
+      undefined,
+      new Set<Intent>(["ui"]),
+    );
+    const both = new CaptureConnection(
+      crypto.randomUUID(),
+      undefined,
+      new Set<Intent>(["ui", "data"]),
+    );
+    const cmd = new CaptureConnection(
+      crypto.randomUUID(),
+      undefined,
+      new Set<Intent>(["command"]),
+    );
+    hub.registerConnection(ui);
+    hub.registerConnection(both);
+    hub.registerConnection(cmd);
+
+    hub.mergeSignals({ msg: "data-update" }, { intent: "data" });
+
+    assertEquals(ui.sent.length, 0);
+    assertEquals(both.sent.length, 1);
+    assertEquals(cmd.sent.length, 0);
+  });
+
+  await t.step("broadcast without intent reaches all connections", () => {
+    const hub = new TransportHub();
+    const ui = new CaptureConnection(
+      crypto.randomUUID(),
+      undefined,
+      new Set<Intent>(["ui"]),
+    );
+    const any = new CaptureConnection(crypto.randomUUID());
+    hub.registerConnection(ui);
+    hub.registerConnection(any);
+
+    hub.patchElements("<div>everyone</div>");
+
+    assertEquals(ui.sent.length, 1);
+    assertEquals(any.sent.length, 1);
+  });
+});
+
+Deno.test("Event bus", async (t) => {
+  await t.step("handler error does not affect other handlers", () => {
+    const results: string[] = [];
+
+    const unsub1 = subscribe("platform:ready", (_payload) => {
+      results.push("first");
+    });
+
+    const unsub2 = subscribe("platform:ready", (_payload) => {
+      results.push("second");
+    });
+
+    const unsub3 = subscribe("platform:ready", (_payload) => {
+      throw new Error("handler failure");
+    });
+
+    const unsub4 = subscribe("platform:ready", (_payload) => {
+      results.push("fourth");
+    });
+
+    publish("platform:ready", { timestamp: 1 });
+
+    assertEquals(results, ["first", "second", "fourth"]);
+
+    unsub1();
+    unsub2();
+    unsub3();
+    unsub4();
+  });
+
+  await t.step("unsubscribe removes handler", () => {
+    const results: number[] = [];
+    const unsub = subscribe("platform:ready", () => results.push(1));
+    publish("platform:ready", { timestamp: 1 });
+    assertEquals(results, [1]);
+
+    unsub();
+    publish("platform:ready", { timestamp: 2 });
+    assertEquals(results, [1]);
+  });
 });
