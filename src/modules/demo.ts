@@ -1,10 +1,10 @@
 import type { TransportHub } from "../core/hub.ts";
 import type { Intent } from "../core/envelope.ts";
-import type { BlennyModule } from "../types.ts";
+import type { BlennyModule } from "@blenny/types";
 
 let hub: TransportHub;
 
-const module: BlennyModule = {
+const demoModule: BlennyModule = {
   name: "demo",
   routes: [
     {
@@ -229,4 +229,4 @@ const PAGE = `<!doctype html>
   </body>
 </html>`;
 
-export default module;
+export default demoModule;

@@ -1,10 +1,13 @@
-import { Hono } from "@hono/hono";
-import type { BlennyModule } from "../types.ts";
+import type { BlennyModule } from "@blenny/types";
 
-const app = new Hono();
-
-app.get("/", (c) => {
-  return c.html(`
+const helloModule: BlennyModule = {
+  name: "hello",
+  routes: [
+    {
+      method: "GET",
+      path: "/",
+      handler: (c) =>
+        c.html(`
     <!DOCTYPE html>
     <html>
       <head><title>blenny-ts</title></head>
@@ -21,13 +24,8 @@ app.get("/", (c) => {
         </script>
       </body>
     </html>
-  `);
-});
-
-const helloModule: BlennyModule = {
-  name: "hello",
-  routes: [
-    { method: "GET", path: "/", handler: (c) => app.fetch(c.req.raw) },
+  `),
+    },
     {
       method: "GET",
       path: "/hello",

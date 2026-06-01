@@ -1,6 +1,6 @@
 import type { FC } from "@hono/hono/jsx";
 import type { Conduit } from "../core/conduit.ts";
-import type { BlennyModule } from "../types.ts";
+import type { BlennyModule } from "@blenny/types";
 
 let conduit: Conduit;
 
@@ -15,7 +15,7 @@ const DashboardPage: FC<{ modules: number }> = (props) => (
   </div>
 );
 
-const moduleConfig: BlennyModule = {
+const dashboardModule: BlennyModule = {
   name: "dashboard",
   routes: [
     {
@@ -30,4 +30,4 @@ const moduleConfig: BlennyModule = {
   },
 };
 
-export default moduleConfig;
+export default dashboardModule;
