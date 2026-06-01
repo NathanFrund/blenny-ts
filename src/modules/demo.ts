@@ -3,6 +3,7 @@ import type { Intent } from "../core/envelope.ts";
 import type { BlennyModule } from "@blenny/types";
 
 let hub: TransportHub;
+let timer: ReturnType<typeof setInterval> | undefined;
 
 const demoModule: BlennyModule = {
   name: "demo",
@@ -66,6 +67,16 @@ const demoModule: BlennyModule = {
   initialize(state) {
     hub = state.hub;
   },
+  start() {
+    timer = setInterval(() => {
+      const currentTime = new Date().toLocaleTimeString();
+      hub.mergeSignals({ currentTime }, { intent: "clock" });
+    }, 1000);
+  },
+  stop() {
+    clearInterval(timer);
+    timer = undefined;
+  },
 };
 
 const PAGE = `<!doctype html>
@@ -73,11 +84,15 @@ const PAGE = `<!doctype html>
   <head>
     <meta charset="UTF-8" />
     <title>Blenny — Datastar + WebSocket Demo</title>
+    <script type="module" src="https://cdn.jsdelivr.net/gh/starfederation/datastar@v1.0.1/bundles/datastar.js"></script>
     <style>
       * { box-sizing: border-box; margin: 0; padding: 0; }
       body { font-family: system-ui, sans-serif; background: #0d1117; color: #c9d1d9; padding: 2rem; }
       h1 { font-size: 1.25rem; margin-bottom: 0.25rem; }
       p { color: #8b949e; font-size: 0.875rem; margin-bottom: 1.5rem; }
+      .clock { margin-bottom: 1rem; padding: 0.5rem; background: #161b22; border: 1px solid #30363d; border-radius: 4px; font-size: 0.875rem; }
+      .clock span { color: #8b949e; }
+      .clock .time { color: #3fb950; font-weight: 600; }
       .row { display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; margin-bottom: 1rem; }
       label { font-size: 0.875rem; color: #8b949e; }
       input, select { background: #21262d; border: 1px solid #30363d; border-radius: 4px; padding: 0.375rem 0.5rem; color: #c9d1d9; font-size: 0.875rem; }
@@ -103,6 +118,12 @@ const PAGE = `<!doctype html>
   <body>
     <h1>Datastar + WebSocket</h1>
     <p>SSE uses the Datastar SDK for structured events. WS delivers bare payloads for HTMX clients.</p>
+
+    <div class="clock" data-init="@get('/sse?intent=clock')" data-signals='{"currentTime":"waiting..."}'>
+      <span>Server clock:</span>
+      <span class="time" data-text="$.currentTime"></span>
+      <span style="color:#8b949e;font-size:0.75rem"> (auto-pushed via Datastar signals every 1s)</span>
+    </div>
 
     <div class="row">
       <label for="intent">Intent filter:</label>

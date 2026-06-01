@@ -13,9 +13,8 @@ Deno.test("module-loader", async (t) => {
   await t.step("loads known modules from the modules directory", async () => {
     const result = await loadModules();
     const names = result.modules.map((m) => m.name);
-    assertEquals(names.includes("hello"), true);
+    assertEquals(names.includes("index"), true);
     assertEquals(names.includes("demo"), true);
-    assertEquals(names.includes("simulation"), true);
     assertEquals(names.includes("dashboard"), true);
     assertEquals(names.includes("form-auth"), true);
   });
@@ -34,10 +33,11 @@ Deno.test("module-loader", async (t) => {
 
   await t.step("modules may have lifecycle hooks", async () => {
     const result = await loadModules();
-    const simulation = result.modules.find((m) => m.name === "simulation");
-    assertExists(simulation);
-    assertEquals(typeof simulation.start, "function");
-    assertEquals(typeof simulation.stop, "function");
+    const demo = result.modules.find((m) => m.name === "demo");
+    assertExists(demo);
+    assertEquals(typeof demo.initialize, "function");
+    assertEquals(typeof demo.start, "function");
+    assertEquals(typeof demo.stop, "function");
 
     const formAuth = result.modules.find((m) => m.name === "form-auth");
     assertExists(formAuth);

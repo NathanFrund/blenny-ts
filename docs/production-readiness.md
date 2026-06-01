@@ -142,15 +142,13 @@ connection requests, overwhelming the server.
 
 **Status:** ✅ Complete
 
-**Files:** `tests/hello_test.ts`, `tests/demo_test.ts`,
-`tests/simulation_test.ts`
+**Files:** `tests/index_test.ts`, `tests/demo_test.ts`
 
 Core module routes and lifecycle hooks are tested:
 
-- `hello` — GET `/` returns HTML, GET `/hello` returns text
+- `index` — GET `/` returns HTML landing page
 - `demo` — GET `/demo` returns HTML, trigger-broadcast endpoints, POST
-  `/demo/broadcast`
-- `simulation` — GET `/simulation/status`, `start()` publishes `spatial:tick`,
+  `/demo/broadcast`, `start()` pushes server clock via Datastar signals,
   `stop()` clears timer
 
 ---

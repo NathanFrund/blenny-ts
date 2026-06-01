@@ -1,4 +1,4 @@
-export type Intent = "ui" | "data" | "command" | "notification";
+export type Intent = "ui" | "data" | "command" | "notification" | "clock";
 
 export interface ServerMessage {
   intent?: Intent;

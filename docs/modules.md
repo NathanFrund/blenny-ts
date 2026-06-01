@@ -357,7 +357,7 @@ declare module "@blenny/types" {
 4. Do **not** edit `src/types.ts` to add module events. The interface there is
    reserved for framework core events only.
 
-**Real example — `form-auth` declares auth events, `simulation` subscribes
+**Real example — `form-auth` declares auth events, any module subscribes
 without an import:**
 
 ```ts

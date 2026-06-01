@@ -27,6 +27,15 @@ Deno.test("demo module", async (t) => {
     assertEquals(html.includes("<!doctype html>"), true);
   });
 
+  await t.step("page includes server clock section", async () => {
+    const res = await app.request("http://localhost/demo");
+    const html = await res.text();
+    assertEquals(html.includes("Server clock"), true);
+    assertEquals(html.includes('data-signals='), true);
+    assertEquals(html.includes('"currentTime"'), true);
+    assertEquals(html.includes("data-init"), true);
+  });
+
   await t.step("GET /trigger-broadcast with ui returns JSON", async () => {
     const res = await app.request(
       "http://localhost/trigger-broadcast?category=ui",
@@ -92,5 +101,11 @@ Deno.test("demo module", async (t) => {
     assertEquals(res.status, 200);
     const body = await res.json();
     assertEquals(body.ok, true);
+  });
+
+  await t.step("start and stop lifecycle are safe", async () => {
+    demoModule.start?.();
+    await new Promise((r) => setTimeout(r, 100));
+    demoModule.stop?.();
   });
 });
