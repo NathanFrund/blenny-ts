@@ -80,10 +80,7 @@ export class TransportHub {
   private reapIdleConnections(): void {
     const now = Date.now();
     for (const conn of this.sseConns) {
-      if (
-        conn.lastWriteAt &&
-        now - conn.lastWriteAt > this.reaperIdleMs
-      ) {
+        if (now - conn.lastWriteAt > this.reaperIdleMs) {
         this.removeConnection(conn.id);
       }
     }
@@ -125,6 +122,7 @@ export class TransportHub {
       userSet.add(conn.id);
     }
     this.conns.set(conn.id, conn);
+    conn.lastWriteAt ??= Date.now();
     if (conn.connType === "sse") this.sseConns.add(conn);
     if (conn.intents) {
       for (const intent of conn.intents) {
@@ -146,7 +144,11 @@ export class TransportHub {
     this.sseConns.delete(conn);
     if (conn.intents) {
       for (const intent of conn.intents) {
-        this.intentGroups.get(intent)?.delete(id);
+        const set = this.intentGroups.get(intent);
+        if (set) {
+          set.delete(id);
+          if (set.size === 0) this.intentGroups.delete(intent);
+        }
       }
     } else {
       this.noIntentConns.delete(id);
