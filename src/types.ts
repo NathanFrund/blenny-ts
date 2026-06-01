@@ -34,7 +34,7 @@ export interface BlennyModule {
  * via declaration merging — do NOT add module-specific events to this file.
  *
  * ```ts
- * declare module "../types.ts" {
+ * declare module "@blenny/types" {
  *   interface BlennyEvents {
  *     "my:event": { field: string };
  *   }

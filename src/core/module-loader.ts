@@ -4,6 +4,7 @@ import type { BlennyModule, Route } from "../types.ts";
 
 const modulesDir = fromFileUrl(new URL("../modules", import.meta.url));
 const VALID_METHODS = new Set<string>(HTTP_METHODS);
+const INDEX_CANDIDATES = ["index.ts", "index.tsx"];
 
 export interface ModuleLoadFailure {
   file: string;
@@ -121,31 +122,60 @@ function validateModule(
   return { mod };
 }
 
+async function findIndexFile(dirPath: string): Promise<string | null> {
+  for (const candidate of INDEX_CANDIDATES) {
+    try {
+      const path = join(dirPath, candidate);
+      const stat = await Deno.stat(path);
+      if (stat.isFile) return path;
+    } catch {
+      continue;
+    }
+  }
+  return null;
+}
+
 export async function loadModules(): Promise<ModuleLoadResult> {
   const modules: BlennyModule[] = [];
   const failures: ModuleLoadFailure[] = [];
 
   try {
     for await (const entry of Deno.readDir(modulesDir)) {
-      if (
-        !entry.isFile ||
-        !(entry.name.endsWith(".ts") || entry.name.endsWith(".tsx"))
-      ) {
+      const name = entry.name;
+      if (name.startsWith(".")) continue;
+
+      let sourceUrl: string;
+      let label: string;
+
+      if (entry.isFile && (name.endsWith(".ts") || name.endsWith(".tsx"))) {
+        sourceUrl = toFileUrl(join(modulesDir, name)).href;
+        label = name;
+      } else if (entry.isDirectory) {
+        const indexFile = await findIndexFile(join(modulesDir, name));
+        if (!indexFile) {
+          failures.push({
+            file: name,
+            error: "directory module has no index.ts or index.tsx",
+          });
+          continue;
+        }
+        sourceUrl = toFileUrl(indexFile).href;
+        label = name;
+      } else {
         continue;
       }
-      const fileName = String(entry.name);
-      const fileUrl = toFileUrl(join(modulesDir, fileName)).href;
+
       try {
-        const mod = await import(fileUrl);
-        const result = validateModule(mod.default, fileName);
+        const mod = await import(sourceUrl);
+        const result = validateModule(mod.default, label);
         if (result.mod) {
           modules.push(result.mod);
         } else {
-          failures.push({ file: fileName, error: result.err! });
+          failures.push({ file: name, error: result.err! });
         }
       } catch (err) {
         failures.push({
-          file: fileName,
+          file: name,
           error: err instanceof Error ? err.message : String(err),
           stack: err instanceof Error ? err.stack : undefined,
         });

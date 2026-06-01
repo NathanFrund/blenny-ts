@@ -20,7 +20,7 @@ Deno.test("main routes", async (t) => {
   const app = new Hono();
 
   // Initialize auth module first (mirrors main.ts)
-  const authModule = await import("../src/modules/form-auth.tsx");
+  const authModule = await import("../src/modules/form-auth/index.ts");
   await authModule.default.initialize?.(state);
 
   // Simulate what main.ts does after module init

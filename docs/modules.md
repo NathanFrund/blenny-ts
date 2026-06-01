@@ -337,7 +337,7 @@ extends the `BlennyEvents` interface from its own source:
 // src/modules/chat.tsx
 import type { BlennyEvents, BlennyModule } from "../types.ts";
 
-declare module "../types.ts" {
+declare module "@blenny/types" {
   interface BlennyEvents {
     "chat:message": { roomId: string; userId: string; text: string };
     "chat:join": { roomId: string; userId: string };
@@ -347,9 +347,9 @@ declare module "../types.ts" {
 
 **How it works:**
 
-1. Place the `declare module "../types.ts"` block anywhere at the top level of
+1. Place the `declare module "@blenny/types"` block anywhere at the top level of
    your module file.
-2. You must `import type { BlennyEvents } from "../types.ts"` in the same file
+2. You must `import type { BlennyEvents } from "@blenny/types"` in the same file
    for the declaration to merge.
 3. Once the file is part of the compilation, the new topics are visible
    project-wide — other modules can subscribe with full type safety without
@@ -361,8 +361,8 @@ declare module "../types.ts" {
 without an import:**
 
 ```ts
-// form-auth.tsx — declares:
-declare module "../types.ts" {
+// form-auth — declares:
+declare module "@blenny/types" {
   interface BlennyEvents {
     "auth:signin": { userId: string; timestamp: number };
     "auth:signout": { userId: string; timestamp: number };
@@ -376,8 +376,8 @@ subscribe("auth:signin", (payload) => {
 });
 ```
 
-The subscriber never imports `form-auth.tsx` — the type is merged globally
-because `form-auth.tsx` is loaded by the framework at boot.
+The subscriber never imports `form-auth` — the type is merged globally
+because `form-auth` is loaded by the framework at boot.
 
 ### Route Auth Typing
 
@@ -465,7 +465,7 @@ the type checker.
 | Module shape    | `../types.ts`                    | Import `BlennyModule`                                             |
 | Framework state | `../core/app-state.ts`           | Import `AppState`, use in `initialize()`                          |
 | Auth helpers    | `../core/auth.ts`                | Import `UserInfo`, `AuthConfig`, `createToken`, etc.              |
-| Event topics    | In the module that fires them    | `declare module "../types.ts" { interface BlennyEvents { ... } }` |
+| Event topics    | In the module that fires them    | `declare module "@blenny/types" { interface BlennyEvents { ... } }` |
 | Capabilities    | In the module that provides them | `capabilities: ["my-feature"]`                                    |
 
 Every module is self-documenting — its event declarations and capability

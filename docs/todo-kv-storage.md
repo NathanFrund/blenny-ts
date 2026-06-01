@@ -1,58 +1,27 @@
 # Punchlist: KV storage layer remaining work
 
-## 1. KV store tests (`tests/kv-store_test.ts`)
+## Done (merged to main)
 
-The `KvUserStore` and `KvBlobStore` implementations have no unit tests. Requires
-`--unstable-kv`. Each test should use `openKvStore("")` for an isolated
-in-memory KV instance.
+- KvUserStore, KvBlobStore, openKvStore factory (src/core/kv-store.ts)
+- KvUserStore + KvBlobStore + openKvStore tests (tests/kv-store_test.ts, 19 steps)
+- FsBlobStore for memory mode avatar serving (src/core/fs-blob-store.ts)
+- FsBlobStore tests (tests/fs-blob-store_test.ts, 6 steps)
+- Module stop() lifecycle tests for KV close in both memory and KV modes
+- data/ in .gitignore
+- Empty db.path handling ("" → undefined for Deno.openKv)
+- --unstable-kv and --allow-write in test task
 
-Coverage needed:
+## Remaining
 
-- `KvUserStore` — `findById`, `findByUsername`, `createUser` (success +
-  duplicate CAS), `updatePasswordHash`, `updateAvatarKey`, `deleteUser`
-  (exists + missing)
-- `KvBlobStore` — `set`/`getAsResponse` round-trip for small file, `remove`
-- Shutdown — verify `kv.close()` is safe after use
+### 1. Avatar upload/serve handler tests
 
-## 2. Filesystem BlobStore for memory mode
+The `POST /auth/avatar` and `GET /avatars/:userId` routes have no request-level
+tests. The underlying BlobStore implementations (FsBlobStore, KvBlobStore) are
+tested, but the full handler flow (auth guard, file validation, store wiring)
+is uncovered.
 
-When `store.driver = "memory"`, avatar endpoints return 501/404. A simple
-`FsBlobStore` backed by `static/avatars/` would make the memory mode useful for
-local development without `--unstable-kv`.
-
-Location: `src/core/fs-blob-store.ts` (new file)
-
-Interface to implement:
-
-```ts
-class FsBlobStore implements BlobStore {
-  constructor(private baseDir: string) {}
-  set(prefix: string, id: string, file: File): Promise<string>;
-  getAsResponse(prefix: string, id: string): Promise<Response>;
-  remove(prefix: string, id: string): Promise<void>;
-}
-```
-
-## 3. Default `db.path` config value
-
-`main.ts:58` passes `config.at("db.path")` to `openKvStore()`, but `db.path` has
-no entry in `DEFAULTS` in `config.ts`. This means `Deno.openKv(undefined)` is
-called, and Deno picks a platform-dependent default location that is neither
-obvious nor predictable.
-
-Add a default to `DEFAULTS`:
-
-```
-"db.path": "./data/blenny-kv.sqlite3"
-```
-
-Also update `docs/auth-storage.md` and `blenny.example.json`.
-
-## 4. `.gitignore` for KV data
-
-If we set a default `db.path`, the SQLite file should be gitignored. Add to
-`.gitignore`:
-
-```
-data/
-```
+Testing challenges:
+- Needs multipart form upload with a File
+- Needs authenticated session (cookie from signin)
+- Needs to exercise the FsBlobStore in memory mode
+- Avatar serve handler depends on a user record with an avatarKey set

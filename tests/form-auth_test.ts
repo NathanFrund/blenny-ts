@@ -4,7 +4,7 @@ import type { MiddlewareHandler } from "@hono/hono";
 import { TransportHub } from "../src/core/hub.ts";
 import { Conduit } from "../src/core/conduit.ts";
 import { BlennyConfig } from "../src/core/config.ts";
-import authModule from "../src/modules/form-auth.tsx";
+import authModule from "../src/modules/form-auth/index.ts";
 import type { AppState } from "../src/core/app-state.ts";
 import type { HttpMethod } from "../src/types.ts";
 import { NULL_LOGGER } from "../src/core/logger.ts";

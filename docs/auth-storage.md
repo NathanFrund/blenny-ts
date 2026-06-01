@@ -17,7 +17,7 @@ framework core (`main.ts`, `config.ts`, `AppState`) has no storage awareness.
 ```
 ┌──────────────────────────────────────────────────┐
 │              Auth Module                          │
-│  form-auth.tsx  (routes, JSX pages, JWT)         │
+│  form-auth/     (routes, JSX pages, JWT)         │
 │                                                  │
 │  initialize():                                   │
 │    1. reads form-auth.store config                │
@@ -242,7 +242,7 @@ every realistic Blenny deployment.
 
 ## Auth Module Integration
 
-`src/modules/form-auth.tsx` declares capability `"auth"` and sets `state.auth`
+`src/modules/form-auth/` declares capability `"auth"` and sets `state.auth`
 during `initialize()`. The module manages its own `UserStore` and `BlobStore`
 instances, created from module-local config keys.
 

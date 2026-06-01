@@ -174,11 +174,11 @@ Core infrastructure modules have dedicated tests:
 
 ---
 
-## Priority 10: Wire UsernameSchema/PasswordSchema into form-auth.tsx
+## Priority 10: Wire UsernameSchema/PasswordSchema into form-auth
 
 **Status:** ✅ Complete
 
-**File:** `src/modules/form-auth.tsx`
+**File:** `src/modules/form-auth/`
 
 Registration now validates username and password against Valibot schemas before
 creating the user:
@@ -194,7 +194,7 @@ creating the user:
 **Status:** ✅ Complete
 
 **Files:** `src/types.ts`, `src/core/module-loader.ts`, `main.ts`,
-`src/modules/form-auth.tsx`
+`src/modules/form-auth/`
 
 - `BlennyModule` interface now has optional `capabilities?: string[]`
 - `module-loader.ts` validates capabilities as arrays of strings
@@ -226,7 +226,7 @@ Invalid values throw a clear boot-time error instead of producing NaN behavior.
 
 **Status:** ✅ Complete
 
-**File:** `src/modules/form-auth.tsx`
+**File:** `src/modules/form-auth/`
 
 When the default admin user is seeded outside of dev mode, a log warning is
 emitted:

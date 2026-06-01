@@ -1,7 +1,7 @@
 import { publish } from "../core/hub.ts";
 import type { BlennyEvents as _BlennyEvents, BlennyModule } from "../types.ts";
 
-declare module "../types.ts" {
+declare module "@blenny/types" {
   interface BlennyEvents {
     "spatial:tick": { cycle: number; activeAgents: number };
   }

@@ -9,7 +9,7 @@ with `index.ts` is a Deno/JS/TS module.
 ```
 src/modules/
   hello.ts              ← single-file (unchanged)
-  form-auth.tsx         ← single-file (unchanged)
+  form-auth/            ← directory module
   forum/                ← multi-file module
     index.ts            ← exports BlennyModule default
     routes.ts           ← handler functions

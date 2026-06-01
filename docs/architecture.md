@@ -116,7 +116,7 @@ state.auth = {
 Once set, `main.ts` applies the middleware globally and guards routes marked
 `auth: true` or `auth: "role"`.
 
-The reference `form-auth.tsx` module provides in-memory user storage with
+The reference `form-auth` module provides in-memory user storage with
 SHA-256 password hashing, registration, and JWT cookie sessions.
 
 ## Transport System
