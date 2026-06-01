@@ -5,6 +5,7 @@ import {
   activeConnections,
   messagesSent,
   messageDuration,
+  recordDuration,
   withSpan,
   SpanStatusCode,
 } from "./tracing.ts";
@@ -185,7 +186,7 @@ export class TransportHub {
         "conn.type": conn.connType,
         "msg.intent": msg.intent ?? "none",
       });
-      messageDuration.record(performance.now() - start, {
+      recordDuration(messageDuration, start, {
         "conn.type": conn.connType,
       });
     } catch (err) {
@@ -242,6 +243,7 @@ export class TransportHub {
   private async broadcastToAll(msg: ServerMessage): Promise<void> {
     if (this.conns.size === 0) return;
     await withSpan("hub.broadcast", async (span) => {
+      span.setAttribute("msg.intent", msg.intent ?? "none");
       const writes: Promise<void>[] = [];
       if (msg.intent) {
         const group = this.intentGroups.get(msg.intent);
@@ -263,7 +265,6 @@ export class TransportHub {
       const results = await Promise.allSettled(writes);
       const failed = results.filter((r) => r.status === "rejected");
       span.setAttribute("conn.count", this.conns.size);
-      span.setAttribute("msg.intent", msg.intent ?? "none");
       if (failed.length > 0) {
         span.setAttribute("write.errors", failed.length);
         span.setStatus({ code: SpanStatusCode.ERROR });
@@ -274,7 +275,7 @@ export class TransportHub {
   private async directToUser(msg: ServerMessage, userId: string): Promise<void> {
     const userSet = this.userConns.get(userId);
     if (!userSet || userSet.size === 0) return;
-    await withSpan("hub.directToUser", async (span) => {
+    await withSpan("hub.direct", async (span) => {
       span.setAttribute("user.id", userId);
       const writes: Promise<void>[] = [];
       for (const id of userSet) {

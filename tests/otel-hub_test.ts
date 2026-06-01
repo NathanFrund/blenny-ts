@@ -67,7 +67,7 @@ Deno.test("OTel hub instrumentation", async (t) => {
     assertEquals(spans[0].attributes?.["msg.intent"], "none");
   });
 
-  await t.step("directToUser creates a hub.directToUser span", async () => {
+  await t.step("directToUser creates a hub.direct span", async () => {
     exporter.reset();
     const hub = new TransportHub();
     const conn = new CaptureOtelConnection(
@@ -80,7 +80,7 @@ Deno.test("OTel hub instrumentation", async (t) => {
 
     const spans = exporter.getFinishedSpans();
     assertEquals(spans.length, 1);
-    assertEquals(spans[0].name, "hub.directToUser");
+    assertEquals(spans[0].name, "hub.direct");
     assertEquals(spans[0].attributes?.["user.id"], "alice");
   });
 
