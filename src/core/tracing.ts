@@ -1,13 +1,14 @@
 import { trace, metrics, context, propagation, SpanStatusCode } from "@opentelemetry/api";
-import type { Span, Histogram, Attributes } from "@opentelemetry/api";
+import type { Span, Histogram, Attributes, SpanOptions } from "@opentelemetry/api";
 
 const tracer = trace.getTracer("blenny", "0.1.0");
 
 export function withSpan<T>(
   name: string,
   fn: (span: Span) => T | Promise<T>,
+  options?: SpanOptions,
 ): Promise<T> {
-  const span = tracer.startSpan(name);
+  const span = tracer.startSpan(name, options);
   return context.with(trace.setSpan(context.active(), span), async () => {
     try {
       const r = await fn(span);
