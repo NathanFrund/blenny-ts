@@ -91,3 +91,6 @@ out/
 .pnp.*
 
 scratchpad
+
+# Blob storage (FsBlobStore) and Deno KV SQLite databases
+data/

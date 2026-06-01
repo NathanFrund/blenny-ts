@@ -16,6 +16,7 @@ import type { BlennyEvents as _BlennyEvents } from "../types.ts";
 import type { BlobStore, UserStore } from "../core/store.ts";
 import { openKvStore } from "../core/kv-store.ts";
 import { createInMemoryUserStore } from "../core/user-store.ts";
+import { FsBlobStore } from "../core/fs-blob-store.ts";
 import * as v from "@valibot/valibot";
 import { PasswordSchema, UsernameSchema } from "../core/validation.ts";
 
@@ -56,7 +57,7 @@ async function deriveKey(password: string, salt: string): Promise<string> {
 // ── Module state ────────────────────────────────────────────────
 
 let store: UserStore;
-let blobStore: BlobStore | undefined;
+let blobStore!: BlobStore;
 let kv: Deno.Kv | undefined;
 let conduit: Conduit;
 let config: AuthConfig;
@@ -220,13 +221,6 @@ function handleSignOut(c: Context): Response {
 // POST /auth/avatar  multipart/form-data  field: "avatar" (File)
 
 async function handleAvatarUpload(c: Context): Promise<Response> {
-  if (!blobStore) {
-    return c.json(
-      { error: "Avatar storage requires KV mode (form-auth.store = 'kv')" },
-      501,
-    );
-  }
-
   const user = c.get("user") as UserInfo | undefined;
   if (!user) return c.json({ error: "Unauthorized" }, 401);
 
@@ -251,10 +245,6 @@ async function handleAvatarUpload(c: Context): Promise<Response> {
 // GET /avatars/:userId
 
 async function handleAvatarServe(c: Context): Promise<Response> {
-  if (!blobStore) {
-    return c.json({ error: "No avatar found" }, 404);
-  }
-
   const userId = c.req.param("userId");
   if (!userId) return c.json({ error: "Missing userId" }, 400);
 
@@ -302,12 +292,14 @@ const authModule: BlennyModule = {
 
     const driver = state.config.at("form-auth.store") ?? "memory";
     if (driver === "kv") {
-      const stores = await openKvStore(state.config.at("form-auth.db.path"));
+      const dbPath = state.config.at("form-auth.db.path") || undefined;
+      const stores = await openKvStore(dbPath);
       store = stores.store;
       blobStore = stores.blobStore;
       kv = stores.kv;
     } else {
       store = createInMemoryUserStore();
+      blobStore = new FsBlobStore();
     }
 
     state.auth = {

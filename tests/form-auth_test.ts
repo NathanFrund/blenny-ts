@@ -226,6 +226,33 @@ Deno.test("registration", async (t) => {
   });
 });
 
+Deno.test("lifecycle", async (t) => {
+  await t.step("stop is a no-op in memory mode", async () => {
+    const config = new BlennyConfig();
+    const hub = new TransportHub();
+    const conduit = new Conduit();
+    const state: AppState = { hub, conduit, config, logger: NULL_LOGGER };
+
+    await authModule.initialize?.(state);
+    await authModule.stop?.();
+  });
+
+  await t.step("stop closes the KV connection cleanly", async () => {
+    const config = new BlennyConfig({
+      fileContent: JSON.stringify({
+        "form-auth.store": "kv",
+        "form-auth.db.path": ":memory:",
+      }),
+    });
+    const hub = new TransportHub();
+    const conduit = new Conduit();
+    const state: AppState = { hub, conduit, config, logger: NULL_LOGGER };
+
+    await authModule.initialize?.(state);
+    await authModule.stop?.();
+  });
+});
+
 function extractCookieName(setCookie: string): string {
   const match = setCookie.match(/^([^=]+=[^;]+)/);
   return match ? match[1] : "";
