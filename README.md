@@ -1,5 +1,9 @@
 # Blenny-ts
 
+<p align="center">
+  <img src="BlennyMascot-TS.svg" alt="Blenny Mascot" width="250">
+</p>
+
 A Deno/TypeScript port of the [Blenny](https://github.com/NathanFrund/blenny)
 web framework — a hypermedia-driven, real-time, single-binary platform.
 
