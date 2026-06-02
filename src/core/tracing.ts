@@ -1,7 +1,7 @@
 import { trace, metrics, context, propagation, SpanStatusCode } from "@opentelemetry/api";
 import type { Span, Histogram, Attributes, SpanOptions } from "@opentelemetry/api";
 
-const tracer = trace.getTracer("blenny", "0.1.0");
+const tracer = trace.getTracer("blenny", "0.2.0");
 
 export function withSpan<T>(
   name: string,
@@ -38,7 +38,7 @@ export function recordDuration(
 
 export { trace, context, propagation, SpanStatusCode };
 
-export const meter = metrics.getMeter("blenny", "0.1.0");
+export const meter = metrics.getMeter("blenny", "0.2.0");
 
 export const activeConnections = meter.createUpDownCounter(
   "blenny.hub.connections",

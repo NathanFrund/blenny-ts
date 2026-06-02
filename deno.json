@@ -1,4 +1,5 @@
 {
+  "version": "0.2.0",
   "tasks": {
     "dev": "deno run --allow-net --allow-read --allow-env --allow-ffi --unstable-ffi --unstable-kv --watch main.ts",
     "compile": "deno compile --allow-net --allow-read --allow-env --allow-ffi --unstable-kv --include src/native/ main.ts",
