@@ -200,30 +200,41 @@ Deno.test("TransportHub", async (t) => {
   await t.step(
     "write removes connection on sync send error",
     () => {
-      const hub = new TransportHub();
-      const conn = new ThrowingConnection(crypto.randomUUID(), 1);
-      hub.registerConnection(conn);
+      const origWarn = console.warn;
+      console.warn = () => {};
 
-      hub.mergeSignals({ test: "value" });
+      try {
+        const hub = new TransportHub();
+        const conn = new ThrowingConnection(crypto.randomUUID(), 1);
+        hub.registerConnection(conn);
 
-      assertEquals(hub.getConnections().length, 0);
+        hub.mergeSignals({ test: "value" });
+
+        assertEquals(hub.getConnections().length, 0);
+      } finally {
+        console.warn = origWarn;
+      }
     },
   );
 
   await t.step(
     "write removes connection on async send rejection",
     async () => {
-      const hub = new TransportHub();
-      const conn = new AsyncRejectConnection(crypto.randomUUID(), 1);
-      hub.registerConnection(conn);
+      const origWarn = console.warn;
+      console.warn = () => {};
 
-      // Broadcast returns void but the internal write() is async;
-      // await hub.mergeSignals would not help since it's fire-and-forget.
-      // We flush microtasks to let the rejection be handled.
-      hub.mergeSignals({ test: "value" });
-      await new Promise((r) => setTimeout(r, 0));
+      try {
+        const hub = new TransportHub();
+        const conn = new AsyncRejectConnection(crypto.randomUUID(), 1);
+        hub.registerConnection(conn);
 
-      assertEquals(hub.getConnections().length, 0);
+        hub.mergeSignals({ test: "value" });
+        await new Promise((r) => setTimeout(r, 0));
+
+        assertEquals(hub.getConnections().length, 0);
+      } finally {
+        console.warn = origWarn;
+      }
     },
   );
 
@@ -321,31 +332,37 @@ Deno.test("TransportHub", async (t) => {
 Deno.test("Event bus", async (t) => {
   await t.step("handler error does not affect other handlers", () => {
     const results: string[] = [];
+    const origError = console.error;
+    console.error = () => {};
 
-    const unsub1 = subscribe("platform:ready", (_payload) => {
-      results.push("first");
-    });
+    try {
+      const unsub1 = subscribe("platform:ready", (_payload) => {
+        results.push("first");
+      });
 
-    const unsub2 = subscribe("platform:ready", (_payload) => {
-      results.push("second");
-    });
+      const unsub2 = subscribe("platform:ready", (_payload) => {
+        results.push("second");
+      });
 
-    const unsub3 = subscribe("platform:ready", (_payload) => {
-      throw new Error("handler failure");
-    });
+      const unsub3 = subscribe("platform:ready", (_payload) => {
+        throw new Error("handler failure");
+      });
 
-    const unsub4 = subscribe("platform:ready", (_payload) => {
-      results.push("fourth");
-    });
+      const unsub4 = subscribe("platform:ready", (_payload) => {
+        results.push("fourth");
+      });
 
-    publish("platform:ready", { timestamp: 1 });
+      publish("platform:ready", { timestamp: 1 });
 
-    assertEquals(results, ["first", "second", "fourth"]);
+      assertEquals(results, ["first", "second", "fourth"]);
 
-    unsub1();
-    unsub2();
-    unsub3();
-    unsub4();
+      unsub1();
+      unsub2();
+      unsub3();
+      unsub4();
+    } finally {
+      console.error = origError;
+    }
   });
 
   await t.step("unsubscribe removes handler", () => {

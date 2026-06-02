@@ -1,16 +1,18 @@
 import { assertEquals, assertExists } from "@std/assert";
 import { Hono } from "@hono/hono";
-import type { MiddlewareHandler } from "@hono/hono";
 import { TransportHub } from "../src/core/hub.ts";
 import { Conduit } from "../src/core/conduit.ts";
 import { BlennyConfig } from "../src/core/config.ts";
 import { getUser } from "../src/core/auth.ts";
-import type { Intent } from "../src/core/envelope.ts";
 import type { AppState } from "../src/core/app-state.ts";
-import type { HttpMethod } from "../src/types.ts";
 import { NULL_LOGGER } from "../src/core/logger.ts";
 import { ServerSentEventGenerator } from "@starfederation/datastar-sdk/web";
 import { SseConnection } from "../src/core/sse-connection.ts";
+import { registerPlatformEndpoints } from "../src/core/bootstrap/endpoints.ts";
+import {
+  applyAuthMiddleware,
+  registerModuleRoutes,
+} from "../src/core/bootstrap/modules.ts";
 
 Deno.test("main routes", async (t) => {
   const config = new BlennyConfig();
@@ -19,69 +21,14 @@ Deno.test("main routes", async (t) => {
   const state: AppState = { hub, conduit, config, logger: NULL_LOGGER };
   const app = new Hono();
 
-  // Initialize auth module first (mirrors main.ts)
+  // Replicates main.ts bootstrap pipeline for endpoints-only test
   const authModule = await import("../src/modules/form-auth/index.ts");
   await authModule.default.initialize?.(state);
-
-  // Simulate what main.ts does after module init
-  app.get("/health", (c) => c.json({ status: "ok", modules: 5 }));
-
-  app.get("/sse", async (c) => {
-    const intentParam = c.req.query("intent");
-    const intents = intentParam
-      ? new Set(intentParam.split(",") as Intent[])
-      : undefined;
-
-    let userId: string | undefined;
-    if (state.auth) {
-      const user = await getUser(c, state.auth.config);
-      if (user) userId = user.id;
-    }
-
-    if (state.auth && config.transportAuthRequired && !userId) {
-      return c.text("Unauthorized", 401);
-    }
-
-    return ServerSentEventGenerator.stream(
-      (stream) => {
-        if (c.req.raw.signal.aborted) return;
-        const id = crypto.randomUUID();
-        const conn = new SseConnection(stream, id, userId, intents);
-        const cleanup = hub.registerConnection(conn);
-
-        return new Promise<void>((resolve) => {
-          c.req.raw.signal.addEventListener("abort", () => {
-            cleanup();
-            resolve();
-          });
-        });
-      },
-      { keepalive: true },
-    );
-  });
-
-  if (state.auth) {
-    app.use("*", state.auth.middleware);
-  }
-
-  // Register a protected route the way main.ts does
+  applyAuthMiddleware(app, state);
   const dashboardModule = await import("../src/modules/dashboard.tsx");
-  const dashMod = dashboardModule.default;
-
-  await dashMod.initialize?.(state);
-
-  for (const route of dashMod.routes) {
-    const method = route.method as HttpMethod;
-    const handler = route.handler as unknown as MiddlewareHandler;
-    if (route.auth && state.auth) {
-      const guard: MiddlewareHandler = typeof route.auth === "string"
-        ? state.auth.requireRole(route.auth)
-        : state.auth.requireUser;
-      app.on(method, route.path, guard, handler);
-    } else {
-      app.on(method, route.path, handler);
-    }
-  }
+  await dashboardModule.default.initialize?.(state);
+  registerModuleRoutes(app, [dashboardModule.default], state, NULL_LOGGER);
+  registerPlatformEndpoints(app, state, config);
 
   await t.step("GET /health returns JSON with module count", async () => {
     const res = await app.request("http://localhost/health");
@@ -94,7 +41,6 @@ Deno.test("main routes", async (t) => {
   await t.step(
     "GET /sse without auth returns 401 when auth required",
     async () => {
-      // Simulate production mode where transport auth is required
       const authConfig = { ...state.auth!.config };
       authConfig.allowQueryToken = true;
       const appAuth = new Hono();

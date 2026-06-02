@@ -105,21 +105,28 @@ Deno.test("OTel hub instrumentation", async (t) => {
   });
 
   await t.step("failed send sets ERROR status on broadcast span", async () => {
-    exporter.reset();
-    const hub = new TransportHub();
-    const conn = new ThrowingOtelConnection(crypto.randomUUID());
-    hub.registerConnection(conn);
+    const origWarn = console.warn;
+    console.warn = () => {};
 
-    await hub.mergeSignals({ test: true });
+    try {
+      exporter.reset();
+      const hub = new TransportHub();
+      const conn = new ThrowingOtelConnection(crypto.randomUUID());
+      hub.registerConnection(conn);
 
-    const spans = exporter.getFinishedSpans();
-    assertEquals(spans.length, 1);
-    assertEquals(spans[0].name, "hub.broadcast");
-    assertEquals(
-      spans[0].status.code,
-      SpanStatusCode.ERROR,
-    );
-    assertEquals(spans[0].attributes?.["write.errors"], 1);
+      await hub.mergeSignals({ test: true });
+
+      const spans = exporter.getFinishedSpans();
+      assertEquals(spans.length, 1);
+      assertEquals(spans[0].name, "hub.broadcast");
+      assertEquals(
+        spans[0].status.code,
+        SpanStatusCode.ERROR,
+      );
+      assertEquals(spans[0].attributes?.["write.errors"], 1);
+    } finally {
+      console.warn = origWarn;
+    }
   });
 
   await t.step(
