@@ -11,6 +11,7 @@ import type { BlennyModule } from "../types.ts";
 
 const myModule: BlennyModule = {
   name: "my-module",
+  enabled: true,  // optional, defaults to true; set to false to exclude at boot
   routes: [],
   subscriptions: [],
   layout: undefined, // optional, module-level default layout
@@ -22,6 +23,15 @@ const myModule: BlennyModule = {
 
 export default myModule;
 ```
+
+| Field       | Type      | Default | Purpose                                                          |
+| ----------- | --------- | ------- | ---------------------------------------------------------------- |
+| `name`      | `string`  | —       | Unique module name                                               |
+| `enabled`   | `boolean` | `true`  | If `false`, the module is skipped at boot — no lifecycle hooks, routes, or capabilities are registered |
+| `routes`    | `Route[]` | `[]`    | HTTP routes the module provides                                  |
+| `layout`    | `FC`      | —       | Default layout for Conduit rendering                             |
+| `subscriptions` | `Subscription[]` | — | Typed event bus subscriptions                             |
+| `capabilities` | `string[]` | —      | Framework features this module provides (e.g. `"auth"`)          |
 
 ## Routes
 
@@ -439,6 +449,32 @@ subtle bugs where a second auth module silently overrides the first.
 
 Capabilities are strings, not a fixed enum — modules define their own. The only
 convention so far is `"auth"` for modules that set `state.auth`.
+
+To select which auth module is active, set `enabled: false` on all but one:
+
+```ts
+// src/modules/form-auth/index.ts
+export default {
+  name: "form-auth",
+  enabled: true,  // default — this one is active
+  capabilities: ["auth"],
+  // ...
+};
+```
+
+```ts
+// src/modules/other-auth/index.ts
+export default {
+  name: "other-auth",
+  enabled: false,  // disabled — use form-auth instead
+  capabilities: ["auth"],
+  // ...
+};
+```
+
+Disabled modules are skipped by the loader — no routes registered, no lifecycle
+hooks fired, no capability conflicts. The conflict detector runs against enabled
+modules only.
 
 ### Type-Safe Testing
 

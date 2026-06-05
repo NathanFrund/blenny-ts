@@ -84,6 +84,10 @@ function validateModule(
 
   const mod: BlennyModule = { name, routes: validatedRoutes };
 
+  if (obj.enabled === false) {
+    mod.enabled = false;
+  }
+
   if (obj.layout !== undefined) {
     if (typeof obj.layout !== "function") {
       return { err: "layout must be a function" };
@@ -169,6 +173,7 @@ export async function loadModules(): Promise<ModuleLoadResult> {
         const mod = await import(sourceUrl);
         const result = validateModule(mod.default, label);
         if (result.mod) {
+          if (result.mod.enabled === false) continue;
           modules.push(result.mod);
         } else {
           failures.push({ file: name, error: result.err! });
