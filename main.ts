@@ -36,5 +36,6 @@ await startModules(modules, logger);
 registerPlatformEndpoints(app, state, config, modules.length);
 const { finished } = startServer(app, config, hub, logger);
 await finished;
+await hub.drain(30_000);
 await stopModules(modules, state, logger);
 logger.info("blenny-ts shutdown complete");

@@ -66,6 +66,10 @@ export class TransportHub {
   private noIntentConns = new Set<ConnId>();
   private reaperTimer: ReturnType<typeof setInterval> | null = null;
   private reaperIdleMs = 300_000;
+  private draining = false;
+  private drainPromise: Promise<void> | null = null;
+  private drainResolve: (() => void) | null = null;
+  private drainTimer: ReturnType<typeof setTimeout> | null = null;
   maxConns: number;
   maxConnsPerUser: number;
 
@@ -101,6 +105,32 @@ export class TransportHub {
     }
   }
 
+  drain(timeoutMs = 30_000): Promise<void> {
+    if (this.draining) return this.drainPromise ?? Promise.resolve();
+    this.draining = true;
+    this.stopReaper();
+
+    if (this.conns.size === 0) return Promise.resolve();
+
+    this.drainPromise = new Promise<void>((resolve) => {
+      this.drainResolve = resolve;
+    });
+
+    this.drainTimer = setTimeout(() => {
+      this.closeAllConnections();
+      this.drainResolve?.();
+      this.drainResolve = null;
+    }, timeoutMs);
+
+    // Send staggered reconnect script to every connection, bypassing intent filtering
+    for (const conn of this.conns.values()) {
+      const delay = randomInt(1_000, 6_000);
+      conn.send({ script: `setTimeout(()=>location.reload(),${delay})` });
+    }
+
+    return this.drainPromise;
+  }
+
   closeAllConnections(): void {
     for (const id of this.conns.keys()) {
       this.removeConnection(id);
@@ -110,6 +140,13 @@ export class TransportHub {
   // ── Connection management ───────────────────────────────────
 
   registerConnection(conn: Connection): () => void {
+    if (this.draining) {
+      throw new BlennyError(
+        "draining",
+        "server is shutting down",
+        503,
+      );
+    }
     if (this.conns.size >= this.maxConns) {
       throw new BlennyError(
         "too_many_connections",
@@ -169,6 +206,13 @@ export class TransportHub {
       if (userSet?.size === 0) this.userConns.delete(conn.userId);
     }
     conn.close?.();
+
+    if (this.draining && this.conns.size === 0) {
+      if (this.drainTimer !== null) clearTimeout(this.drainTimer);
+      this.drainTimer = null;
+      this.drainResolve?.();
+      this.drainResolve = null;
+    }
   }
 
   // ── Internal dispatch ───────────────────────────────────────
@@ -291,4 +335,8 @@ export class TransportHub {
       }
     });
   }
+}
+
+function randomInt(min: number, max: number): number {
+  return Math.floor(Math.random() * (max - min + 1)) + min;
 }

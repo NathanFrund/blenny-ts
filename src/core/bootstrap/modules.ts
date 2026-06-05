@@ -143,6 +143,8 @@ export async function stopModules(
   state: AppState,
   logger: BlennyLogger,
 ): Promise<void> {
+  state.hub.closeAllConnections();
+  state.hub.stopReaper();
   for (const mod of modules.toReversed()) {
     await mod.stop?.();
     if (mod.stop) logger.info("Module stopped: {name}", { name: mod.name });

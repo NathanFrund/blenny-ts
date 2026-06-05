@@ -1,4 +1,4 @@
-import { assertEquals, assertThrows } from "@std/assert";
+import { assertEquals, assertRejects, assertStringIncludes, assertThrows } from "@std/assert";
 import { type Connection, type ConnId, TransportHub, subscribe, publish } from "../src/core/hub.ts";
 import { BlennyError } from "../src/core/error.ts";
 import type { Intent, ServerMessage } from "../src/core/envelope.ts";
@@ -374,5 +374,96 @@ Deno.test("Event bus", async (t) => {
     unsub();
     publish("platform:ready", { timestamp: 2 });
     assertEquals(results, [1]);
+  });
+});
+
+Deno.test("Hub drain", async (t) => {
+  await t.step("empty hub resolves immediately", async () => {
+    const hub = new TransportHub();
+    await hub.drain(30_000);
+  });
+
+  await t.step("prevents new registrations while draining", async () => {
+    const hub = new TransportHub();
+    const conn = new CaptureConnection(crypto.randomUUID());
+    hub.registerConnection(conn);
+
+    const drainPromise = hub.drain(30_000);
+
+    await assertRejects(
+      () => Promise.resolve().then(() =>
+        hub.registerConnection(
+          new CaptureConnection(crypto.randomUUID()),
+        )
+      ),
+      BlennyError,
+      "server is shutting down",
+    );
+
+    hub.removeConnection(conn.id);
+    await drainPromise;
+  });
+
+  await t.step(
+    "sends reconnect script to all connections",
+    async () => {
+      const hub = new TransportHub();
+      const a = new CaptureConnection(crypto.randomUUID());
+      const b = new CaptureConnection(crypto.randomUUID());
+      hub.registerConnection(a);
+      hub.registerConnection(b);
+
+      const drainPromise = hub.drain(30_000);
+
+      assertEquals(a.sent.length, 1);
+      assertEquals(b.sent.length, 1);
+      const msgA = JSON.parse(a.sent[0]) as ServerMessage;
+      assertEquals(typeof msgA.script, "string");
+      assertStringIncludes(msgA.script!, "setTimeout");
+      assertStringIncludes(msgA.script!, "location.reload");
+
+      hub.removeConnection(a.id);
+      hub.removeConnection(b.id);
+      await drainPromise;
+    },
+  );
+
+  await t.step(
+    "resolves when all connections drain naturally",
+    async () => {
+      const hub = new TransportHub();
+      const conn = new CaptureConnection(crypto.randomUUID());
+      hub.registerConnection(conn);
+
+      const drainPromise = hub.drain(30_000);
+
+      hub.removeConnection(conn.id);
+      await drainPromise;
+    },
+  );
+
+  await t.step(
+    "resolves via timeout fallback when connections hang",
+    async () => {
+      const hub = new TransportHub();
+      const conn = new CaptureConnection(crypto.randomUUID());
+      hub.registerConnection(conn);
+
+      await hub.drain(50);
+      assertEquals(conn.closeCallCount, 1);
+    },
+  );
+
+  await t.step("is idempotent", async () => {
+    const hub = new TransportHub();
+    const conn = new CaptureConnection(crypto.randomUUID());
+    hub.registerConnection(conn);
+
+    const p1 = hub.drain(30_000);
+    const p2 = hub.drain(30_000);
+    assertEquals(p1, p2);
+
+    hub.removeConnection(conn.id);
+    await p1;
   });
 });
