@@ -9,7 +9,7 @@ import { publish } from "../../core/hub.ts";
 import * as v from "@valibot/valibot";
 import { PasswordSchema, UsernameSchema } from "../../core/validation.ts";
 import { csrfGuard, csrfToken } from "../../core/csrf.ts";
-import { deriveKey } from "./crypto.ts";
+import { deriveKey, verifyKey } from "./crypto.ts";
 import { SignInPage, RegisterPage } from "./ui.tsx";
 import { state } from "./state.ts";
 
@@ -32,7 +32,7 @@ async function handleSignIn(c: Context): Promise<Response> {
     return renderSignIn(c, "Invalid username or password");
   }
 
-  const hash = await deriveKey(password, user.username);
+  const hash = await verifyKey(password, user.salt);
   if (user.passwordHash !== hash) {
     return renderSignIn(c, "Invalid username or password");
   }
@@ -80,9 +80,11 @@ async function handleRegister(c: Context): Promise<Response> {
     return renderRegister(c, "Display name is required");
   }
 
+  const { hash, salt } = await deriveKey(password);
   const user = await state.store.createUser({
     username,
-    passwordHash: await deriveKey(password, username),
+    passwordHash: hash,
+    salt,
     displayName,
     role: "user",
   }).catch((err: unknown) => {

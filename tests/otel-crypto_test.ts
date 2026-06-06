@@ -15,7 +15,7 @@ trace.setGlobalTracerProvider(provider);
 Deno.test("OTel crypto instrumentation", async (t) => {
   await t.step("deriveKey creates an auth.deriveKey span", async () => {
     exporter.reset();
-    await deriveKey("test-password", "test-salt");
+    await deriveKey("test-password");
 
     const spans = exporter.getFinishedSpans();
     assertEquals(spans.length, 1);

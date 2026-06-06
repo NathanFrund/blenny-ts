@@ -1,6 +1,6 @@
 import { withSpan } from "../../core/tracing.ts";
 
-function deriveKey(password: string, salt: string): Promise<string> {
+async function pbkdf2(password: string, salt: string): Promise<string> {
   return withSpan("auth.deriveKey", async (_span) => {
     const encoder = new TextEncoder();
     const keyMaterial = await crypto.subtle.importKey(
@@ -26,4 +26,18 @@ function deriveKey(password: string, salt: string): Promise<string> {
   });
 }
 
-export { deriveKey };
+function generateSalt(): string {
+  const bytes = new Uint8Array(16);
+  crypto.getRandomValues(bytes);
+  return Array.from(bytes).map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+
+export async function deriveKey(password: string): Promise<{ hash: string; salt: string }> {
+  const salt = generateSalt();
+  const hash = await pbkdf2(password, salt);
+  return { hash, salt };
+}
+
+export async function verifyKey(password: string, salt: string): Promise<string> {
+  return await pbkdf2(password, salt);
+}

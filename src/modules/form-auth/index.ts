@@ -80,9 +80,11 @@ const authModule: BlennyModule = {
 
     const existing = await state.store.findByUsername("admin");
     if (!existing) {
+      const { hash, salt } = await deriveKey("admin");
       await state.store.createUser({
         username: "admin",
-        passwordHash: await deriveKey("admin", "admin"),
+        passwordHash: hash,
+        salt,
         displayName: "Administrator",
         role: "admin",
       });

@@ -37,6 +37,7 @@ export type UserInfoData = v.InferOutput<typeof UserInfoSchema>;
 export const UserSchema = v.object({
   username: v.pipe(v.string(), v.minLength(1), v.maxLength(64)),
   passwordHash: v.string(),
+  salt: v.string(),
   displayName: v.pipe(v.string(), v.minLength(1)),
   role: v.string(),
   avatarKey: v.optional(v.string()),
@@ -48,6 +49,7 @@ export type UserData = v.InferOutput<typeof UserSchema>;
 export const NewUserSchema = v.object({
   username: UserSchema.entries.username,
   passwordHash: UserSchema.entries.passwordHash,
+  salt: UserSchema.entries.salt,
   displayName: UserSchema.entries.displayName,
   role: v.optional(v.string(), "user"),
 });

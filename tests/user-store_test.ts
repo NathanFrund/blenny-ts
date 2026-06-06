@@ -23,6 +23,7 @@ Deno.test("user-store", async (t) => {
     const user = await store.createUser({
       username: "alice",
       passwordHash: passHash,
+      salt: "x",
       displayName: "Alice",
     });
     assertExists(user);
@@ -39,6 +40,7 @@ Deno.test("user-store", async (t) => {
         store.createUser({
           username: "alice",
           passwordHash: "different",
+          salt: "x",
           displayName: "Alice Again",
         }),
       Error,
@@ -65,6 +67,7 @@ Deno.test("user-store", async (t) => {
     const user = await store.createUser({
       username: "hash-test",
       passwordHash: passHash,
+      salt: "x",
       displayName: "Hash Test",
     });
     assertExists(user);
@@ -80,6 +83,7 @@ Deno.test("user-store", async (t) => {
     const user = await store.createUser({
       username: "avatar-test",
       passwordHash: passHash,
+      salt: "x",
       displayName: "Avatar Test",
     });
     assertExists(user);
@@ -96,6 +100,7 @@ Deno.test("user-store", async (t) => {
     const user = await store.createUser({
       username: "delete-me",
       passwordHash: passHash,
+      salt: "x",
       displayName: "Delete Me",
     });
     assertExists(user);
@@ -120,6 +125,7 @@ Deno.test("user-store", async (t) => {
       const first = await store.createUser({
         username: "reuse",
         passwordHash: passHash,
+        salt: "x",
         displayName: "First",
       });
       await store.deleteUser(first.id);
@@ -127,6 +133,7 @@ Deno.test("user-store", async (t) => {
       const second = await store.createUser({
         username: "reuse",
         passwordHash: "newhash",
+        salt: "x",
         displayName: "Second",
       });
       assertEquals(second.username, "reuse");
@@ -138,6 +145,7 @@ Deno.test("user-store", async (t) => {
     const user = await store.createUser({
       username: "admin2",
       passwordHash: passHash,
+      salt: "x",
       displayName: "Admin Two",
       role: "admin",
     });
@@ -149,6 +157,7 @@ Deno.test("user-store", async (t) => {
     const user = await store.createUser({
       username: "bob",
       passwordHash: passHash,
+      salt: "x",
       displayName: "Bob",
     });
     assertExists(user);

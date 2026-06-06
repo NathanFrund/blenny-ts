@@ -29,6 +29,7 @@ export class KvUserStore implements UserStore {
     const user: UserData = {
       username: parsed.username,
       passwordHash: parsed.passwordHash,
+      salt: parsed.salt,
       displayName: parsed.displayName,
       role: parsed.role,
       createdAt: Date.now(),

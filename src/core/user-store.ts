@@ -29,6 +29,7 @@ export function createInMemoryUserStore() {
         id,
         username: data.username,
         passwordHash: data.passwordHash,
+        salt: data.salt,
         displayName: data.displayName,
         role: data.role ?? "user",
         createdAt: Date.now(),
