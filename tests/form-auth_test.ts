@@ -34,6 +34,25 @@ async function buildApp(): Promise<Hono> {
   return app;
 }
 
+/** Make a GET request to a form page to extract a CSRF token + cookie header. */
+async function obtainCsrfToken(
+  app: Hono,
+  path: string = "/auth/signin",
+): Promise<{ token: string; cookieHeader: string }> {
+  const res = await app.request(`http://localhost${path}`);
+  const setCookie = res.headers.get("set-cookie")!;
+  const match = setCookie.match(/csrf=([^;]+)/);
+  assertExists(match);
+  return { token: match[1], cookieHeader: `csrf=${match[1]}` };
+}
+
+function csrfBody(
+  base: Record<string, string>,
+  token: string,
+): URLSearchParams {
+  return new URLSearchParams({ ...base, _csrf: token });
+}
+
 Deno.test("form-auth module", async (t) => {
   const app = await buildApp();
 
@@ -43,16 +62,21 @@ Deno.test("form-auth module", async (t) => {
     const html = await res.text();
     assertEquals(html.includes("Sign In"), true);
     assertEquals(html.includes('<form method="post"'), true);
+    assertEquals(html.includes('name="_csrf"'), true);
     assertEquals(html.includes('name="username"'), true);
     assertEquals(html.includes('name="password"'), true);
   });
 
   await t.step("POST /auth/signin with bad creds shows error", async () => {
-    const body = new URLSearchParams({ username: "bad", password: "wrong" });
+    const { token, cookieHeader } = await obtainCsrfToken(app);
+    const body = csrfBody({ username: "bad", password: "wrong" }, token);
     const res = await app.request("http://localhost/auth/signin", {
       method: "POST",
       body: body.toString(),
-      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+        Cookie: cookieHeader,
+      },
     });
     assertEquals(res.status, 200);
     const html = await res.text();
@@ -62,14 +86,15 @@ Deno.test("form-auth module", async (t) => {
   await t.step(
     "POST /auth/signin with admin/admin returns 302 + cookie",
     async () => {
-      const body = new URLSearchParams({
-        username: "admin",
-        password: "admin",
-      });
+      const { token, cookieHeader } = await obtainCsrfToken(app);
+      const body = csrfBody({ username: "admin", password: "admin" }, token);
       const res = await app.request("http://localhost/auth/signin", {
         method: "POST",
         body: body.toString(),
-        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+          Cookie: cookieHeader,
+        },
       });
       assertEquals(res.status, 302);
       assertEquals(res.headers.get("location"), "/dashboard");
@@ -82,26 +107,37 @@ Deno.test("form-auth module", async (t) => {
   );
 
   await t.step("authenticated request passes requireUser guard", async () => {
-    // First sign in to get the cookie
-    const body = new URLSearchParams({ username: "admin", password: "admin" });
+    // First sign in to get the cookie (with CSRF)
+    const { token, cookieHeader } = await obtainCsrfToken(app);
+    const body = csrfBody({ username: "admin", password: "admin" }, token);
     const signinRes = await app.request("http://localhost/auth/signin", {
       method: "POST",
       body: body.toString(),
-      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+        Cookie: cookieHeader,
+      },
     });
-    const cookie = signinRes.headers.get("set-cookie")!;
+    const sessionCookie = signinRes.headers.get("set-cookie")!;
 
-    // Now access protected route with the cookie
+    // Now access protected route with the session cookie
     const res = await app.request("http://localhost/protected", {
-      headers: { Cookie: extractCookieName(cookie) },
+      headers: { Cookie: extractCookieName(sessionCookie) },
     });
     assertEquals(res.status, 200);
     assertEquals(await res.text(), "inside");
   });
 
   await t.step("POST /auth/signout clears cookie", async () => {
+    const { token, cookieHeader } = await obtainCsrfToken(app);
+    const body = csrfBody({}, token);
     const res = await app.request("http://localhost/auth/signout", {
       method: "POST",
+      body: body.toString(),
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+        Cookie: cookieHeader,
+      },
     });
     assertEquals(res.status, 302);
     assertEquals(res.headers.get("location"), "/");
@@ -121,6 +157,7 @@ Deno.test("registration", async (t) => {
     assertEquals(res.status, 200);
     const html = await res.text();
     assertEquals(html.includes("Register"), true);
+    assertEquals(html.includes('name="_csrf"'), true);
     assertEquals(html.includes('name="username"'), true);
     assertEquals(html.includes('name="display_name"'), true);
     assertEquals(html.includes('name="password"'), true);
@@ -130,15 +167,19 @@ Deno.test("registration", async (t) => {
   await t.step(
     "POST /auth/register creates user and returns 302 + cookie",
     async () => {
-      const body = new URLSearchParams({
+      const { token, cookieHeader } = await obtainCsrfToken(app, "/auth/register");
+      const body = csrfBody({
         username: "regtest-user",
         display_name: "Reg User",
         password: "secret123",
-      });
+      }, token);
       const res = await app.request("http://localhost/auth/register", {
         method: "POST",
         body: body.toString(),
-        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+          Cookie: cookieHeader,
+        },
       });
       assertEquals(res.status, 302);
       assertEquals(res.headers.get("location"), "/dashboard");
@@ -153,15 +194,19 @@ Deno.test("registration", async (t) => {
   await t.step(
     "POST /auth/register with taken username shows error",
     async () => {
-      const body = new URLSearchParams({
+      const { token, cookieHeader } = await obtainCsrfToken(app, "/auth/register");
+      const body = csrfBody({
         username: "admin",
         display_name: "Should Fail",
         password: "whatever",
-      });
+      }, token);
       const res = await app.request("http://localhost/auth/register", {
         method: "POST",
         body: body.toString(),
-        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+          Cookie: cookieHeader,
+        },
       });
       assertEquals(res.status, 200);
       const html = await res.text();
@@ -172,15 +217,19 @@ Deno.test("registration", async (t) => {
   await t.step(
     "POST /auth/register with empty fields shows error",
     async () => {
-      const body = new URLSearchParams({
+      const { token, cookieHeader } = await obtainCsrfToken(app, "/auth/register");
+      const body = csrfBody({
         username: "",
         display_name: "",
         password: "",
-      });
+      }, token);
       const res = await app.request("http://localhost/auth/register", {
         method: "POST",
         body: body.toString(),
-        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+          Cookie: cookieHeader,
+        },
       });
       assertEquals(res.status, 200);
       const html = await res.text();
@@ -191,15 +240,19 @@ Deno.test("registration", async (t) => {
   await t.step(
     "POST /auth/register with short password shows error",
     async () => {
-      const body = new URLSearchParams({
+      const { token, cookieHeader } = await obtainCsrfToken(app, "/auth/register");
+      const body = csrfBody({
         username: "validuser",
         display_name: "Valid User",
         password: "short",
-      });
+      }, token);
       const res = await app.request("http://localhost/auth/register", {
         method: "POST",
         body: body.toString(),
-        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+          Cookie: cookieHeader,
+        },
       });
       assertEquals(res.status, 200);
       const html = await res.text();
@@ -211,14 +264,18 @@ Deno.test("registration", async (t) => {
   );
 
   await t.step("newly registered user can sign in", async () => {
-    const body = new URLSearchParams({
+    const { token, cookieHeader } = await obtainCsrfToken(app);
+    const body = csrfBody({
       username: "regtest-user",
       password: "secret123",
-    });
+    }, token);
     const res = await app.request("http://localhost/auth/signin", {
       method: "POST",
       body: body.toString(),
-      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+        Cookie: cookieHeader,
+      },
     });
     assertEquals(res.status, 302);
     assertEquals(res.headers.get("location"), "/dashboard");

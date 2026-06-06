@@ -19,7 +19,7 @@ export function startServer(
     port: config.port,
     signal: controller.signal,
     onListen: ({ port: p }) => {
-      publish("platform:ready", { timestamp: Date.now() });
+      publish("platform:ready", { timestamp: Date.now() }).catch(() => {});
       hub.startReaper(config.idleTimeoutMs);
       logger.info("blenny-ts listening on port {port}", { port: p });
     },

@@ -12,7 +12,7 @@ import {
 
 // ── Typed event bus ──────────────────────────────────────────────
 
-type Handler<T> = (payload: T) => void;
+type Handler<T> = (payload: T) => void | Promise<void>;
 const eventSubs = new Map<keyof BlennyEvents, Set<Handler<unknown>>>();
 
 export function subscribe<K extends keyof BlennyEvents>(
@@ -27,19 +27,21 @@ export function subscribe<K extends keyof BlennyEvents>(
     eventSubs.get(topic)?.delete(handler as Handler<unknown>);
 }
 
-export function publish<K extends keyof BlennyEvents>(
+export async function publish<K extends keyof BlennyEvents>(
   topic: K,
   payload: BlennyEvents[K],
-): void {
+): Promise<void> {
   const handlers = eventSubs.get(topic);
   if (!handlers) return;
+  const results: (void | Promise<void>)[] = [];
   for (const handler of handlers) {
     try {
-      (handler as Handler<BlennyEvents[K]>)(payload);
+      results.push((handler as Handler<BlennyEvents[K]>)(payload));
     } catch (err) {
       console.error(`[hub] Error in handler for "${String(topic)}":`, err);
     }
   }
+  await Promise.allSettled(results);
 }
 
 // ── Connection interface ────────────────────────────────────────

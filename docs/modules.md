@@ -132,7 +132,7 @@ declare event payloads.
 ```ts
 import { publish } from "../core/hub.ts";
 
-publish("auth:signin", { userId: "abc", timestamp: Date.now() });
+await publish("auth:signin", { userId: "abc", timestamp: Date.now() });
 ```
 
 The typed event system is fully decoupled — any module can publish any topic,

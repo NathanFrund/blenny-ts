@@ -206,7 +206,7 @@ decoupled — only `platform:ready` is emitted by the framework itself; the rest
 fire only when the emitting module is loaded.
 
 ```ts
-publish("auth:signin", { userId: "abc", timestamp: Date.now() });
+await publish("auth:signin", { userId: "abc", timestamp: Date.now() });
 subscribe("auth:signin", (payload) => {/* payload.userId */});
 ```
 

@@ -8,16 +8,22 @@ import {
 import { publish } from "../../core/hub.ts";
 import * as v from "@valibot/valibot";
 import { PasswordSchema, UsernameSchema } from "../../core/validation.ts";
+import { csrfGuard, csrfToken } from "../../core/csrf.ts";
 import { deriveKey } from "./crypto.ts";
 import { SignInPage, RegisterPage } from "./ui.tsx";
 import { state } from "./state.ts";
 
 function renderSignIn(c: Context, error?: string): Response | Promise<Response> {
-  return state.conduit.respond(c, <SignInPage error={error} />);
+  return state.conduit.respond(
+    c,
+    <SignInPage csrfToken={csrfToken(c)} error={error} />,
+  );
 }
 
 async function handleSignIn(c: Context): Promise<Response> {
   const body = await c.req.parseBody();
+  const csrfErr = csrfGuard(c, body);
+  if (csrfErr) return csrfErr;
   const username = body.username as string;
   const password = body.password as string;
 
@@ -39,7 +45,7 @@ async function handleSignIn(c: Context): Promise<Response> {
   const redirectTo = c.req.query("redirect_to") || "/dashboard";
   setSessionCookie(c, token, state.config);
 
-  publish("auth:signin", { userId: user.id, timestamp: Date.now() });
+  await publish("auth:signin", { userId: user.id, timestamp: Date.now() });
 
   return c.redirect(redirectTo);
 }
@@ -48,11 +54,16 @@ function renderRegister(
   c: Context,
   error?: string,
 ): Response | Promise<Response> {
-  return state.conduit.respond(c, <RegisterPage error={error} />);
+  return state.conduit.respond(
+    c,
+    <RegisterPage csrfToken={csrfToken(c)} error={error} />,
+  );
 }
 
 async function handleRegister(c: Context): Promise<Response> {
   const body = await c.req.parseBody();
+  const csrfErr = csrfGuard(c, body);
+  if (csrfErr) return csrfErr;
   const username = (body.username as string).trim();
   const displayName = (body.display_name as string).trim();
   const password = body.password as string;
@@ -89,17 +100,21 @@ async function handleRegister(c: Context): Promise<Response> {
   const redirectTo = c.req.query("redirect_to") || "/dashboard";
   setSessionCookie(c, token, state.config);
 
-  publish("auth:signin", { userId: user.id, timestamp: Date.now() });
+  await publish("auth:signin", { userId: user.id, timestamp: Date.now() });
 
   return c.redirect(redirectTo);
 }
 
-function handleSignOut(c: Context): Response {
-  const token = c.get("user") as UserInfo | undefined;
+async function handleSignOut(c: Context): Promise<Response> {
+  const body = await c.req.parseBody();
+  const csrfErr = csrfGuard(c, body);
+  if (csrfErr) return csrfErr;
+
+  const user = c.get("user") as UserInfo | undefined;
   clearSessionCookie(c, state.config);
 
-  if (token) {
-    publish("auth:signout", { userId: token.id, timestamp: Date.now() });
+  if (user) {
+    await publish("auth:signout", { userId: user.id, timestamp: Date.now() });
   }
 
   return c.redirect("/");
@@ -110,6 +125,8 @@ async function handleAvatarUpload(c: Context): Promise<Response> {
   if (!user) return c.json({ error: "Unauthorized" }, 401);
 
   const form = await c.req.parseBody();
+  const csrfErr = csrfGuard(c, form);
+  if (csrfErr) return csrfErr;
   const file = form.avatar;
 
   if (!(file instanceof File)) {

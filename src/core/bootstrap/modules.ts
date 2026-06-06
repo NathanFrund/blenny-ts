@@ -117,7 +117,7 @@ export function subscribeModuleEvents(
       for (const sub of mod.subscriptions) {
         subscribe(
           sub.topic as keyof BlennyEvents,
-          sub.handler as (payload: unknown) => void,
+          sub.handler as (payload: unknown) => void | Promise<void>,
         );
         logger.debug("Event subscription: {module} -> {topic}", {
           module: mod.name,

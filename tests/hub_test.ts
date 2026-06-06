@@ -330,7 +330,7 @@ Deno.test("TransportHub", async (t) => {
 });
 
 Deno.test("Event bus", async (t) => {
-  await t.step("handler error does not affect other handlers", () => {
+  await t.step("handler error does not affect other handlers", async () => {
     const results: string[] = [];
     const origError = console.error;
     console.error = () => {};
@@ -352,7 +352,7 @@ Deno.test("Event bus", async (t) => {
         results.push("fourth");
       });
 
-      publish("platform:ready", { timestamp: 1 });
+      await publish("platform:ready", { timestamp: 1 });
 
       assertEquals(results, ["first", "second", "fourth"]);
 
@@ -365,14 +365,14 @@ Deno.test("Event bus", async (t) => {
     }
   });
 
-  await t.step("unsubscribe removes handler", () => {
+  await t.step("unsubscribe removes handler", async () => {
     const results: number[] = [];
-    const unsub = subscribe("platform:ready", () => results.push(1));
-    publish("platform:ready", { timestamp: 1 });
+    const unsub = subscribe("platform:ready", () => { results.push(1); });
+    await publish("platform:ready", { timestamp: 1 });
     assertEquals(results, [1]);
 
     unsub();
-    publish("platform:ready", { timestamp: 2 });
+    await publish("platform:ready", { timestamp: 2 });
     assertEquals(results, [1]);
   });
 });
