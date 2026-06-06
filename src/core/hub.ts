@@ -1,6 +1,7 @@
 import type { Intent, ServerMessage } from "./envelope.ts";
 import type { BlennyEvents } from "../types.ts";
 import { BlennyError } from "./error.ts";
+import { TaskSupervisor } from "./task-supervisor.ts";
 import {
   activeConnections,
   messagesSent,
@@ -66,7 +67,7 @@ export class TransportHub {
   private sseConns = new Set<Connection>();
   private intentGroups = new Map<Intent, Set<ConnId>>();
   private noIntentConns = new Set<ConnId>();
-  private reaperTimer: ReturnType<typeof setInterval> | null = null;
+  private reaperSupervisor = new TaskSupervisor();
   private reaperIdleMs = 300_000;
   private draining = false;
   private drainPromise: Promise<void> | null = null;
@@ -84,11 +85,9 @@ export class TransportHub {
 
   startReaper(idleTimeoutMs: number, intervalMs = 30_000): void {
     this.reaperIdleMs = idleTimeoutMs;
-    if (this.reaperTimer !== null) clearInterval(this.reaperTimer);
-    this.reaperTimer = setInterval(
-      () => this.reapIdleConnections(),
-      intervalMs,
-    );
+    this.reaperSupervisor.stop();
+    this.reaperSupervisor.add("reaper", () => this.reapIdleConnections(), intervalMs);
+    this.reaperSupervisor.start();
   }
 
   private reapIdleConnections(): void {
@@ -101,10 +100,7 @@ export class TransportHub {
   }
 
   stopReaper(): void {
-    if (this.reaperTimer !== null) {
-      clearInterval(this.reaperTimer);
-      this.reaperTimer = null;
-    }
+    this.reaperSupervisor.stop();
   }
 
   drain(timeoutMs = 30_000): Promise<void> {
