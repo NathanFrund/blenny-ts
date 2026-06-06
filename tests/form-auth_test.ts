@@ -8,7 +8,6 @@ import { TaskSupervisor } from "../src/core/task-supervisor.ts";
 import authModule from "../src/modules/form-auth/index.ts";
 import type { AppState } from "../src/core/app-state.ts";
 import type { HttpMethod } from "../src/types.ts";
-import { NULL_LOGGER } from "../src/core/logger.ts";
 
 function buildBody(base: Record<string, string>): URLSearchParams {
   return new URLSearchParams(base);
@@ -22,7 +21,6 @@ async function buildApp(): Promise<Hono> {
     hub,
     conduit,
     config,
-    logger: NULL_LOGGER,
     supervisor: new TaskSupervisor(),
   };
   const app = new Hono();
@@ -245,7 +243,6 @@ Deno.test("lifecycle", async (t) => {
       hub,
       conduit,
       config,
-      logger: NULL_LOGGER,
       supervisor: new TaskSupervisor(),
     };
 
@@ -266,7 +263,6 @@ Deno.test("lifecycle", async (t) => {
       hub,
       conduit,
       config,
-      logger: NULL_LOGGER,
       supervisor: new TaskSupervisor(),
     };
 

@@ -18,26 +18,40 @@ import {
 } from "./src/core/bootstrap/modules.ts";
 import { registerPlatformEndpoints } from "./src/core/bootstrap/endpoints.ts";
 import { startServer } from "./src/core/bootstrap/server.ts";
+import { publish } from "./src/core/hub.ts";
 
+// ─── Config ───
 const config = loadConfig();
 checkJwtSecret(config);
-const { hub, conduit: _conduit, logger, state, app } = await createServices(
-  config,
-);
-configureMiddleware(app, config, logger);
-createErrorHandler(app, logger);
+
+// ─── Services ───
+const { hub, state, app } = await createServices(config);
+
+// ─── Middleware ───
+configureMiddleware(app, config);
+createErrorHandler(app);
 createNotFoundHandler(app);
-const { modules, failures: _failures } = await discoverModules(logger, config);
+
+// ─── Modules ───
+const { modules } = await discoverModules(config);
 detectCapabilityConflicts(modules);
-await setupDatabase(state, config, logger);
-await initializeModules(modules, state, logger);
+await setupDatabase(state, config);
+await initializeModules(modules, state);
+
+// ─── Routing ───
 applyAuthMiddleware(app, state);
-registerModuleRoutes(app, modules, state, logger);
-subscribeModuleEvents(modules, logger);
-await startModules(modules, state, logger);
+registerModuleRoutes(app, modules, state);
+subscribeModuleEvents(modules);
+await startModules(modules, state);
+
+// ─── Platform ───
 registerPlatformEndpoints(app, state, config, modules.length);
-const { finished } = startServer(app, config, hub, logger);
+
+// ─── Server ───
+const { finished } = startServer(app, config, hub);
 await finished;
+
+// ─── Shutdown ───
 await hub.drain(30_000);
-await stopModules(modules, state, logger);
-logger.info("blenny-ts shutdown complete");
+await stopModules(modules, state);
+publish("log", { level: "info", template: "blenny-ts shutdown complete" });

@@ -6,7 +6,6 @@ import { BlennyConfig } from "../src/core/config.ts";
 import { TaskSupervisor } from "../src/core/task-supervisor.ts";
 import { getUser } from "../src/core/auth.ts";
 import type { AppState } from "../src/core/app-state.ts";
-import { NULL_LOGGER } from "../src/core/logger.ts";
 import { ServerSentEventGenerator } from "@starfederation/datastar-sdk/web";
 import { SseConnection } from "../src/core/sse-connection.ts";
 import { registerPlatformEndpoints } from "../src/core/bootstrap/endpoints.ts";
@@ -23,7 +22,6 @@ Deno.test("main routes", async (t) => {
     hub,
     conduit,
     config,
-    logger: NULL_LOGGER,
     supervisor: new TaskSupervisor(),
   };
   const app = new Hono();
@@ -34,7 +32,7 @@ Deno.test("main routes", async (t) => {
   applyAuthMiddleware(app, state);
   const dashboardModule = await import("../src/modules/dashboard.tsx");
   await dashboardModule.default.initialize?.(state);
-  registerModuleRoutes(app, [dashboardModule.default], state, NULL_LOGGER);
+  registerModuleRoutes(app, [dashboardModule.default], state);
   registerPlatformEndpoints(app, state, config);
 
   await t.step("GET /health returns JSON with module count", async () => {

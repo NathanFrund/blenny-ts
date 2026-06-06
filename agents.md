@@ -24,7 +24,7 @@ A Deno/TypeScript port of the Blenny framework (Pharo Smalltalk → Rust → Clo
 ### AppState
 
 - Single object injected into modules during `initialize(state)`.
-- Contains: `hub`, `conduit`, `config`, `logger`, optional `auth` (set by auth
+- Contains: `hub`, `conduit`, `config`, optional `auth` (set by auth
   module), optional `db` (SurrealDB).
 
 ### TransportHub
@@ -54,6 +54,15 @@ A Deno/TypeScript port of the Blenny framework (Pharo Smalltalk → Rust → Clo
 - **Double-init guard:** `init()` with a different hub throws `PublisherError`.
   Call `reset()` first to swap hubs.
 
+### Pub-Sub Logging
+
+- Components publish log events via `publish("log", { level, template, args })`
+  instead of calling a logger directly.
+- `createLogger` subscribes to `"log"` events in one place and forwards them
+  to LogTape — no threading through components or `AppState`.
+- `requestLogger()` middleware also uses the bus.
+- `NULL_LOGGER` and the `BlennyLogger` interface remain for test use only.
+
 ### Auth
 
 - Pluggable by convention: a module sets `state.auth` (an `AuthBundle`) during
@@ -77,19 +86,17 @@ A Deno/TypeScript port of the Blenny framework (Pharo Smalltalk → Rust → Clo
 
 ### Logger
 
-- `BlennyLogger` interface with `debug`, `info`, `warn`, `error`, `child(meta)`
+- `BlennyLogger` interface with `debug`, `info`, `warn`, `error`, `child`
   methods.
 - Default implementation wraps LogTape (`@logtape/logtape`) with ANSI colors in
   dev, JSON Lines in production.
 - Created at boot via `createLogger(config)` (async — configures LogTape
-  sinks/level).
-- `child({ key: val })` returns a logger with structured context properties
-  (appears in JSON output).
-- Accessible through `state.logger` everywhere.
+  sinks/level, subscribes to `"log"` events).
+- Logging is pub-sub: any component calls `publish("log", { level, template, args })`.
+  No logger threading through AppState or function params.
 - Config: `log.level` (auto: debug in dev, info in prod), `log.format` (auto:
   text in dev, json in prod).
-- `requestLogger(logger)` replaces Hono's built-in logger middleware —
-  structured request logs with method/path/status/duration.
+- `requestLogger()` uses the bus — no logger param needed.
 - Test isolation: `resetLogger()` clears LogTape config between tests.
 - MockLogger class available for unit tests that need to capture log messages.
 
@@ -261,7 +268,7 @@ src/
     envelope.ts      — ServerMessage, Intent types
     hub.ts           — TransportHub + typed event bus (publish/subscribe)
     layout.tsx       — DefaultLayout JSX component
-    logger.ts        — BlennyLogger interface + LogTape impl + requestLogger middleware
+    logger.ts        — BlennyLogger interface + LogTape impl + log subscriber + requestLogger
     module-loader.ts — Filesystem module scanner
     publisher.ts     — BlennyPublisher static class
     sse-connection.ts — SseConnection wrapping Datastar SDK
@@ -314,6 +321,9 @@ deno.json            — Task definitions, imports, JSX config
   export `KeepaliveOptions`. Pass `{ keepalive: true }` as literal.
 - **Valibot import:** Always `import * as v from "@valibot/valibot"`. Don't
   destructure — Valibot's API is namespace-import idiomatic.
+- **Logging is pub-sub via `publish("log", ...)`:** No logger threading.
+  Import `publish` from `hub.ts`. `subscribe("log", ...)` wired in
+  `createLogger`.
 - **`SignalSchema` rejects arrays:** `v.objectWithRest` coerces arrays to
   objects before checking. The pipe uses `v.check(isPlainObject)` first to
   reject arrays, null, and primitives. Use `v.safeParse(SignalSchema, input)` —

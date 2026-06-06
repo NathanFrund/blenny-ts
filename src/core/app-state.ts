@@ -4,7 +4,6 @@ import type { TransportHub } from "./hub.ts";
 import type { Conduit } from "./conduit.ts";
 import type { AuthConfig } from "./auth.ts";
 import type { BlennyConfig } from "./config.ts";
-import type { BlennyLogger } from "./logger.ts";
 import type { TaskSupervisor } from "./task-supervisor.ts";
 export interface AuthBundle {
   config: AuthConfig;
@@ -17,7 +16,6 @@ export interface AppState {
   hub: TransportHub;
   conduit: Conduit;
   config: BlennyConfig;
-  logger: BlennyLogger;
   supervisor: TaskSupervisor;
   auth?: AuthBundle;
   db?: Surreal;

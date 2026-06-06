@@ -43,4 +43,9 @@ export interface BlennyModule {
  */
 export interface BlennyEvents {
   "platform:ready": { timestamp: number };
+  "log": {
+    level: "debug" | "info" | "warn" | "error";
+    template: string;
+    args?: Record<string, unknown>;
+  };
 }

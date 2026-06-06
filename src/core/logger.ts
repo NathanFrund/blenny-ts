@@ -9,6 +9,7 @@ import {
 } from "@logtape/logtape";
 import type { MiddlewareHandler } from "@hono/hono";
 import type { BlennyConfig } from "./config.ts";
+import { subscribe, publish } from "./hub.ts";
 
 // ── Interface ──────────────────────────────────────────────
 
@@ -86,7 +87,13 @@ export async function createLogger(
     }],
   });
 
-  return new LogTapeBlennyLogger(getLogger(["blenny"]));
+  const logger = new LogTapeBlennyLogger(getLogger(["blenny"]));
+
+  subscribe("log", ({ level, template, args }) => {
+    logger[level](template, args ?? {});
+  });
+
+  return logger;
 }
 
 export async function resetLogger(): Promise<void> {
@@ -105,21 +112,18 @@ export const NULL_LOGGER: BlennyLogger = {
 
 // ── Request logging middleware ─────────────────────────────
 
-export function requestLogger(logger: BlennyLogger): MiddlewareHandler {
+export function requestLogger(): MiddlewareHandler {
   return async (c, next) => {
     const start = Date.now();
     await next();
     const duration = Date.now() - start;
     const url = new URL(c.req.url);
     const status = c.res.status;
-    const method = c.req.method;
     const level = status >= 500 ? "error" : status >= 400 ? "warn" : "info";
-    const reqLog = logger.child({
-      method,
-      path: url.pathname,
-      status,
-      duration,
+    publish("log", {
+      level,
+      template: "{method} {path} {status} {duration}ms",
+      args: { method: c.req.method, path: url.pathname, status, duration },
     });
-    reqLog[level](`${method} ${url.pathname} ${status} ${duration}ms`);
   };
 }

@@ -1,5 +1,5 @@
 import type { Surreal } from "@surrealdb/surrealdb";
-import type { BlennyLogger } from "./logger.ts";
+import { publish } from "./hub.ts";
 
 export class DbError extends Error {
   constructor(msg: string) {
@@ -25,18 +25,17 @@ export async function withDb<T>(
   db: Surreal | undefined,
   fn: (db: Surreal) => Promise<T>,
   fallback: T,
-  logger?: BlennyLogger,
 ): Promise<T> {
   if (!db) return fallback;
   try {
     return await fn(db);
   } catch (err) {
     if (err instanceof DbError) throw err;
-    if (logger) {
-      logger.warn("Unexpected error in withDb: {error}", {
-        error: String(err),
-      });
-    }
+    publish("log", {
+      level: "warn",
+      template: "Unexpected error in withDb: {error}",
+      args: { error: String(err) },
+    });
     return fallback;
   }
 }

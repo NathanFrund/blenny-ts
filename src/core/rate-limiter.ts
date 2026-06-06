@@ -1,6 +1,6 @@
 import type { Context, Next } from "@hono/hono";
 import type { MiddlewareHandler } from "@hono/hono";
-import type { BlennyLogger } from "./logger.ts";
+import { publish } from "./hub.ts";
 
 interface RateLimitEntry {
   count: number;
@@ -37,7 +37,6 @@ export function createRateLimiter(
   windowMs: number,
   maxRequests: number,
   cleanupIntervalMs = 60_000,
-  logger?: BlennyLogger,
   trustProxy = false,
 ): MiddlewareHandler {
   const store = new Map<string, RateLimitEntry>();
@@ -69,9 +68,11 @@ export function createRateLimiter(
       const nextWindowStart = (windowIndex + 1) * windowMs;
       const retryAfter = Math.ceil((nextWindowStart - now) / 1000);
       c.header("Retry-After", String(retryAfter));
-      if (logger) {
-        logger.warn("Rate limit exceeded for IP {ip}", { ip });
-      }
+      publish("log", {
+        level: "warn",
+        template: "Rate limit exceeded for IP {ip}",
+        args: { ip },
+      });
       return c.json(
         {
           error: {

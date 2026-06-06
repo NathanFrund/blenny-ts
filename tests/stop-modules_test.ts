@@ -1,18 +1,9 @@
 import { assertEquals } from "@std/assert";
 import { stopModules } from "../src/core/bootstrap/modules.ts";
 import type { AppState } from "../src/core/app-state.ts";
-import type { BlennyLogger } from "../src/core/logger.ts";
 import type { BlennyModule } from "../src/types.ts";
 import { TransportHub } from "../src/core/hub.ts";
 import { TaskSupervisor } from "../src/core/task-supervisor.ts";
-
-const noopLogger: BlennyLogger = {
-  debug: () => {},
-  info: () => {},
-  warn: () => {},
-  error: () => {},
-  child: () => noopLogger,
-};
 
 Deno.test("stopModules calls all cleanup", async (t) => {
   const hub = new TransportHub();
@@ -50,7 +41,7 @@ Deno.test("stopModules calls all cleanup", async (t) => {
   } as unknown as AppState;
 
   await t.step("calls closeAllConnections", async () => {
-    await stopModules([moduleA, moduleB], state, noopLogger);
+    await stopModules([moduleA, moduleB], state);
     assertEquals(closeAllCalls, ["closeAllConnections"]);
   });
 
@@ -76,7 +67,7 @@ Deno.test("stopModules is safe with no db", async () => {
     hub,
     supervisor: new TaskSupervisor(),
   } as unknown as AppState;
-  await stopModules([], state, noopLogger);
+  await stopModules([], state);
 });
 
 Deno.test("stopModules is safe with no module stop hooks", async () => {
@@ -90,5 +81,5 @@ Deno.test("stopModules is safe with no module stop hooks", async () => {
     supervisor: new TaskSupervisor(),
     db: { async close() {} },
   } as unknown as AppState;
-  await stopModules([mod], state, noopLogger);
+  await stopModules([mod], state);
 });

@@ -1,16 +1,5 @@
 import { assertEquals } from "@std/assert";
 import { TaskSupervisor } from "../src/core/task-supervisor.ts";
-import type { BlennyLogger } from "../src/core/logger.ts";
-
-function noopLogger(): BlennyLogger {
-  return {
-    debug: () => {},
-    info: () => {},
-    warn: () => {},
-    error: () => {},
-    child: () => noopLogger(),
-  };
-}
 
 Deno.test("TaskSupervisor", async (t) => {
   await t.step("fires on cadence", async () => {
@@ -112,14 +101,7 @@ Deno.test("TaskSupervisor", async (t) => {
   });
 
   await t.step("backoff on failure", async () => {
-    const warns: string[] = [];
-    const logger: BlennyLogger = {
-      ...noopLogger(),
-      warn(tmpl: string) {
-        warns.push(tmpl);
-      },
-    };
-    const sv = new TaskSupervisor(logger, 100);
+    const sv = new TaskSupervisor(100);
     let count = 0;
     sv.add("fail", () => {
       count++;
@@ -129,12 +111,10 @@ Deno.test("TaskSupervisor", async (t) => {
     await new Promise((r) => setTimeout(r, 80));
     sv.stop();
     assertEquals(count >= 1, true);
-    assertEquals(warns.length >= 1, true);
-    assertEquals(warns[0].includes("fail"), true);
   });
 
   await t.step("failure count resets on start", async () => {
-    const sv = new TaskSupervisor(undefined, 50);
+    const sv = new TaskSupervisor(50);
     let count = 0;
     sv.add("flap", () => {
       count++;

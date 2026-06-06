@@ -3,7 +3,7 @@ import { sign, verify } from "@hono/hono/jwt";
 import { deleteCookie, getCookie, setCookie } from "@hono/hono/cookie";
 import * as v from "@valibot/valibot";
 import { UserInfoSchema } from "./validation.ts";
-import type { BlennyLogger } from "./logger.ts";
+import { publish } from "./hub.ts";
 import { withSpan } from "./tracing.ts";
 
 // ── Types ─────────────────────────────────────────────────────
@@ -16,7 +16,6 @@ export interface AuthConfig {
   allowQueryToken?: boolean;
   redirectUrl?: string;
   useJsonForApi?: boolean;
-  logger?: BlennyLogger;
 }
 
 export interface UserInfo {
@@ -55,8 +54,10 @@ export function getUser(
       const payload = await verify(token, config.jwtSecret, "HS256");
       const result = v.safeParse(UserInfoSchema, payload);
       if (!result.success) {
-        config.logger?.debug("Invalid JWT payload structure", {
-          errors: result.issues,
+        publish("log", {
+          level: "debug",
+          template: "Invalid JWT payload structure",
+          args: { errors: result.issues },
         });
         return null;
       }

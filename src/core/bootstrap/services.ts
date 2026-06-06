@@ -14,9 +14,9 @@ export async function createServices(config: BlennyConfig) {
   });
   BlennyPublisher.init(hub);
   const conduit = new Conduit();
-  const logger = await createLogger(config);
-  const supervisor = new TaskSupervisor(logger);
-  const state: AppState = { hub, conduit, config, logger, supervisor };
+  await createLogger(config);
+  const supervisor = new TaskSupervisor();
+  const state: AppState = { hub, conduit, config, supervisor };
   const app = new Hono();
-  return { hub, conduit, logger, state, app, supervisor };
+  return { hub, conduit, state, app, supervisor };
 }

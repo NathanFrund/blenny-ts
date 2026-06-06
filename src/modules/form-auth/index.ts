@@ -7,6 +7,7 @@ import {
 import { openKvStore } from "../../core/kv-store.ts";
 import { createInMemoryUserStore } from "../../core/user-store.ts";
 import { FsBlobStore } from "../../core/fs-blob-store.ts";
+import { publish } from "../../core/hub.ts";
 import type { BlennyModule } from "../../types.ts";
 import { deriveKey } from "./crypto.ts";
 import { state } from "./state.ts";
@@ -56,7 +57,6 @@ const authModule: BlennyModule = {
       sessionExpiry: state_.config.sessionDurationHours * 3600,
       secureCookies: !state_.config.devMode,
       allowQueryToken: false,
-      logger: state_.logger,
     };
 
     const driver = state_.config.at("form-auth.store") ?? "memory";
@@ -89,9 +89,10 @@ const authModule: BlennyModule = {
         role: "admin",
       });
       if (!state_.config.devMode) {
-        state_.logger.warn(
-          "Default admin credentials (admin/admin) are in use — change them immediately",
-        );
+        publish("log", {
+          level: "warn",
+          template: "Default admin credentials (admin/admin) are in use — change them immediately",
+        });
       }
     }
   },

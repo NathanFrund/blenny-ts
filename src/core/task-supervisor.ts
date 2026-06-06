@@ -1,4 +1,4 @@
-import type { BlennyLogger } from "./logger.ts";
+import { publish } from "./hub.ts";
 
 type TaskFn = () => void | Promise<void>;
 
@@ -27,7 +27,6 @@ export class TaskSupervisor {
   private isRunning = false;
 
   constructor(
-    private logger?: BlennyLogger,
     private defaultMaxBackoff = 60_000,
   ) {}
 
@@ -80,8 +79,10 @@ export class TaskSupervisor {
         task.failures = 0;
       } catch (err) {
         task.failures++;
-        this.logger?.warn(`Task "${name}" failed (${task.failures}x)`, {
-          error: String(err),
+        publish("log", {
+          level: "warn",
+          template: `Task "${name}" failed ({failures}x)`,
+          args: { failures: task.failures, error: String(err) },
         });
       }
       if (!this.isRunning || !this.tasks.has(name)) {

@@ -28,10 +28,9 @@ Deno.test("child logger inherits context", async () => {
 });
 
 Deno.test("requestLogger logs request details", async () => {
-  const config = new BlennyConfig({ args: ["--log.level=debug"] });
-  const logger = await createLogger(config);
+  await createLogger(new BlennyConfig({ args: ["--log.level=debug"] }));
   const app = new Hono();
-  app.use(requestLogger(logger));
+  app.use(requestLogger());
   app.get("/test", (c) => c.text("ok"));
 
   const res = await app.request("http://localhost/test");
@@ -42,10 +41,9 @@ Deno.test("requestLogger logs request details", async () => {
 });
 
 Deno.test("requestLogger uses warn for 4xx", async () => {
-  const config = new BlennyConfig({ args: ["--log.level=debug"] });
-  const logger = await createLogger(config);
+  await createLogger(new BlennyConfig({ args: ["--log.level=debug"] }));
   const app = new Hono();
-  app.use(requestLogger(logger));
+  app.use(requestLogger());
   app.get("/not-found", (c) => c.text("not found", 404));
 
   const res = await app.request("http://localhost/not-found");

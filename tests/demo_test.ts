@@ -6,7 +6,6 @@ import { BlennyConfig } from "../src/core/config.ts";
 import { TaskSupervisor } from "../src/core/task-supervisor.ts";
 import { Hono } from "@hono/hono";
 import type { HttpMethod } from "../src/types.ts";
-import { NULL_LOGGER } from "../src/core/logger.ts";
 
 Deno.test("demo module", async (t) => {
   const hub = new TransportHub();
@@ -18,7 +17,6 @@ Deno.test("demo module", async (t) => {
     hub,
     conduit,
     config,
-    logger: NULL_LOGGER,
     supervisor: new TaskSupervisor(),
   });
 

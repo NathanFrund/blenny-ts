@@ -6,15 +6,14 @@ import { createRateLimiter } from "../rate-limiter.ts";
 import { SpanStatusCode, trace } from "../tracing.ts";
 import { BlennyError, errorResponse } from "../error.ts";
 import { requestLogger } from "../logger.ts";
+import { publish } from "../hub.ts";
 import type { BlennyConfig } from "../config.ts";
-import type { BlennyLogger } from "../logger.ts";
 
 export function configureMiddleware(
   app: Hono,
   config: BlennyConfig,
-  logger: BlennyLogger,
 ): void {
-  app.use(requestLogger(logger));
+  app.use(requestLogger());
   app.use(cors({ origin: config.corsOrigin }));
   app.use("*", csrf());
 
@@ -22,14 +21,12 @@ export function configureMiddleware(
     config.ratelimitWindowMs,
     config.ratelimitMaxRequests,
     60_000,
-    logger,
     config.trustProxy,
   );
   const authLimiter = createRateLimiter(
     config.ratelimitAuthWindowMs,
     config.ratelimitAuthMaxRequests,
     60_000,
-    logger,
     config.trustProxy,
   );
   app.use("/sse", transportLimiter);
@@ -45,7 +42,7 @@ export function configureMiddleware(
   }));
 }
 
-export function createErrorHandler(app: Hono, logger: BlennyLogger): void {
+export function createErrorHandler(app: Hono): void {
   app.onError((err, _c) => {
     const span = trace.getActiveSpan();
     if (span) {
@@ -55,9 +52,10 @@ export function createErrorHandler(app: Hono, logger: BlennyLogger): void {
     if (err instanceof BlennyError) {
       return errorResponse(err.toJSON(), err.statusCode);
     }
-    logger.error("Uncaught error: {error}", {
-      error: err.message,
-      stack: err.stack,
+    publish("log", {
+      level: "error",
+      template: "Uncaught error: {error}",
+      args: { error: err.message, stack: err.stack },
     });
     return errorResponse(
       { error: { type: "internal", message: "Internal Server Error" } },

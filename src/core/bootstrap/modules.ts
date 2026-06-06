@@ -1,10 +1,9 @@
 import type { Hono, MiddlewareHandler } from "@hono/hono";
 import { connectDatabase } from "../database.ts";
 import { loadModules } from "../module-loader.ts";
-import { subscribe } from "../hub.ts";
+import { subscribe, publish } from "../hub.ts";
 import type { AppState } from "../app-state.ts";
 import type { BlennyConfig } from "../config.ts";
-import type { BlennyLogger } from "../logger.ts";
 import type { BlennyEvents, BlennyModule, HttpMethod } from "../../types.ts";
 import { withRouteSpan } from "./routing.ts";
 
@@ -14,24 +13,31 @@ export interface ModuleLoadResult {
 }
 
 export async function discoverModules(
-  logger: BlennyLogger,
   config: BlennyConfig,
 ): Promise<ModuleLoadResult> {
   const { modules, failures } = await loadModules();
   for (const mod of modules) {
-    logger.info("Module loaded: {name}", { name: mod.name });
+    publish("log", {
+      level: "info",
+      template: "Module loaded: {name}",
+      args: { name: mod.name },
+    });
   }
   if (config.devMode) {
     for (const f of failures) {
-      logger.error("Module load failure: {file} — {error}", {
-        file: f.file,
-        error: f.error,
-        stack: f.stack,
+      publish("log", {
+        level: "error",
+        template: "Module load failure: {file} — {error}",
+        args: { file: f.file, error: f.error, stack: f.stack },
       });
     }
   } else {
     for (const f of failures) {
-      logger.warn("Module load failure: {file}", { file: f.file });
+      publish("log", {
+        level: "warn",
+        template: "Module load failure: {file}",
+        args: { file: f.file },
+      });
     }
   }
   return { modules, failures };
@@ -56,19 +62,21 @@ export function detectCapabilityConflicts(modules: BlennyModule[]): void {
 export async function setupDatabase(
   state: AppState,
   config: BlennyConfig,
-  logger: BlennyLogger,
 ): Promise<void> {
-  state.db = (await connectDatabase(config, logger)) ?? undefined;
+  state.db = (await connectDatabase(config)) ?? undefined;
 }
 
 export async function initializeModules(
   modules: BlennyModule[],
   state: AppState,
-  logger: BlennyLogger,
 ): Promise<void> {
   for (const mod of modules) {
     await mod.initialize?.(state);
-    logger.info("Module initialized: {name}", { name: mod.name });
+    publish("log", {
+      level: "info",
+      template: "Module initialized: {name}",
+      args: { name: mod.name },
+    });
   }
 }
 
@@ -82,7 +90,6 @@ export function registerModuleRoutes(
   app: Hono,
   modules: BlennyModule[],
   state: AppState,
-  logger: BlennyLogger,
 ): void {
   for (const mod of modules) {
     for (const route of mod.routes) {
@@ -99,10 +106,14 @@ export function registerModuleRoutes(
       } else {
         app.on(method, route.path, handler);
       }
-      logger.debug("Route registered: {method} {path} -> {module}", {
-        method: route.method,
-        path: route.path,
-        module: mod.name,
+      publish("log", {
+        level: "debug",
+        template: "Route registered: {method} {path} -> {module}",
+        args: {
+          method: route.method,
+          path: route.path,
+          module: mod.name,
+        },
       });
     }
   }
@@ -110,7 +121,6 @@ export function registerModuleRoutes(
 
 export function subscribeModuleEvents(
   modules: BlennyModule[],
-  logger: BlennyLogger,
 ): void {
   for (const mod of modules) {
     if (mod.subscriptions) {
@@ -119,9 +129,10 @@ export function subscribeModuleEvents(
           sub.topic as keyof BlennyEvents,
           sub.handler as (payload: unknown) => void | Promise<void>,
         );
-        logger.debug("Event subscription: {module} -> {topic}", {
-          module: mod.name,
-          topic: sub.topic,
+        publish("log", {
+          level: "debug",
+          template: "Event subscription: {module} -> {topic}",
+          args: { module: mod.name, topic: sub.topic },
         });
       }
     }
@@ -131,11 +142,16 @@ export function subscribeModuleEvents(
 export async function startModules(
   modules: BlennyModule[],
   state: AppState,
-  logger: BlennyLogger,
 ): Promise<void> {
   for (const mod of modules) {
     await mod.start?.();
-    if (mod.start) logger.info("Module started: {name}", { name: mod.name });
+    if (mod.start) {
+      publish("log", {
+        level: "info",
+        template: "Module started: {name}",
+        args: { name: mod.name },
+      });
+    }
   }
   state.supervisor.start();
 }
@@ -143,14 +159,19 @@ export async function startModules(
 export async function stopModules(
   modules: BlennyModule[],
   state: AppState,
-  logger: BlennyLogger,
 ): Promise<void> {
   state.supervisor.stop();
   state.hub.closeAllConnections();
   state.hub.stopReaper();
   for (const mod of modules.toReversed()) {
     await mod.stop?.();
-    if (mod.stop) logger.info("Module stopped: {name}", { name: mod.name });
+    if (mod.stop) {
+      publish("log", {
+        level: "info",
+        template: "Module stopped: {name}",
+        args: { name: mod.name },
+      });
+    }
   }
   await state.db?.close();
 }

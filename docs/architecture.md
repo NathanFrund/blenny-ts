@@ -37,17 +37,16 @@ Modules are loaded from `src/modules/` at startup and progress through five
 phases:
 
 ```
-Load ──→ Filter ──→ Initialize ──→ Subscribe ──→ Start
-                                          │
-                                          │  (server runs)
-                                          │
-                                     Stop (on shutdown)
+Load ──→ Initialize ──→ Subscribe ──→ Start
+                                        │
+                                        │  (server runs)
+                                        │
+                                   Stop (on shutdown)
 ```
 
 | Phase          | Hook                | Purpose                                                              |
 | -------------- | ------------------- | -------------------------------------------------------------------- |
 | **Load**       | —                   | `module-loader.ts` scans for default exports matching `BlennyModule` |
-| **Filter**     | `enabled`           | Skip modules with `enabled: false`                                   |
 | **Initialize** | `initialize(state)` | Inject dependencies (hub, conduit, config), set up auth, seed data   |
 | **Subscribe**  | `subscriptions`     | Register typed event handlers on the bus                             |
 | **Start**      | `start()`           | Begin background tasks (timers, polling loops)                       |

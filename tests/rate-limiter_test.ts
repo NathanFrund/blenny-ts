@@ -58,7 +58,7 @@ Deno.test("rate limiter", async (t) => {
   });
 
   await t.step("tracks different IPs independently", async () => {
-    const rateLimiter = createRateLimiter(60_000, 1, 60_000, undefined, true);
+    const rateLimiter = createRateLimiter(60_000, 1, 60_000, true);
     const app = new Hono();
     app.use("/test", rateLimiter);
     app.get("/test", (c) => c.text("ok"));
