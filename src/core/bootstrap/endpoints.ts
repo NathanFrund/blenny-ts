@@ -12,11 +12,10 @@ export function registerPlatformEndpoints(
   app: Hono,
   state: AppState,
   config: BlennyConfig,
-  moduleCount?: number,
 ): void {
   app.get(
     "/health",
-    (c) => c.json({ status: "ok", modules: moduleCount ?? 0 }),
+    (c) => c.json({ status: "ok", modules: state.moduleCount ?? 0 }),
   );
 
   app.get("/sse", async (c) => {

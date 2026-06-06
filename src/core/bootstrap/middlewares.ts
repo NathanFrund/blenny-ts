@@ -20,13 +20,11 @@ export function configureMiddleware(
   const transportLimiter = createRateLimiter(
     config.ratelimitWindowMs,
     config.ratelimitMaxRequests,
-    60_000,
     config.trustProxy,
   );
   const authLimiter = createRateLimiter(
     config.ratelimitAuthWindowMs,
     config.ratelimitAuthMaxRequests,
-    60_000,
     config.trustProxy,
   );
   app.use("/sse", transportLimiter);

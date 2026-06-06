@@ -7,11 +7,13 @@ export async function connectDatabase(
 ): Promise<Surreal | null> {
   try {
     const db = new Surreal();
-    await db.connect(config.surrealUrl);
-    await db.use({ namespace: config.surrealNs, database: config.surrealDb });
-    await db.signin({
-      username: config.surrealUser,
-      password: config.surrealPass,
+    await db.connect(config.surrealUrl, {
+      namespace: config.surrealNs,
+      database: config.surrealDb,
+      authentication: {
+        username: config.surrealUser,
+        password: config.surrealPass,
+      },
     });
     publish("log", {
       level: "info",

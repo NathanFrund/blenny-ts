@@ -36,24 +36,25 @@ function parseWindowIndex(key: string): number {
 export function createRateLimiter(
   windowMs: number,
   maxRequests: number,
-  cleanupIntervalMs = 60_000,
   trustProxy = false,
 ): MiddlewareHandler {
   const store = new Map<string, RateLimitEntry>();
-
-  setInterval(() => {
-    const currentWindow = Math.floor(Date.now() / windowMs);
-    for (const [key] of store) {
-      if (parseWindowIndex(key) < currentWindow) {
-        store.delete(key);
-      }
-    }
-  }, cleanupIntervalMs);
+  let lastCleanupWindow = -1;
 
   return async (c: Context, next: Next) => {
     const ip = getClientIP(c, trustProxy);
     const now = Date.now();
     const windowIndex = Math.floor(now / windowMs);
+
+    if (lastCleanupWindow < windowIndex) {
+      for (const [key] of store) {
+        if (parseWindowIndex(key) < windowIndex) {
+          store.delete(key);
+        }
+      }
+      lastCleanupWindow = windowIndex;
+    }
+
     const windowKey = `${ip}:${windowIndex}`;
 
     let entry = store.get(windowKey);

@@ -19,4 +19,5 @@ export interface AppState {
   supervisor: TaskSupervisor;
   auth?: AuthBundle;
   db?: Surreal;
+  moduleCount?: number;
 }

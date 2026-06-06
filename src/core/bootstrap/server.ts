@@ -7,15 +7,12 @@ export function startServer(
   app: Hono,
   config: BlennyConfig,
   hub: TransportHub,
+  signal?: AbortSignal,
 ): { finished: Promise<void> } {
-  const controller = new AbortController();
-  Deno.addSignalListener("SIGINT", () => controller.abort());
-  Deno.addSignalListener("SIGTERM", () => controller.abort());
-
   const server = Deno.serve({
     hostname: config.bindAddress,
     port: config.port,
-    signal: controller.signal,
+    signal,
     onListen: ({ port: p }) => {
       publish("platform:ready", { timestamp: Date.now() }).catch(() => {});
       hub.startReaper(config.idleTimeoutMs);
