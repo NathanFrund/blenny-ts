@@ -10,10 +10,13 @@ import * as v from "@valibot/valibot";
 import { PasswordSchema, UsernameSchema } from "../../core/validation.ts";
 import { csrfGuard, csrfToken } from "../../core/csrf.ts";
 import { deriveKey, verifyKey } from "./crypto.ts";
-import { SignInPage, RegisterPage } from "./ui.tsx";
+import { RegisterPage, SignInPage } from "./ui.tsx";
 import { state } from "./state.ts";
 
-function renderSignIn(c: Context, error?: string): Response | Promise<Response> {
+function renderSignIn(
+  c: Context,
+  error?: string,
+): Response | Promise<Response> {
   return state.conduit.respond(
     c,
     <SignInPage csrfToken={csrfToken(c)} error={error} />,
@@ -158,11 +161,11 @@ async function handleAvatarServe(c: Context): Promise<Response> {
 }
 
 export {
-  renderSignIn,
-  handleSignIn,
-  renderRegister,
-  handleRegister,
-  handleSignOut,
-  handleAvatarUpload,
   handleAvatarServe,
+  handleAvatarUpload,
+  handleRegister,
+  handleSignIn,
+  handleSignOut,
+  renderRegister,
+  renderSignIn,
 };

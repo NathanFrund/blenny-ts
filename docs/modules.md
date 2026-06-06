@@ -11,7 +11,7 @@ import type { BlennyModule } from "../types.ts";
 
 const myModule: BlennyModule = {
   name: "my-module",
-  enabled: true,  // optional, defaults to true; set to false to exclude at boot
+  enabled: true, // optional, defaults to true; set to false to exclude at boot
   routes: [],
   subscriptions: [],
   layout: undefined, // optional, module-level default layout
@@ -24,14 +24,14 @@ const myModule: BlennyModule = {
 export default myModule;
 ```
 
-| Field       | Type      | Default | Purpose                                                          |
-| ----------- | --------- | ------- | ---------------------------------------------------------------- |
-| `name`      | `string`  | —       | Unique module name                                               |
-| `enabled`   | `boolean` | `true`  | If `false`, the module is skipped at boot — no lifecycle hooks, routes, or capabilities are registered |
-| `routes`    | `Route[]` | `[]`    | HTTP routes the module provides                                  |
-| `layout`    | `FC`      | —       | Default layout for Conduit rendering                             |
-| `subscriptions` | `Subscription[]` | — | Typed event bus subscriptions                             |
-| `capabilities` | `string[]` | —      | Framework features this module provides (e.g. `"auth"`)          |
+| Field           | Type             | Default | Purpose                                                                                                |
+| --------------- | ---------------- | ------- | ------------------------------------------------------------------------------------------------------ |
+| `name`          | `string`         | —       | Unique module name                                                                                     |
+| `enabled`       | `boolean`        | `true`  | If `false`, the module is skipped at boot — no lifecycle hooks, routes, or capabilities are registered |
+| `routes`        | `Route[]`        | `[]`    | HTTP routes the module provides                                                                        |
+| `layout`        | `FC`             | —       | Default layout for Conduit rendering                                                                   |
+| `subscriptions` | `Subscription[]` | —       | Typed event bus subscriptions                                                                          |
+| `capabilities`  | `string[]`       | —       | Framework features this module provides (e.g. `"auth"`)                                                |
 
 ## Routes
 
@@ -367,8 +367,8 @@ declare module "@blenny/types" {
 4. Do **not** edit `src/types.ts` to add module events. The interface there is
    reserved for framework core events only.
 
-**Real example — `form-auth` declares auth events, any module subscribes
-without an import:**
+**Real example — `form-auth` declares auth events, any module subscribes without
+an import:**
 
 ```ts
 // form-auth — declares:
@@ -386,8 +386,8 @@ subscribe("auth:signin", (payload) => {
 });
 ```
 
-The subscriber never imports `form-auth` — the type is merged globally
-because `form-auth` is loaded by the framework at boot.
+The subscriber never imports `form-auth` — the type is merged globally because
+`form-auth` is loaded by the framework at boot.
 
 ### Route Auth Typing
 
@@ -456,7 +456,7 @@ To select which auth module is active, set `enabled: false` on all but one:
 // src/modules/form-auth/index.ts
 export default {
   name: "form-auth",
-  enabled: true,  // default — this one is active
+  enabled: true, // default — this one is active
   capabilities: ["auth"],
   // ...
 };
@@ -466,7 +466,7 @@ export default {
 // src/modules/other-auth/index.ts
 export default {
   name: "other-auth",
-  enabled: false,  // disabled — use form-auth instead
+  enabled: false, // disabled — use form-auth instead
   capabilities: ["auth"],
   // ...
 };
@@ -496,13 +496,13 @@ the type checker.
 
 ### Pattern Summary
 
-| What            | Where it lives                   | How to use it                                                     |
-| --------------- | -------------------------------- | ----------------------------------------------------------------- |
-| Module shape    | `../types.ts`                    | Import `BlennyModule`                                             |
-| Framework state | `../core/app-state.ts`           | Import `AppState`, use in `initialize()`                          |
-| Auth helpers    | `../core/auth.ts`                | Import `UserInfo`, `AuthConfig`, `createToken`, etc.              |
+| What            | Where it lives                   | How to use it                                                       |
+| --------------- | -------------------------------- | ------------------------------------------------------------------- |
+| Module shape    | `../types.ts`                    | Import `BlennyModule`                                               |
+| Framework state | `../core/app-state.ts`           | Import `AppState`, use in `initialize()`                            |
+| Auth helpers    | `../core/auth.ts`                | Import `UserInfo`, `AuthConfig`, `createToken`, etc.                |
 | Event topics    | In the module that fires them    | `declare module "@blenny/types" { interface BlennyEvents { ... } }` |
-| Capabilities    | In the module that provides them | `capabilities: ["my-feature"]`                                    |
+| Capabilities    | In the module that provides them | `capabilities: ["my-feature"]`                                      |
 
 Every module is self-documenting — its event declarations and capability
 declarations tell the framework and other modules what it provides, without a

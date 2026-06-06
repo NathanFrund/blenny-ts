@@ -36,21 +36,24 @@ Deno.test("OTel withSpan wrapper", async (t) => {
     assertEquals(spans[0].name, "test.async");
   });
 
-  await t.step("thrown exception sets ERROR status and recordException", async () => {
-    exporter.reset();
-    const error = new Error("boom");
+  await t.step(
+    "thrown exception sets ERROR status and recordException",
+    async () => {
+      exporter.reset();
+      const error = new Error("boom");
 
-    await withSpan("test.error", (_span) => {
-      throw error;
-    }).catch(() => {});
+      await withSpan("test.error", (_span) => {
+        throw error;
+      }).catch(() => {});
 
-    const spans = exporter.getFinishedSpans();
-    assertEquals(spans.length, 1);
-    assertEquals(spans[0].name, "test.error");
-    assertEquals(spans[0].status.code, SpanStatusCode.ERROR);
-    assertEquals(spans[0].status.message, "boom");
-    assertEquals(spans[0].events?.[0]?.name, "exception");
-  });
+      const spans = exporter.getFinishedSpans();
+      assertEquals(spans.length, 1);
+      assertEquals(spans[0].name, "test.error");
+      assertEquals(spans[0].status.code, SpanStatusCode.ERROR);
+      assertEquals(spans[0].status.message, "boom");
+      assertEquals(spans[0].events?.[0]?.name, "exception");
+    },
+  );
 
   await t.step("sync callback propagates return value", () => {
     exporter.reset();

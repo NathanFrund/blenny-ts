@@ -2,7 +2,7 @@ import type { Hono } from "@hono/hono";
 import { cors } from "@hono/hono/cors";
 import { bodyLimit } from "@hono/hono/body-limit";
 import { createRateLimiter } from "../rate-limiter.ts";
-import { trace, SpanStatusCode } from "../tracing.ts";
+import { SpanStatusCode, trace } from "../tracing.ts";
 import { BlennyError, errorResponse } from "../error.ts";
 import { requestLogger } from "../logger.ts";
 import type { BlennyConfig } from "../config.ts";

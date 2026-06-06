@@ -1,5 +1,16 @@
-import { assertEquals, assertRejects, assertStringIncludes, assertThrows } from "@std/assert";
-import { type Connection, type ConnId, TransportHub, subscribe, publish } from "../src/core/hub.ts";
+import {
+  assertEquals,
+  assertRejects,
+  assertStringIncludes,
+  assertThrows,
+} from "@std/assert";
+import {
+  type Connection,
+  type ConnId,
+  publish,
+  subscribe,
+  TransportHub,
+} from "../src/core/hub.ts";
 import { BlennyError } from "../src/core/error.ts";
 import type { Intent, ServerMessage } from "../src/core/envelope.ts";
 
@@ -257,7 +268,8 @@ Deno.test("TransportHub", async (t) => {
       const hub = new TransportHub({ maxConns: 1 });
       hub.registerConnection(new CaptureConnection(crypto.randomUUID()));
       assertThrows(
-        () => hub.registerConnection(new CaptureConnection(crypto.randomUUID())),
+        () =>
+          hub.registerConnection(new CaptureConnection(crypto.randomUUID())),
         BlennyError,
         "connection limit reached",
       );
@@ -367,7 +379,9 @@ Deno.test("Event bus", async (t) => {
 
   await t.step("unsubscribe removes handler", async () => {
     const results: number[] = [];
-    const unsub = subscribe("platform:ready", () => { results.push(1); });
+    const unsub = subscribe("platform:ready", () => {
+      results.push(1);
+    });
     await publish("platform:ready", { timestamp: 1 });
     assertEquals(results, [1]);
 
@@ -391,11 +405,12 @@ Deno.test("Hub drain", async (t) => {
     const drainPromise = hub.drain(30_000);
 
     await assertRejects(
-      () => Promise.resolve().then(() =>
-        hub.registerConnection(
-          new CaptureConnection(crypto.randomUUID()),
-        )
-      ),
+      () =>
+        Promise.resolve().then(() =>
+          hub.registerConnection(
+            new CaptureConnection(crypto.randomUUID()),
+          )
+        ),
       BlennyError,
       "server is shutting down",
     );

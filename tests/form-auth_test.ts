@@ -14,7 +14,13 @@ async function buildApp(): Promise<Hono> {
   const config = new BlennyConfig();
   const hub = new TransportHub();
   const conduit = new Conduit();
-  const state: AppState = { hub, conduit, config, logger: NULL_LOGGER, supervisor: new TaskSupervisor() };
+  const state: AppState = {
+    hub,
+    conduit,
+    config,
+    logger: NULL_LOGGER,
+    supervisor: new TaskSupervisor(),
+  };
   const app = new Hono();
 
   await authModule.initialize?.(state);
@@ -168,7 +174,10 @@ Deno.test("registration", async (t) => {
   await t.step(
     "POST /auth/register creates user and returns 302 + cookie",
     async () => {
-      const { token, cookieHeader } = await obtainCsrfToken(app, "/auth/register");
+      const { token, cookieHeader } = await obtainCsrfToken(
+        app,
+        "/auth/register",
+      );
       const body = csrfBody({
         username: "regtest-user",
         display_name: "Reg User",
@@ -195,7 +204,10 @@ Deno.test("registration", async (t) => {
   await t.step(
     "POST /auth/register with taken username shows error",
     async () => {
-      const { token, cookieHeader } = await obtainCsrfToken(app, "/auth/register");
+      const { token, cookieHeader } = await obtainCsrfToken(
+        app,
+        "/auth/register",
+      );
       const body = csrfBody({
         username: "admin",
         display_name: "Should Fail",
@@ -218,7 +230,10 @@ Deno.test("registration", async (t) => {
   await t.step(
     "POST /auth/register with empty fields shows error",
     async () => {
-      const { token, cookieHeader } = await obtainCsrfToken(app, "/auth/register");
+      const { token, cookieHeader } = await obtainCsrfToken(
+        app,
+        "/auth/register",
+      );
       const body = csrfBody({
         username: "",
         display_name: "",
@@ -241,7 +256,10 @@ Deno.test("registration", async (t) => {
   await t.step(
     "POST /auth/register with short password shows error",
     async () => {
-      const { token, cookieHeader } = await obtainCsrfToken(app, "/auth/register");
+      const { token, cookieHeader } = await obtainCsrfToken(
+        app,
+        "/auth/register",
+      );
       const body = csrfBody({
         username: "validuser",
         display_name: "Valid User",
@@ -289,7 +307,13 @@ Deno.test("lifecycle", async (t) => {
     const config = new BlennyConfig();
     const hub = new TransportHub();
     const conduit = new Conduit();
-    const state: AppState = { hub, conduit, config, logger: NULL_LOGGER, supervisor: new TaskSupervisor() };
+    const state: AppState = {
+      hub,
+      conduit,
+      config,
+      logger: NULL_LOGGER,
+      supervisor: new TaskSupervisor(),
+    };
 
     await authModule.initialize?.(state);
     await authModule.stop?.();
@@ -304,7 +328,13 @@ Deno.test("lifecycle", async (t) => {
     });
     const hub = new TransportHub();
     const conduit = new Conduit();
-    const state: AppState = { hub, conduit, config, logger: NULL_LOGGER, supervisor: new TaskSupervisor() };
+    const state: AppState = {
+      hub,
+      conduit,
+      config,
+      logger: NULL_LOGGER,
+      supervisor: new TaskSupervisor(),
+    };
 
     await authModule.initialize?.(state);
     await authModule.stop?.();

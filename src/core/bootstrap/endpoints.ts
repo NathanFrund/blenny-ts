@@ -14,7 +14,10 @@ export function registerPlatformEndpoints(
   config: BlennyConfig,
   moduleCount?: number,
 ): void {
-  app.get("/health", (c) => c.json({ status: "ok", modules: moduleCount ?? 0 }));
+  app.get(
+    "/health",
+    (c) => c.json({ status: "ok", modules: moduleCount ?? 0 }),
+  );
 
   app.get("/sse", async (c) => {
     const intentParam = c.req.query("intent");

@@ -1,8 +1,8 @@
 # Module directories
 
 When a module outgrows a single file, it becomes a directory under
-`src/modules/`.  The directory *is* the module — the same way a directory
-with `index.ts` is a Deno/JS/TS module.
+`src/modules/`. The directory _is_ the module — the same way a directory with
+`index.ts` is a Deno/JS/TS module.
 
 ## Convention
 
@@ -18,17 +18,17 @@ src/modules/
     subscriptions.ts    ← event handlers
 ```
 
-- `index.ts` is the entry point.  It imports siblings, composes the
+- `index.ts` is the entry point. It imports siblings, composes the
   `BlennyModule` object (name, routes, lifecycle hooks), and exports it as
   default.
-- The module name defaults to the directory name (`"forum"`), overridable
-  in the export.
+- The module name defaults to the directory name (`"forum"`), overridable in the
+  export.
 - Single-file modules continue working unchanged.
 
 ## Loader change
 
 `src/core/module-loader.ts` currently scans `src/modules/` for `.ts`/`.tsx`
-files.  It is extended to also scan directories:
+files. It is extended to also scan directories:
 
 ```
 for each entry in modules/:
@@ -37,13 +37,12 @@ for each entry in modules/:
   derive name:              filename (file) or directory name (dir)
 ```
 
-The change is ~10 lines.  Backward-compatible — no existing module needs
-changes.
+The change is ~10 lines. Backward-compatible — no existing module needs changes.
 
 ## Why
 
-- A directory with `index.ts` *is* a Deno module — `import("./forum/")`
-  resolves naturally.
-- No stub files, no config, no manifest.  Drop a directory in `modules/`
-  and it loads.
+- A directory with `index.ts` _is_ a Deno module — `import("./forum/")` resolves
+  naturally.
+- No stub files, no config, no manifest. Drop a directory in `modules/` and it
+  loads.
 - Follows the same convention as every Deno/Node/TypeScript project.

@@ -88,12 +88,10 @@ export class TaskSupervisor {
         reschedule = false;
       }
       if (reschedule) {
-        const delay = task.failures === 0
-          ? task.intervalMs
-          : Math.min(
-            task.intervalMs * Math.pow(2, task.failures),
-            task.maxBackoff,
-          );
+        const delay = task.failures === 0 ? task.intervalMs : Math.min(
+          task.intervalMs * Math.pow(2, task.failures),
+          task.maxBackoff,
+        );
         this.timers.set(name, setTimeout(run, delay));
       }
     };

@@ -5,14 +5,14 @@ Blenny-ts provides double-submit cookie CSRF protection for form POST handlers.
 ## API
 
 ```ts
-import { csrfToken, csrfGuard } from "../../core/csrf.ts";
+import { csrfGuard, csrfToken } from "../../core/csrf.ts";
 ```
 
 ### `csrfToken(c: Context): string`
 
-Generates a new random token, sets it as the `csrf` cookie, and returns the value.
-Call this in your GET handler and pass the token to your template so it can be
-included as a hidden form field.
+Generates a new random token, sets it as the `csrf` cookie, and returns the
+value. Call this in your GET handler and pass the token to your template so it
+can be included as a hidden form field.
 
 The token rotates on every call — each page load gets a fresh value. Both the
 cookie and the hidden field are updated together, so multiple tabs each work
@@ -35,7 +35,7 @@ function renderMyForm(c: Context): Response {
       <input type="hidden" name="_csrf" value={csrfToken(c)} />
       <input type="text" name="message" />
       <button type="submit">Submit</button>
-    </form>
+    </form>,
   );
 }
 

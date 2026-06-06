@@ -1,4 +1,4 @@
-import { assertEquals, assertExists } from "@std/assert";
+import { assertEquals } from "@std/assert";
 import { TaskSupervisor } from "../src/core/task-supervisor.ts";
 import type { BlennyLogger } from "../src/core/logger.ts";
 
@@ -16,7 +16,9 @@ Deno.test("TaskSupervisor", async (t) => {
   await t.step("fires on cadence", async () => {
     const sv = new TaskSupervisor();
     let count = 0;
-    sv.add("tick", () => { count++; }, 10);
+    sv.add("tick", () => {
+      count++;
+    }, 10);
     sv.start();
     await new Promise((r) => setTimeout(r, 35));
     sv.stop();
@@ -39,7 +41,9 @@ Deno.test("TaskSupervisor", async (t) => {
   await t.step("stop halts execution", async () => {
     const sv = new TaskSupervisor();
     let count = 0;
-    sv.add("tick", () => { count++; }, 10);
+    sv.add("tick", () => {
+      count++;
+    }, 10);
     sv.start();
     await new Promise((r) => setTimeout(r, 20));
     sv.stop();
@@ -59,8 +63,12 @@ Deno.test("TaskSupervisor", async (t) => {
   await t.step("multiple tasks fire independently", async () => {
     const sv = new TaskSupervisor();
     let a = 0, b = 0;
-    sv.add("a", () => { a++; }, 10);
-    sv.add("b", () => { b++; }, 20);
+    sv.add("a", () => {
+      a++;
+    }, 10);
+    sv.add("b", () => {
+      b++;
+    }, 20);
     sv.start();
     await new Promise((r) => setTimeout(r, 35));
     sv.stop();
@@ -87,12 +95,16 @@ Deno.test("TaskSupervisor", async (t) => {
   await t.step("add after stop works", async () => {
     const sv = new TaskSupervisor();
     let count = 0;
-    sv.add("tick", () => { count++; }, 10);
+    sv.add("tick", () => {
+      count++;
+    }, 10);
     sv.start();
     await new Promise((r) => setTimeout(r, 20));
     sv.stop();
     const before = count;
-    sv.add("tick", () => { count++; }, 10);
+    sv.add("tick", () => {
+      count++;
+    }, 10);
     sv.start();
     await new Promise((r) => setTimeout(r, 20));
     sv.stop();
@@ -103,7 +115,9 @@ Deno.test("TaskSupervisor", async (t) => {
     const warns: string[] = [];
     const logger: BlennyLogger = {
       ...noopLogger(),
-      warn(tmpl: string) { warns.push(tmpl); },
+      warn(tmpl: string) {
+        warns.push(tmpl);
+      },
     };
     const sv = new TaskSupervisor(logger, 100);
     let count = 0;
@@ -132,7 +146,9 @@ Deno.test("TaskSupervisor", async (t) => {
 
     // second round — count should be 0 internally
     let count2 = 0;
-    sv.add("flap", () => { count2++; }, 10);
+    sv.add("flap", () => {
+      count2++;
+    }, 10);
     sv.start();
     await new Promise((r) => setTimeout(r, 25));
     sv.stop();

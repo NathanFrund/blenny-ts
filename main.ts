@@ -1,4 +1,4 @@
-import { loadConfig, checkJwtSecret } from "./src/core/bootstrap/config.ts";
+import { checkJwtSecret, loadConfig } from "./src/core/bootstrap/config.ts";
 import { createServices } from "./src/core/bootstrap/services.ts";
 import {
   configureMiddleware,
@@ -6,22 +6,24 @@ import {
   createNotFoundHandler,
 } from "./src/core/bootstrap/middlewares.ts";
 import {
-  discoverModules,
-  detectCapabilityConflicts,
-  setupDatabase,
-  initializeModules,
   applyAuthMiddleware,
+  detectCapabilityConflicts,
+  discoverModules,
+  initializeModules,
   registerModuleRoutes,
-  subscribeModuleEvents,
+  setupDatabase,
   startModules,
   stopModules,
+  subscribeModuleEvents,
 } from "./src/core/bootstrap/modules.ts";
 import { registerPlatformEndpoints } from "./src/core/bootstrap/endpoints.ts";
 import { startServer } from "./src/core/bootstrap/server.ts";
 
 const config = loadConfig();
 checkJwtSecret(config);
-const { hub, conduit: _conduit, logger, state, app } = await createServices(config);
+const { hub, conduit: _conduit, logger, state, app } = await createServices(
+  config,
+);
 configureMiddleware(app, config, logger);
 createErrorHandler(app, logger);
 createNotFoundHandler(app);

@@ -2,7 +2,9 @@
 
 ## 1. OTel instrumentation
 
-Each task run creates a `task.{name}` span with duration, plus a failure-count up/down counter. Follows the existing pattern in `hub.ts`, `auth.ts`, `crypto.ts`.
+Each task run creates a `task.{name}` span with duration, plus a failure-count
+up/down counter. Follows the existing pattern in `hub.ts`, `auth.ts`,
+`crypto.ts`.
 
 ```ts
 // inside TaskSupervisor.run():
@@ -13,9 +15,11 @@ withSpan(`task.${name}`, async (span) => {
 }, { attributes: { "task.max_backoff": task.maxBackoff } });
 ```
 
-On failure: `span.setStatus({ code: SpanStatusCode.ERROR })` + `recordException`.
+On failure: `span.setStatus({ code: SpanStatusCode.ERROR })` +
+`recordException`.
 
-Also add `task.active` gauge (up on `start()`, down on `stop()`) and `task.runs` counter.
+Also add `task.active` gauge (up on `start()`, down on `stop()`) and `task.runs`
+counter.
 
 ## 2. Status endpoint
 
@@ -30,14 +34,16 @@ A `GET /system/tasks` endpoint exposing the supervisor's task registry:
 }
 ```
 
-The supervisor is already on `AppState`, so wiring this into `registerPlatformEndpoints` is a few lines.
+The supervisor is already on `AppState`, so wiring this into
+`registerPlatformEndpoints` is a few lines.
 
 ## 3. Pause/resume individual tasks
 
-Currently only global `start()`/`stop()`. Some modules may want to throttle specific tasks without killing all of them.
+Currently only global `start()`/`stop()`. Some modules may want to throttle
+specific tasks without killing all of them.
 
 ```ts
-supervisor.pause("flush-dirty");  // cancel timer, keep task config
+supervisor.pause("flush-dirty"); // cancel timer, keep task config
 supervisor.resume("flush-dirty"); // restart from task config
 supervisor.isPaused("flush-dirty"); // boolean check
 

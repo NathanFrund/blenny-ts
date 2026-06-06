@@ -26,12 +26,16 @@ Deno.test("stopModules calls all cleanup", async (t) => {
   const moduleA: BlennyModule = {
     name: "mod-a",
     routes: [],
-    async stop() { stopCalls.push("mod-a"); },
+    stop() {
+      stopCalls.push("mod-a");
+    },
   };
   const moduleB: BlennyModule = {
     name: "mod-b",
     routes: [],
-    async stop() { stopCalls.push("mod-b"); },
+    stop() {
+      stopCalls.push("mod-b");
+    },
   };
 
   const dbCloseCalls: string[] = [];
@@ -39,7 +43,9 @@ Deno.test("stopModules calls all cleanup", async (t) => {
     hub,
     supervisor: new TaskSupervisor(),
     db: {
-      async close() { dbCloseCalls.push("db.close"); },
+      close() {
+        dbCloseCalls.push("db.close");
+      },
     },
   } as unknown as AppState;
 
@@ -66,7 +72,10 @@ Deno.test("stopModules is safe with no db", async () => {
   hub.closeAllConnections = () => {};
   hub.stopReaper = () => {};
 
-  const state = { hub, supervisor: new TaskSupervisor() } as unknown as AppState;
+  const state = {
+    hub,
+    supervisor: new TaskSupervisor(),
+  } as unknown as AppState;
   await stopModules([], state, noopLogger);
 });
 

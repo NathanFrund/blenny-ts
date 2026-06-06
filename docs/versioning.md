@@ -4,10 +4,10 @@ Blenny-ts follows [Semantic Versioning](https://semver.org/).
 
 ## Pre-1.0 (`0.x.y`)
 
-| Bump | When |
-|---|---|
+| Bump                            | When                                                                |
+| ------------------------------- | ------------------------------------------------------------------- |
 | **Minor** (`0.2.0`, `0.3.0`, …) | Feature milestone — new module, subsystem, or meaningful capability |
-| **Patch** (`0.2.1`, `0.2.2`, …) | Bug fixes, refactors, doc updates, instrumentation changes |
+| **Patch** (`0.2.1`, `0.2.2`, …) | Bug fixes, refactors, doc updates, instrumentation changes          |
 
 Breaking changes are expected at this stage and do not require a major version
 bump.

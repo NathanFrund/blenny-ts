@@ -19,7 +19,13 @@ Deno.test("main routes", async (t) => {
   const config = new BlennyConfig();
   const hub = new TransportHub();
   const conduit = new Conduit();
-  const state: AppState = { hub, conduit, config, logger: NULL_LOGGER, supervisor: new TaskSupervisor() };
+  const state: AppState = {
+    hub,
+    conduit,
+    config,
+    logger: NULL_LOGGER,
+    supervisor: new TaskSupervisor(),
+  };
   const app = new Hono();
 
   // Replicates main.ts bootstrap pipeline for endpoints-only test

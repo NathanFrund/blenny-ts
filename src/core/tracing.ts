@@ -1,5 +1,16 @@
-import { trace, metrics, context, propagation, SpanStatusCode } from "@opentelemetry/api";
-import type { Span, Histogram, Attributes, SpanOptions } from "@opentelemetry/api";
+import {
+  context,
+  metrics,
+  propagation,
+  SpanStatusCode,
+  trace,
+} from "@opentelemetry/api";
+import type {
+  Attributes,
+  Histogram,
+  Span,
+  SpanOptions,
+} from "@opentelemetry/api";
 
 const tracer = trace.getTracer("blenny", "0.2.0");
 
@@ -36,7 +47,7 @@ export function recordDuration(
   histogram.record(performance.now() - startTime, attributes);
 }
 
-export { trace, context, propagation, SpanStatusCode };
+export { context, propagation, SpanStatusCode, trace };
 
 export const meter = metrics.getMeter("blenny", "0.2.0");
 

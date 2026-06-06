@@ -29,6 +29,7 @@ Deno.test("DefaultLayout", async (t) => {
     const app = new Hono();
     app.get("/", (c) =>
       c.html(
+        // deno-lint-ignore jsx-curly-braces
         <LayoutComponent>{""}</LayoutComponent> as unknown as string,
       ));
 

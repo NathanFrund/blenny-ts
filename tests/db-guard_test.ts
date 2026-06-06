@@ -48,11 +48,11 @@ Deno.test("withDb", async (t) => {
   });
 
   await t.step("returns fallback when fn throws (non-DbError)", async () => {
-    // deno-lint-ignore no-explicit-any
     const fakeDb = {
       query: () => {
         throw new Error("db down");
       },
+      // deno-lint-ignore no-explicit-any
     } as any;
     const result = await withDb(
       fakeDb,

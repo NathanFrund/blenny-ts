@@ -53,4 +53,4 @@ const RegisterPage: FC<{ error?: string; csrfToken: string }> = (props) => (
   </div>
 );
 
-export { SignInPage, RegisterPage };
+export { RegisterPage, SignInPage };

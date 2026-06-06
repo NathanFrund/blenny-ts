@@ -4,11 +4,11 @@ import { BlennyError } from "./error.ts";
 import { TaskSupervisor } from "./task-supervisor.ts";
 import {
   activeConnections,
-  messagesSent,
   messageDuration,
+  messagesSent,
   recordDuration,
-  withSpan,
   SpanStatusCode,
+  withSpan,
 } from "./tracing.ts";
 
 // ── Typed event bus ──────────────────────────────────────────────
@@ -24,8 +24,7 @@ export function subscribe<K extends keyof BlennyEvents>(
     eventSubs.set(topic, new Set());
   }
   eventSubs.get(topic)!.add(handler as Handler<unknown>);
-  return () =>
-    eventSubs.get(topic)?.delete(handler as Handler<unknown>);
+  return () => eventSubs.get(topic)?.delete(handler as Handler<unknown>);
 }
 
 export async function publish<K extends keyof BlennyEvents>(
@@ -86,14 +85,18 @@ export class TransportHub {
   startReaper(idleTimeoutMs: number, intervalMs = 30_000): void {
     this.reaperIdleMs = idleTimeoutMs;
     this.reaperSupervisor.stop();
-    this.reaperSupervisor.add("reaper", () => this.reapIdleConnections(), intervalMs);
+    this.reaperSupervisor.add(
+      "reaper",
+      () => this.reapIdleConnections(),
+      intervalMs,
+    );
     this.reaperSupervisor.start();
   }
 
   private reapIdleConnections(): void {
     const now = Date.now();
     for (const conn of this.sseConns) {
-        if (now - conn.lastWriteAt > this.reaperIdleMs) {
+      if (now - conn.lastWriteAt > this.reaperIdleMs) {
         this.removeConnection(conn.id);
       }
     }
@@ -232,7 +235,10 @@ export class TransportHub {
         "conn.type": conn.connType,
       });
     } catch (err) {
-      console.warn(`[hub] Send failed for ${conn.id}, removing connection`, err);
+      console.warn(
+        `[hub] Send failed for ${conn.id}, removing connection`,
+        err,
+      );
       this.removeConnection(conn.id);
       throw err;
     }
@@ -257,7 +263,10 @@ export class TransportHub {
     data: Record<string, unknown>,
     opts?: { intent?: Intent; userId?: string },
   ): Promise<void> {
-    return this.sendMessage({ intent: opts?.intent, signals: data }, opts?.userId);
+    return this.sendMessage(
+      { intent: opts?.intent, signals: data },
+      opts?.userId,
+    );
   }
 
   /**
@@ -272,7 +281,10 @@ export class TransportHub {
     return this.sendMessage({ intent: opts?.intent, script }, opts?.userId);
   }
 
-  private sendMessage(msg: ServerMessage, targetUserId?: string): Promise<void> {
+  private sendMessage(
+    msg: ServerMessage,
+    targetUserId?: string,
+  ): Promise<void> {
     if (targetUserId) {
       return this.directToUser(msg, targetUserId);
     } else {
@@ -314,7 +326,10 @@ export class TransportHub {
     });
   }
 
-  private async directToUser(msg: ServerMessage, userId: string): Promise<void> {
+  private async directToUser(
+    msg: ServerMessage,
+    userId: string,
+  ): Promise<void> {
     const userSet = this.userConns.get(userId);
     if (!userSet || userSet.size === 0) return;
     await withSpan("hub.direct", async (span) => {

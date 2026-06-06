@@ -14,7 +14,13 @@ Deno.test("demo module", async (t) => {
   const config = new BlennyConfig();
   const app = new Hono();
 
-  await demoModule.initialize?.({ hub, conduit, config, logger: NULL_LOGGER, supervisor: new TaskSupervisor() });
+  await demoModule.initialize?.({
+    hub,
+    conduit,
+    config,
+    logger: NULL_LOGGER,
+    supervisor: new TaskSupervisor(),
+  });
 
   for (const route of demoModule.routes) {
     app.on(route.method as HttpMethod, route.path, route.handler);
@@ -32,7 +38,7 @@ Deno.test("demo module", async (t) => {
     const res = await app.request("http://localhost/demo");
     const html = await res.text();
     assertEquals(html.includes("Server clock"), true);
-    assertEquals(html.includes('data-signals='), true);
+    assertEquals(html.includes("data-signals="), true);
     assertEquals(html.includes('"currentTime"'), true);
     assertEquals(html.includes("data-init"), true);
   });
