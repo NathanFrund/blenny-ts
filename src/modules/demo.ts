@@ -1,9 +1,10 @@
 import type { TransportHub } from "../core/hub.ts";
 import type { Intent } from "../core/envelope.ts";
+import { TaskSupervisor } from "../core/task-supervisor.ts";
 import type { BlennyModule } from "@blenny/types";
 
 let hub: TransportHub;
-let timer: ReturnType<typeof setInterval> | undefined;
+const tickSupervisor = new TaskSupervisor();
 
 const demoModule: BlennyModule = {
   name: "demo",
@@ -68,14 +69,14 @@ const demoModule: BlennyModule = {
     hub = state.hub;
   },
   start() {
-    timer = setInterval(() => {
+    tickSupervisor.add("clock", () => {
       const currentTime = new Date().toLocaleTimeString();
       hub.mergeSignals({ currentTime }, { intent: "clock" });
     }, 1000);
+    tickSupervisor.start();
   },
   stop() {
-    clearInterval(timer);
-    timer = undefined;
+    tickSupervisor.stop();
   },
 };
 
