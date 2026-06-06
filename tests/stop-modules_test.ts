@@ -4,6 +4,7 @@ import type { AppState } from "../src/core/app-state.ts";
 import type { BlennyLogger } from "../src/core/logger.ts";
 import type { BlennyModule } from "../src/types.ts";
 import { TransportHub } from "../src/core/hub.ts";
+import { TaskSupervisor } from "../src/core/task-supervisor.ts";
 
 const noopLogger: BlennyLogger = {
   debug: () => {},
@@ -36,6 +37,7 @@ Deno.test("stopModules calls all cleanup", async (t) => {
   const dbCloseCalls: string[] = [];
   const state = {
     hub,
+    supervisor: new TaskSupervisor(),
     db: {
       async close() { dbCloseCalls.push("db.close"); },
     },
@@ -64,7 +66,7 @@ Deno.test("stopModules is safe with no db", async () => {
   hub.closeAllConnections = () => {};
   hub.stopReaper = () => {};
 
-  const state = { hub } as unknown as AppState;
+  const state = { hub, supervisor: new TaskSupervisor() } as unknown as AppState;
   await stopModules([], state, noopLogger);
 });
 
@@ -76,6 +78,7 @@ Deno.test("stopModules is safe with no module stop hooks", async () => {
   const mod: BlennyModule = { name: "noop", routes: [] };
   const state = {
     hub,
+    supervisor: new TaskSupervisor(),
     db: { async close() {} },
   } as unknown as AppState;
   await stopModules([mod], state, noopLogger);

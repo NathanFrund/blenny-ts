@@ -130,12 +130,14 @@ export function subscribeModuleEvents(
 
 export async function startModules(
   modules: BlennyModule[],
+  state: AppState,
   logger: BlennyLogger,
 ): Promise<void> {
   for (const mod of modules) {
     await mod.start?.();
     if (mod.start) logger.info("Module started: {name}", { name: mod.name });
   }
+  state.supervisor.start();
 }
 
 export async function stopModules(
@@ -143,6 +145,7 @@ export async function stopModules(
   state: AppState,
   logger: BlennyLogger,
 ): Promise<void> {
+  state.supervisor.stop();
   state.hub.closeAllConnections();
   state.hub.stopReaper();
   for (const mod of modules.toReversed()) {

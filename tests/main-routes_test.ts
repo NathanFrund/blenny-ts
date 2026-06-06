@@ -3,6 +3,7 @@ import { Hono } from "@hono/hono";
 import { TransportHub } from "../src/core/hub.ts";
 import { Conduit } from "../src/core/conduit.ts";
 import { BlennyConfig } from "../src/core/config.ts";
+import { TaskSupervisor } from "../src/core/task-supervisor.ts";
 import { getUser } from "../src/core/auth.ts";
 import type { AppState } from "../src/core/app-state.ts";
 import { NULL_LOGGER } from "../src/core/logger.ts";
@@ -18,7 +19,7 @@ Deno.test("main routes", async (t) => {
   const config = new BlennyConfig();
   const hub = new TransportHub();
   const conduit = new Conduit();
-  const state: AppState = { hub, conduit, config, logger: NULL_LOGGER };
+  const state: AppState = { hub, conduit, config, logger: NULL_LOGGER, supervisor: new TaskSupervisor() };
   const app = new Hono();
 
   // Replicates main.ts bootstrap pipeline for endpoints-only test

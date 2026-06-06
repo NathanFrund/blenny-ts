@@ -4,6 +4,7 @@ import type { MiddlewareHandler } from "@hono/hono";
 import { TransportHub } from "../src/core/hub.ts";
 import { Conduit } from "../src/core/conduit.ts";
 import { BlennyConfig } from "../src/core/config.ts";
+import { TaskSupervisor } from "../src/core/task-supervisor.ts";
 import authModule from "../src/modules/form-auth/index.ts";
 import type { AppState } from "../src/core/app-state.ts";
 import type { HttpMethod } from "../src/types.ts";
@@ -13,7 +14,7 @@ async function buildApp(): Promise<Hono> {
   const config = new BlennyConfig();
   const hub = new TransportHub();
   const conduit = new Conduit();
-  const state: AppState = { hub, conduit, config, logger: NULL_LOGGER };
+  const state: AppState = { hub, conduit, config, logger: NULL_LOGGER, supervisor: new TaskSupervisor() };
   const app = new Hono();
 
   await authModule.initialize?.(state);
@@ -288,7 +289,7 @@ Deno.test("lifecycle", async (t) => {
     const config = new BlennyConfig();
     const hub = new TransportHub();
     const conduit = new Conduit();
-    const state: AppState = { hub, conduit, config, logger: NULL_LOGGER };
+    const state: AppState = { hub, conduit, config, logger: NULL_LOGGER, supervisor: new TaskSupervisor() };
 
     await authModule.initialize?.(state);
     await authModule.stop?.();
@@ -303,7 +304,7 @@ Deno.test("lifecycle", async (t) => {
     });
     const hub = new TransportHub();
     const conduit = new Conduit();
-    const state: AppState = { hub, conduit, config, logger: NULL_LOGGER };
+    const state: AppState = { hub, conduit, config, logger: NULL_LOGGER, supervisor: new TaskSupervisor() };
 
     await authModule.initialize?.(state);
     await authModule.stop?.();

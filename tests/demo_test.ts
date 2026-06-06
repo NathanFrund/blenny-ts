@@ -3,6 +3,7 @@ import demoModule from "../src/modules/demo.ts";
 import { TransportHub } from "../src/core/hub.ts";
 import { Conduit } from "../src/core/conduit.ts";
 import { BlennyConfig } from "../src/core/config.ts";
+import { TaskSupervisor } from "../src/core/task-supervisor.ts";
 import { Hono } from "@hono/hono";
 import type { HttpMethod } from "../src/types.ts";
 import { NULL_LOGGER } from "../src/core/logger.ts";
@@ -13,7 +14,7 @@ Deno.test("demo module", async (t) => {
   const config = new BlennyConfig();
   const app = new Hono();
 
-  await demoModule.initialize?.({ hub, conduit, config, logger: NULL_LOGGER });
+  await demoModule.initialize?.({ hub, conduit, config, logger: NULL_LOGGER, supervisor: new TaskSupervisor() });
 
   for (const route of demoModule.routes) {
     app.on(route.method as HttpMethod, route.path, route.handler);

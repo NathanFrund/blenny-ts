@@ -32,7 +32,7 @@ await initializeModules(modules, state, logger);
 applyAuthMiddleware(app, state);
 registerModuleRoutes(app, modules, state, logger);
 subscribeModuleEvents(modules, logger);
-await startModules(modules, logger);
+await startModules(modules, state, logger);
 registerPlatformEndpoints(app, state, config, modules.length);
 const { finished } = startServer(app, config, hub, logger);
 await finished;
