@@ -16,7 +16,6 @@ export interface Route {
 export interface BlennyModule {
   name: string;
   routes: Route[];
-  enabled?: boolean;
   layout?: LayoutComponent;
   capabilities?: string[];
   subscriptions?: {

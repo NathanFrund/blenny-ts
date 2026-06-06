@@ -1,65 +1,61 @@
 # CSRF Protection
 
-Blenny-ts provides double-submit cookie CSRF protection for form POST handlers.
+Blenny-ts protects against cross-site request forgery using Hono's built-in
+`csrf()` middleware, which validates the `Origin` and `Referer` headers on
+every mutation request (POST, PUT, DELETE).
 
-## API
+Zero configuration, zero boilerplate — protection is automatic for all routes.
 
-```ts
-import { csrfGuard, csrfToken } from "../../core/csrf.ts";
-```
+## How it works
 
-### `csrfToken(c: Context): string`
+The middleware checks that incoming mutation requests originate from the same
+origin that served the page. If a forged request comes from an external site,
+its `Origin` header will be absent or mismatched, and Blenny returns `403
+Forbidden`.
 
-Generates a new random token, sets it as the `csrf` cookie, and returns the
-value. Call this in your GET handler and pass the token to your template so it
-can be included as a hidden form field.
+This is the OWASP-recommended approach for server-rendered applications where
+all forms are served from the same origin.
 
-The token rotates on every call — each page load gets a fresh value. Both the
-cookie and the hidden field are updated together, so multiple tabs each work
-independently.
+## What's not needed
 
-### `csrfGuard(c: Context, body: Record<string, unknown>): Response | null`
+- No hidden `_csrf` fields in forms
+- No `csrf` cookies
+- No per-handler `csrfGuard()` calls
+- No per-handler `csrfToken()` calls
 
-Compares the `csrf` cookie value against the `_csrf` field in the parsed form
-body. Returns `null` on success, or a `403 Response` on failure.
-
-## Usage
-
-Every module with `<form method="post">` must follow this pattern:
+Just write normal forms:
 
 ```tsx
-// GET handler — render the form with a CSRF token
-function renderMyForm(c: Context): Response {
+function renderForm(c: Context): Response {
   return c.html(
     <form method="post" action="/my-route">
-      <input type="hidden" name="_csrf" value={csrfToken(c)} />
       <input type="text" name="message" />
       <button type="submit">Submit</button>
     </form>,
   );
 }
-
-// POST handler — guard before processing
-async function handleMyForm(c: Context): Promise<Response> {
-  const body = await c.req.parseBody();
-  const bad = csrfGuard(c, body);
-  if (bad) return bad;
-
-  // safe to process the form ...
-  return c.redirect("/success");
-}
 ```
 
-## What it protects against
+## Configuration
 
-CSRF attacks where an external site tricks a logged-in user into submitting a
-form on your domain. The attacker cannot read the `csrf` cookie (it is
-`httpOnly`) and therefore cannot include a matching `_csrf` value in their
-forged form.
+The middleware is applied globally in `src/core/bootstrap/middlewares.ts`:
 
-## Notes
+```ts
+app.use("*", csrf());
+```
 
-- The cookie is set with `SameSite=Lax` for defense in depth.
-- `maxAge` is 1 hour; a new token is issued on every page load.
-- Every `<form method="post">` **must** include a `_csrf` hidden field.
-- Every POST handler **must** call `csrfGuard()` before processing the body.
+To allow specific additional origins (e.g., for API clients), pass an options
+object:
+
+```ts
+app.use("*", csrf({ origin: ["https://trusted-app.com"] }));
+```
+
+See the [Hono CSRF documentation](https://hono.dev/docs/middleware/builtin/csrf)
+for full configuration options.
+
+## Proxy environments
+
+If your deployment uses a reverse proxy, ensure the `Origin` header is
+preserved. Most modern proxies (nginx, Cloudflare, AWS ALB) forward this header
+by default. No additional configuration is needed.

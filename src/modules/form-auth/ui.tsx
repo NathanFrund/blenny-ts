@@ -1,11 +1,10 @@
 import type { FC } from "@hono/hono/jsx";
 
-const SignInPage: FC<{ error?: string; csrfToken: string }> = (props) => (
+const SignInPage: FC<{ error?: string }> = (props) => (
   <div>
     <h1>Sign In</h1>
     {props.error && <p style="color:red">{props.error}</p>}
     <form method="post" action="/auth/signin">
-      <input type="hidden" name="_csrf" value={props.csrfToken} />
       <label>
         Username
         <input type="text" name="username" required />
@@ -24,12 +23,11 @@ const SignInPage: FC<{ error?: string; csrfToken: string }> = (props) => (
   </div>
 );
 
-const RegisterPage: FC<{ error?: string; csrfToken: string }> = (props) => (
+const RegisterPage: FC<{ error?: string }> = (props) => (
   <div>
     <h1>Register</h1>
     {props.error && <p style="color:red">{props.error}</p>}
     <form method="post" action="/auth/register">
-      <input type="hidden" name="_csrf" value={props.csrfToken} />
       <label>
         Username
         <input type="text" name="username" required />

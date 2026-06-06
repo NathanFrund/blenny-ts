@@ -16,6 +16,7 @@ const indexModule: BlennyModule = {
     <p>A hypermedia-driven real-time platform.</p>
     <ul>
       <li><a href="/demo">Transport Demo</a></li>
+      <li><a href="/task-demo">TaskSupervisor Demo</a></li>
       <li><a href="/dashboard">Dashboard</a></li>
     </ul>
   </body>

@@ -17,6 +17,7 @@ Deno.test("index module", async (t) => {
     assertEquals(html.includes("blenny-ts"), true);
     assertEquals(html.includes("<!DOCTYPE html>"), true);
     assertEquals(html.includes('<a href="/demo">'), true);
+    assertEquals(html.includes('<a href="/task-demo">'), true);
     assertEquals(html.includes('<a href="/dashboard">'), true);
   });
 });

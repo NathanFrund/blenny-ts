@@ -1,6 +1,7 @@
 import type { Hono } from "@hono/hono";
 import { cors } from "@hono/hono/cors";
 import { bodyLimit } from "@hono/hono/body-limit";
+import { csrf } from "@hono/hono/csrf";
 import { createRateLimiter } from "../rate-limiter.ts";
 import { SpanStatusCode, trace } from "../tracing.ts";
 import { BlennyError, errorResponse } from "../error.ts";
@@ -15,6 +16,7 @@ export function configureMiddleware(
 ): void {
   app.use(requestLogger(logger));
   app.use(cors({ origin: config.corsOrigin }));
+  app.use("*", csrf());
 
   const transportLimiter = createRateLimiter(
     config.ratelimitWindowMs,

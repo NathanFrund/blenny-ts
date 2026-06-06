@@ -17,6 +17,7 @@ Deno.test("module-loader", async (t) => {
     assertEquals(names.includes("demo"), true);
     assertEquals(names.includes("dashboard"), true);
     assertEquals(names.includes("form-auth"), true);
+    assertEquals(names.includes("task-demo"), true);
   });
 
   await t.step("loaded modules have valid routes", async () => {

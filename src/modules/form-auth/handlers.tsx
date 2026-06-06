@@ -8,7 +8,6 @@ import {
 import { publish } from "../../core/hub.ts";
 import * as v from "@valibot/valibot";
 import { PasswordSchema, UsernameSchema } from "../../core/validation.ts";
-import { csrfGuard, csrfToken } from "../../core/csrf.ts";
 import { deriveKey, verifyKey } from "./crypto.ts";
 import { RegisterPage, SignInPage } from "./ui.tsx";
 import { state } from "./state.ts";
@@ -19,14 +18,12 @@ function renderSignIn(
 ): Response | Promise<Response> {
   return state.conduit.respond(
     c,
-    <SignInPage csrfToken={csrfToken(c)} error={error} />,
+    <SignInPage error={error} />,
   );
 }
 
 async function handleSignIn(c: Context): Promise<Response> {
   const body = await c.req.parseBody();
-  const csrfErr = csrfGuard(c, body);
-  if (csrfErr) return csrfErr;
   const username = body.username as string;
   const password = body.password as string;
 
@@ -59,14 +56,12 @@ function renderRegister(
 ): Response | Promise<Response> {
   return state.conduit.respond(
     c,
-    <RegisterPage csrfToken={csrfToken(c)} error={error} />,
+    <RegisterPage error={error} />,
   );
 }
 
 async function handleRegister(c: Context): Promise<Response> {
   const body = await c.req.parseBody();
-  const csrfErr = csrfGuard(c, body);
-  if (csrfErr) return csrfErr;
   const username = (body.username as string).trim();
   const displayName = (body.display_name as string).trim();
   const password = body.password as string;
@@ -111,10 +106,6 @@ async function handleRegister(c: Context): Promise<Response> {
 }
 
 async function handleSignOut(c: Context): Promise<Response> {
-  const body = await c.req.parseBody();
-  const csrfErr = csrfGuard(c, body);
-  if (csrfErr) return csrfErr;
-
   const user = c.get("user") as UserInfo | undefined;
   clearSessionCookie(c, state.config);
 
@@ -130,8 +121,6 @@ async function handleAvatarUpload(c: Context): Promise<Response> {
   if (!user) return c.json({ error: "Unauthorized" }, 401);
 
   const form = await c.req.parseBody();
-  const csrfErr = csrfGuard(c, form);
-  if (csrfErr) return csrfErr;
   const file = form.avatar;
 
   if (!(file instanceof File)) {
