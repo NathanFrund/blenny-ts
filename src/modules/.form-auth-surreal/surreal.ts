@@ -1,5 +1,8 @@
 import type { Surreal } from "@surrealdb/surrealdb";
-import type { AvatarPutResult, AvatarService } from "../../lib/avatar/service.ts";
+import type {
+  AvatarPutResult,
+  AvatarService,
+} from "../../lib/avatar/service.ts";
 import { getAvatarFromBucket } from "../../lib/avatar/surreal.ts";
 import type { AvatarGetResult } from "../../lib/avatar/service.ts";
 
