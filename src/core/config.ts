@@ -24,7 +24,7 @@ const DEFAULTS: Record<string, string> = {
   "ratelimit.window_ms": "60000",
   "ratelimit.max_requests": "30",
   "ratelimit.auth_window_ms": "300000",
-  "ratelimit.auth_max_requests": "5",
+  "ratelimit.auth_max_requests": "20",
   "server.trust_proxy": "false",
 };
 

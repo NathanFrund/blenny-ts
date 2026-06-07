@@ -46,7 +46,7 @@ Deno.test("BlennyConfig defaults", async (t) => {
     assertEquals(cfg.at("ratelimit.window_ms"), "60000");
     assertEquals(cfg.at("ratelimit.max_requests"), "30");
     assertEquals(cfg.at("ratelimit.auth_window_ms"), "300000");
-    assertEquals(cfg.at("ratelimit.auth_max_requests"), "5");
+    assertEquals(cfg.at("ratelimit.auth_max_requests"), "20");
   });
 
   await t.step("returns embedded default cors origin", () => {
