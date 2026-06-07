@@ -21,13 +21,17 @@ export function createHandleAvatarUpload(
 
     if (!(file instanceof File)) {
       return c.redirect(
-        `/auth/profile?error=${encodeURIComponent("avatar field must be a file")}`,
+        `/auth/profile?error=${
+          encodeURIComponent("avatar field must be a file")
+        }`,
       );
     }
 
     if (!file.type.startsWith("image/")) {
       return c.redirect(
-        `/auth/profile?error=${encodeURIComponent("Only image files are accepted")}`,
+        `/auth/profile?error=${
+          encodeURIComponent("Only image files are accepted")
+        }`,
       );
     }
 

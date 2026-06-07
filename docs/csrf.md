@@ -1,8 +1,8 @@
 # CSRF Protection
 
 Blenny-ts protects against cross-site request forgery using Hono's built-in
-`csrf()` middleware, which validates the `Origin` and `Referer` headers on
-every mutation request (POST, PUT, DELETE).
+`csrf()` middleware, which validates the `Origin` and `Referer` headers on every
+mutation request (POST, PUT, DELETE).
 
 Zero configuration, zero boilerplate — protection is automatic for all routes.
 
@@ -10,7 +10,8 @@ Zero configuration, zero boilerplate — protection is automatic for all routes.
 
 The middleware checks that incoming mutation requests originate from the same
 origin that served the page. If a forged request comes from an external site,
-its `Origin` header will be absent or mismatched, and Blenny returns `403
+its `Origin` header will be absent or mismatched, and Blenny returns
+`403
 Forbidden`.
 
 This is the OWASP-recommended approach for server-rendered applications where

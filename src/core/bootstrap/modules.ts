@@ -1,7 +1,7 @@
 import type { Hono, MiddlewareHandler } from "@hono/hono";
 import { connectDatabase } from "../database.ts";
 import { loadModules } from "../module-loader.ts";
-import { subscribe, publish } from "../hub.ts";
+import { publish, subscribe } from "../hub.ts";
 import type { AppState } from "../app-state.ts";
 import type { BlennyConfig } from "../config.ts";
 import type { BlennyEvents, BlennyModule, HttpMethod } from "../../types.ts";

@@ -77,18 +77,18 @@ interface UserStore {
 
 `StoredUser` shape (defined by `UserSchema` in `validation.ts`):
 
-| Field          | Type      | Notes                                                                |
-| -------------- | --------- | -------------------------------------------------------------------- |
-| `id`           | `string`  | UUID                                                                 |
-| `username`     | `string`  | Unique, 1-64 chars                                                   |
-| `passwordHash` | `string`  | PBKDF2 hex (KV) or argon2 hash (SurrealDB); `salt` is always `""`    |
-| `displayName`  | `string`  | Visible name in UI                                                   |
-| `role`         | `string`  | Single role (e.g. "admin", "user", "gm")                             |
-| `avatarKey`    | `string?` | Blob key, present only if avatar uploaded                            |
-| `createdAt`    | `number`  | Unix millis                                                          |
+| Field          | Type      | Notes                                                             |
+| -------------- | --------- | ----------------------------------------------------------------- |
+| `id`           | `string`  | UUID                                                              |
+| `username`     | `string`  | Unique, 1-64 chars                                                |
+| `passwordHash` | `string`  | PBKDF2 hex (KV) or argon2 hash (SurrealDB); `salt` is always `""` |
+| `displayName`  | `string`  | Visible name in UI                                                |
+| `role`         | `string`  | Single role (e.g. "admin", "user", "gm")                          |
+| `avatarKey`    | `string?` | Blob key, present only if avatar uploaded                         |
+| `createdAt`    | `number`  | Unix millis                                                       |
 
-In the SurrealDB-backed store, `passwordHash` maps to the `password` field in the
-`user` table (argon2 hash, generated and verified server-side via
+In the SurrealDB-backed store, `passwordHash` maps to the `password` field in
+the `user` table (argon2 hash, generated and verified server-side via
 `crypto::argon2::generate/compare`). The `salt` field is always `""` because
 SurrealDB handles salting internally.
 
@@ -211,8 +211,8 @@ Key differences from `KvUserStore`:
   SurrealDB server lacks `--experimental-files`, a warning is logged and avatar
   endpoints fail at call time.
 - Unique constraint on username is enforced via the SurrealQL index, not via
-  Deno KV atomic CAS. The `createUser` method catches index-violation errors
-  and re-throws as `"Username is already taken"`.
+  Deno KV atomic CAS. The `createUser` method catches index-violation errors and
+  re-throws as `"Username is already taken"`.
 
 ## Configuration
 
@@ -236,16 +236,17 @@ BlobStore (blob endpoints return clear error). Data lost on restart.
 
 ### form-auth-surreal (SurrealDB-backed)
 
-The `form-auth-surreal` module requires a SurrealDB server. Relevant config keys:
+The `form-auth-surreal` module requires a SurrealDB server. Relevant config
+keys:
 
-| Config key                  | Env var         | Default    | Values               |
-| --------------------------- | --------------- | ---------- | -------------------- |
-| `form-auth.bucket.backend`  | —               | `"memory"` | SurrealDB bucket backend |
-| `surreal.url`               | `BLENNY_SURREAL_URL` | `ws://127.0.0.1:8000/rpc` | SurrealDB endpoint |
-| `surreal.ns`                | `BLENNY_SURREAL_NS`  | `blenny`   | SurrealDB namespace |
-| `surreal.db`                | `BLENNY_SURREAL_DB`  | `blenny`   | SurrealDB database  |
-| `surreal.user`              | `BLENNY_SURREAL_USER` | `root`    | SurrealDB user      |
-| `surreal.pass`              | `BLENNY_SURREAL_PASS` | `root`    | SurrealDB password  |
+| Config key                 | Env var               | Default                   | Values                   |
+| -------------------------- | --------------------- | ------------------------- | ------------------------ |
+| `form-auth.bucket.backend` | —                     | `"memory"`                | SurrealDB bucket backend |
+| `surreal.url`              | `BLENNY_SURREAL_URL`  | `ws://127.0.0.1:8000/rpc` | SurrealDB endpoint       |
+| `surreal.ns`               | `BLENNY_SURREAL_NS`   | `blenny`                  | SurrealDB namespace      |
+| `surreal.db`               | `BLENNY_SURREAL_DB`   | `blenny`                  | SurrealDB database       |
+| `surreal.user`             | `BLENNY_SURREAL_USER` | `root`                    | SurrealDB user           |
+| `surreal.pass`             | `BLENNY_SURREAL_PASS` | `root`                    | SurrealDB password       |
 
 The `form-auth.bucket.backend` config controls which storage backend SurrealDB
 uses for the avatar bucket (see [SurrealDB files docs][surreal-files]). The
@@ -511,17 +512,17 @@ to `main.ts`, `config.ts`, or `app-state.ts`.
 
 ## Testing
 
-| Test                  | Store                      | Flag              | File                            |
-| --------------------- | -------------------------- | ----------------- | ------------------------------- |
-| Auth flow             | InMemoryUserStore          | none              | `tests/form-auth_test.ts`       |
-| UserStore CRUD        | InMemoryUserStore          | none              | `tests/user-store_test.ts`      |
-| KvUserStore CRUD      | KvUserStore (in-memory KV) | `--unstable-kv`   | `tests/kv-store_test.ts`        |
-| BlobStore             | KvBlobStore (in-memory KV) | `--unstable-kv`   | `tests/kv-store_test.ts`        |
+| Test                  | Store                      | Flag                 | File                          |
+| --------------------- | -------------------------- | -------------------- | ----------------------------- |
+| Auth flow             | InMemoryUserStore          | none                 | `tests/form-auth_test.ts`     |
+| UserStore CRUD        | InMemoryUserStore          | none                 | `tests/user-store_test.ts`    |
+| KvUserStore CRUD      | KvUserStore (in-memory KV) | `--unstable-kv`      | `tests/kv-store_test.ts`      |
+| BlobStore             | KvBlobStore (in-memory KV) | `--unstable-kv`      | `tests/kv-store_test.ts`      |
 | SurrealUserStore CRUD | SurrealUserStore           | `BLENNY_SURREAL_URL` | `tests/surreal-store_test.ts` |
 
 The in-memory store backs all standard tests — no flag changes needed in the
-default `deno test` task. The SurrealUserStore test requires `BLENNY_SURREAL_URL`
-to be set and is silently skipped otherwise.
+default `deno test` task. The SurrealUserStore test requires
+`BLENNY_SURREAL_URL` to be set and is silently skipped otherwise.
 
 KV store tests use `openKvStore("")` to create an isolated in-memory KV instance
 per test:

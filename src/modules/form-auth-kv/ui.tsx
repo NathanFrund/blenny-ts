@@ -18,7 +18,13 @@ const ProfilePage: FC<ProfilePageProps> = (props) => (
     <p>Role: {props.role}</p>
     <div style="margin:16px 0">
       {props.avatarKey
-        ? <img src={`/avatars/${props.id}`} alt="Avatar" style="max-width:128px;border-radius:8px" />
+        ? (
+          <img
+            src={`/avatars/${props.id}`}
+            alt="Avatar"
+            style="max-width:128px;border-radius:8px"
+          />
+        )
         : <p>No avatar</p>}
     </div>
     <form method="post" action="/auth/avatar" enctype="multipart/form-data">
@@ -29,7 +35,9 @@ const ProfilePage: FC<ProfilePageProps> = (props) => (
       <br />
       <button type="submit">Upload</button>
     </form>
-    <p><a href="/dashboard">Back to Dashboard</a></p>
+    <p>
+      <a href="/dashboard">Back to Dashboard</a>
+    </p>
   </div>
 );
 

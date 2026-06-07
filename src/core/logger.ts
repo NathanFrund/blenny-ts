@@ -9,7 +9,7 @@ import {
 } from "@logtape/logtape";
 import type { MiddlewareHandler } from "@hono/hono";
 import type { BlennyConfig } from "./config.ts";
-import { subscribe, publish } from "./hub.ts";
+import { publish, subscribe } from "./hub.ts";
 
 // ── Interface ──────────────────────────────────────────────
 

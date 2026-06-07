@@ -4,7 +4,13 @@ import { SurrealUserStore } from "../src/core/surreal-store.ts";
 
 const passHash = "abc123hash";
 
-function envConfig(): { url: string; user: string; pass: string; ns: string; db: string } {
+function envConfig(): {
+  url: string;
+  user: string;
+  pass: string;
+  ns: string;
+  db: string;
+} {
   return {
     url: Deno.env.get("BLENNY_SURREAL_URL") ?? "ws://127.0.0.1:8000/rpc",
     user: Deno.env.get("BLENNY_SURREAL_USER") ?? "root",

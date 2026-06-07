@@ -11,6 +11,10 @@ export const state = {
   conduit: undefined! as unknown as Conduit,
   config: undefined! as unknown as AuthConfig,
   deps: undefined as AvatarHandlerDeps | undefined,
-  handleAvatarUpload: undefined as ((c: Context) => Promise<Response>) | undefined,
-  handleAvatarServe: undefined as ((c: Context) => Promise<Response>) | undefined,
+  handleAvatarUpload: undefined as
+    | ((c: Context) => Promise<Response>)
+    | undefined,
+  handleAvatarServe: undefined as
+    | ((c: Context) => Promise<Response>)
+    | undefined,
 };

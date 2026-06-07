@@ -24,31 +24,38 @@ const taskDemoModule: BlennyModule = {
     supervisor = state.supervisor;
   },
   start() {
-    supervisor.add("flaky", () => {
-      const now = new Date().toLocaleTimeString();
-      if (Math.random() < 0.65) {
-        flakyFailures++;
-        const backoffMs = Math.min(2000 * Math.pow(2, flakyFailures), 30_000);
+    supervisor.add(
+      "flaky",
+      () => {
+        const now = new Date().toLocaleTimeString();
+        if (Math.random() < 0.65) {
+          flakyFailures++;
+          const backoffMs = Math.min(2000 * Math.pow(2, flakyFailures), 30_000);
+          hub.mergeSignals(
+            {
+              flakyStatus: `✗ FAILED at ${now} (backoff ${
+                (backoffMs / 1000).toFixed(1)
+              }s)`,
+              flakyOk: false,
+              flakyFail: true,
+            },
+            { intent: "task-demo" },
+          );
+          throw new Error(`Flaky service failed at ${now}`);
+        }
+        flakyFailures = 0;
         hub.mergeSignals(
           {
-            flakyStatus: `✗ FAILED at ${now} (backoff ${(backoffMs / 1000).toFixed(1)}s)`,
-            flakyOk: false,
-            flakyFail: true,
+            flakyStatus: `✓ OK at ${now}`,
+            flakyOk: true,
+            flakyFail: false,
           },
           { intent: "task-demo" },
         );
-        throw new Error(`Flaky service failed at ${now}`);
-      }
-      flakyFailures = 0;
-      hub.mergeSignals(
-        {
-          flakyStatus: `✓ OK at ${now}`,
-          flakyOk: true,
-          flakyFail: false,
-        },
-        { intent: "task-demo" },
-      );
-    }, 2000, 30_000);
+      },
+      2000,
+      30_000,
+    );
   },
   stop() {
     supervisor.remove("flaky");

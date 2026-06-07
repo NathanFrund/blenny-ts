@@ -44,7 +44,9 @@ Deno.test("module-loader", async (t) => {
     assertExists(formAuth);
     assertEquals(typeof formAuth.initialize, "function");
 
-    const oldSurrealAuth = result.modules.find((m) => m.name === "form-auth-surreal");
+    const oldSurrealAuth = result.modules.find((m) =>
+      m.name === "form-auth-surreal"
+    );
     assertEquals(oldSurrealAuth, undefined);
   });
 

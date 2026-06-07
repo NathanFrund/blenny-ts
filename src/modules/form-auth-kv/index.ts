@@ -57,7 +57,11 @@ const authModule: BlennyModule = {
       handler: (c) => state.handleAvatarUpload!(c),
       auth: true,
     },
-    { method: "GET", path: "/avatars/:userId", handler: (c) => state.handleAvatarServe!(c) },
+    {
+      method: "GET",
+      path: "/avatars/:userId",
+      handler: (c) => state.handleAvatarServe!(c),
+    },
   ],
   async initialize(state_: AppState) {
     state.conduit = state_.conduit;
@@ -106,7 +110,8 @@ const authModule: BlennyModule = {
       if (!state_.config.devMode) {
         publish("log", {
           level: "warn",
-          template: "Default admin credentials (admin/admin) are in use — change them immediately",
+          template:
+            "Default admin credentials (admin/admin) are in use — change them immediately",
         });
       }
     }

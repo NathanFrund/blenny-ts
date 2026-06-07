@@ -43,7 +43,7 @@ The change is ~10 lines. Backward-compatible — no existing module needs change
 
 - A directory with `index.ts` _is_ a Deno module — `import("./forum/")` resolves
   naturally.
-- No stub files, no config. Drop a directory in `modules/` and it loads.
-  For compiled binaries, an auto-generated `manifest.ts` is created (see
+- No stub files, no config. Drop a directory in `modules/` and it loads. For
+  compiled binaries, an auto-generated `manifest.ts` is created (see
   [Compiled Binaries & Module Manifest](modules.md#compiled-binaries--module-manifest)).
 - Follows the same convention as every Deno/Node/TypeScript project.

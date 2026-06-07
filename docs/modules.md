@@ -23,13 +23,13 @@ const myModule: BlennyModule = {
 export default myModule;
 ```
 
-| Field           | Type             | Default | Purpose                                                                                                |
-| --------------- | ---------------- | ------- | ------------------------------------------------------------------------------------------------------ |
-| `name`          | `string`         | —       | Unique module name                                                                                     |
-| `routes`        | `Route[]`        | `[]`    | HTTP routes the module provides                                                                        |
-| `layout`        | `FC`             | —       | Default layout for Conduit rendering                                                                   |
-| `subscriptions` | `Subscription[]` | —       | Typed event bus subscriptions                                                                          |
-| `capabilities`  | `string[]`       | —       | Framework features this module provides (e.g. `"auth"`)                                                |
+| Field           | Type             | Default | Purpose                                                 |
+| --------------- | ---------------- | ------- | ------------------------------------------------------- |
+| `name`          | `string`         | —       | Unique module name                                      |
+| `routes`        | `Route[]`        | `[]`    | HTTP routes the module provides                         |
+| `layout`        | `FC`             | —       | Default layout for Conduit rendering                    |
+| `subscriptions` | `Subscription[]` | —       | Typed event bus subscriptions                           |
+| `capabilities`  | `string[]`       | —       | Framework features this module provides (e.g. `"auth"`) |
 
 ## Routes
 
@@ -476,8 +476,8 @@ scan path.
 
 The manifest is auto-generated and `.gitignore`d. It's always regenerated as the
 first step of `deno task compile` — no manual maintenance needed. To change
-which modules are included, rename a directory in `src/modules/` (add/remove
-`.` prefix) and recompile.
+which modules are included, rename a directory in `src/modules/` (add/remove `.`
+prefix) and recompile.
 
 ### Type-Safe Testing
 
