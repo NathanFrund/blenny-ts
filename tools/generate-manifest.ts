@@ -1,4 +1,4 @@
-import { fromFileUrl, join, toFileUrl } from "@std/path";
+import { fromFileUrl, join } from "@std/path";
 
 const modulesDir = fromFileUrl(new URL("../src/modules", import.meta.url));
 const manifestPath = join(modulesDir, "manifest.ts");

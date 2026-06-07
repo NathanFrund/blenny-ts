@@ -17,7 +17,7 @@ export class SurrealBucketAvatarService implements AvatarService {
     return { key: `avatars:${userId}` };
   }
 
-  async get(userId: string): Promise<AvatarGetResult | null> {
+  get(userId: string): Promise<AvatarGetResult | null> {
     return getAvatarFromBucket(this.db, userId);
   }
 }
