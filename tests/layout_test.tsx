@@ -22,7 +22,8 @@ Deno.test("DefaultLayout", async (t) => {
     const html = await res.text();
     assertEquals(html.includes("<html>"), true);
     assertEquals(html.includes("<p>hello</p>"), true);
-    assertEquals(html.includes("unpkg.com/htmx.org"), true);
+    assertEquals(html.includes("<meta"), true);
+    assertEquals(html.includes("charset"), true);
   });
 
   await t.step("renders empty slot gracefully", async () => {

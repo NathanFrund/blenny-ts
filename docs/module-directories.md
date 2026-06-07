@@ -9,7 +9,7 @@ When a module outgrows a single file, it becomes a directory under
 ```
 src/modules/
   index.ts              ← single-file (unchanged)
-  form-auth/            ← directory module
+  form-auth-surreal/    ← directory module
   forum/                ← multi-file module
     index.ts            ← exports BlennyModule default
     routes.ts           ← handler functions

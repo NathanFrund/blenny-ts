@@ -1,5 +1,38 @@
 import type { FC } from "@hono/hono/jsx";
 
+interface ProfilePageProps {
+  id: string;
+  username: string;
+  displayName: string;
+  role: string;
+  avatarKey?: string | null;
+  error?: string;
+}
+
+const ProfilePage: FC<ProfilePageProps> = (props) => (
+  <div>
+    <h1>Profile</h1>
+    {props.error && <p style="color:red">{props.error}</p>}
+    <p>Username: {props.username}</p>
+    <p>Display Name: {props.displayName}</p>
+    <p>Role: {props.role}</p>
+    <div style="margin:16px 0">
+      {props.avatarKey
+        ? <img src={`/avatars/${props.id}`} alt="Avatar" style="max-width:128px;border-radius:8px" />
+        : <p>No avatar</p>}
+    </div>
+    <form method="post" action="/auth/avatar" enctype="multipart/form-data">
+      <label>
+        Upload Avatar
+        <input type="file" name="avatar" accept="image/*" required />
+      </label>
+      <br />
+      <button type="submit">Upload</button>
+    </form>
+    <p><a href="/dashboard">Back to Dashboard</a></p>
+  </div>
+);
+
 const SignInPage: FC<{ error?: string }> = (props) => (
   <div>
     <h1>Sign In</h1>
@@ -51,4 +84,4 @@ const RegisterPage: FC<{ error?: string }> = (props) => (
   </div>
 );
 
-export { RegisterPage, SignInPage };
+export { ProfilePage, RegisterPage, SignInPage };

@@ -12,6 +12,7 @@ import { state } from "./state.ts";
 import {
   handleAvatarServe,
   handleAvatarUpload,
+  handleProfile,
   handleRegister,
   handleSignIn,
   handleSignOut,
@@ -39,6 +40,12 @@ const authModule: BlennyModule = {
     },
     { method: "POST", path: "/auth/register", handler: handleRegister },
     { method: "POST", path: "/auth/signout", handler: handleSignOut },
+    {
+      method: "GET",
+      path: "/auth/profile",
+      handler: handleProfile,
+      auth: true,
+    },
     {
       method: "POST",
       path: "/auth/avatar",

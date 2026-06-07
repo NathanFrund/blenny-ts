@@ -8,7 +8,7 @@ import {
 import { publish } from "../../core/hub.ts";
 import * as v from "@valibot/valibot";
 import { PasswordSchema, UsernameSchema } from "../../core/validation.ts";
-import { RegisterPage, SignInPage } from "./ui.tsx";
+import { ProfilePage, RegisterPage, SignInPage } from "./ui.tsx";
 import { state } from "./state.ts";
 
 function renderSignIn(
@@ -117,30 +117,52 @@ async function handleSignOut(c: Context): Promise<Response> {
   return c.redirect("/");
 }
 
+async function handleProfile(c: Context): Promise<Response> {
+  const userInfo = c.get("user") as UserInfo | undefined;
+  if (!userInfo) return c.redirect("/auth/signin");
+
+  const user = await state.store.findById(userInfo.id);
+  if (!user) return c.redirect("/auth/signin");
+
+  const error = c.req.query("error");
+  return state.conduit.respond(
+    c,
+    <ProfilePage
+      id={user.id}
+      username={user.username}
+      displayName={user.displayName}
+      role={user.role}
+      avatarKey={user.avatarKey}
+      error={error}
+    />,
+  );
+}
+
 async function handleAvatarUpload(c: Context): Promise<Response> {
   const user = c.get("user") as UserInfo | undefined;
-  if (!user) return c.json({ error: "Unauthorized" }, 401);
+  if (!user) return c.redirect("/auth/signin");
 
   const form = await c.req.parseBody();
   const file = form.avatar;
 
   if (!(file instanceof File)) {
-    return c.json({ error: "avatar field must be a file" }, 400);
+    return c.redirect(`/auth/profile?error=${encodeURIComponent("avatar field must be a file")}`);
   }
 
   if (!file.type.startsWith("image/")) {
-    return c.json({ error: "Only image files are accepted" }, 415);
+    return c.redirect(`/auth/profile?error=${encodeURIComponent("Only image files are accepted")}`);
   }
 
   const db = state.db!;
   const bytes = new Uint8Array(await file.arrayBuffer());
-  await db.query("f'avatars:/' + $id.put($bytes)", { id: user.id, bytes });
+  const filePath = `avatars:/${user.id}`;
+  await db.query(`f'${filePath}'.put($bytes)`, { bytes });
   await db.query(
     "UPDATE user MERGE { avatarKey: $key, avatarMimeType: $mime } WHERE uuid = $uuid",
     { uuid: user.id, key: `avatars:${user.id}`, mime: file.type },
   );
 
-  return c.json({ ok: true, key: `avatars:${user.id}` });
+  return c.redirect("/auth/profile");
 }
 
 async function handleAvatarServe(c: Context): Promise<Response> {
@@ -155,14 +177,30 @@ async function handleAvatarServe(c: Context): Promise<Response> {
   );
   const [rows] = result as unknown as [{ avatarKey?: string; avatarMimeType?: string }[]];
   const record = rows?.[0];
+
   if (!record?.avatarKey) {
     return c.json({ error: "No avatar found" }, 404);
   }
 
-  const fileResult = await db.query("f'avatars:/' + $id.get()", { id: userId });
-  const [bytes] = fileResult as unknown as [Uint8Array];
+  const filePath = `avatars:/${userId}`;
+  const fileResult = await db.query(`f'${filePath}'.get()`);
 
-  return new Response(bytes.buffer as ArrayBuffer, {
+  const raw = fileResult?.[0];
+
+  let blob: Uint8Array;
+  if (raw instanceof Uint8Array) {
+    blob = raw;
+  } else if (raw instanceof ArrayBuffer) {
+    blob = new Uint8Array(raw);
+  } else if (Array.isArray(raw) && raw[0] instanceof Uint8Array) {
+    blob = raw[0];
+  } else if (Array.isArray(raw) && raw[0] instanceof ArrayBuffer) {
+    blob = new Uint8Array(raw[0]);
+  } else {
+    return c.json({ error: "Avatar data not found" }, 404);
+  }
+
+  return new Response(blob, {
     headers: { "Content-Type": record.avatarMimeType ?? "application/octet-stream" },
   });
 }
@@ -170,6 +208,7 @@ async function handleAvatarServe(c: Context): Promise<Response> {
 export {
   handleAvatarServe,
   handleAvatarUpload,
+  handleProfile,
   handleRegister,
   handleSignIn,
   handleSignOut,

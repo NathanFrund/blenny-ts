@@ -1,7 +1,6 @@
 # Blenny-ts — Agent Briefing
 
-A Deno/TypeScript port of the Blenny framework (Pharo Smalltalk → Rust → Clojure
-→ TS). Hypermedia-driven, real-time, single-binary platform.
+Deno/TypeScript port of the Blenny framework. Hypermedia-driven, real-time, single-binary platform.
 
 ---
 
@@ -9,335 +8,239 @@ A Deno/TypeScript port of the Blenny framework (Pharo Smalltalk → Rust → Clo
 
 ### Modules
 
-- Drop `.ts`/`.tsx` into `src/modules/` with a default export matching
-  `BlennyModule`.
-- Auto-discovered at boot by `module-loader.ts` (filesystem scan, dynamic
-  `import()`).
-- Use `const myModule: BlennyModule = { ... }; export default myModule;` — never
-  `satisfies`.
+- Drop `.ts`/`.tsx` into `src/modules/` or directory with `index.ts`/`index.tsx`.
+- Directory modules: `module-loader.ts` scans for `index.ts`/`index.tsx` inside.
+- Dot-prefixed entries (`src/modules/.foo/`) are **skipped** by the loader — used for disabled/inactive modules that are importable by explicit path.
+- Auto-discovered at boot by `module-loader.ts` (filesystem scan or manifest for compiled binaries).
+- `const myModule: BlennyModule = { ... }; export default myModule;` — never `satisfies`.
 - Lifecycle hooks: `initialize(state)`, `start()`, `stop()`.
-- Module declares capabilities like `capabilities: ["auth"]` to signal what it
-  provides.
-- Routes have an optional `auth` field (`true` for any user, `"role"` for role
-  check).
+- Capabilities: `capabilities: ["auth"]` for boot-time conflict detection.
+- Routes: `{ method, path, handler, auth? }` — `auth: true` activates auth guard, `auth: "role"` for role check.
 
 ### AppState
 
 - Single object injected into modules during `initialize(state)`.
-- Contains: `hub`, `conduit`, `config`, optional `auth` (set by auth
-  module), optional `db` (SurrealDB).
+- Contains: `hub`, `conduit`, `config`, `conduit`, optional `auth` (set by auth module), optional `db` (SurrealDB).
 
 ### TransportHub
 
-- Central connection manager. Three maps: global connections, per-user
-  connections, per-topic subscribers.
-- `Connection` interface: `{ id, userId?, intents?, send(msg) }`.
-- Two implementations: `SseConnection` (Datastar SDK framing) and `WsConnection`
-  (bare HTML/JSON/script).
-- Connections registered per-tab via `crypto.randomUUID()`. Cleanup on
-  `AbortSignal`.
+- Central connection manager. `registerConnection` / `unregisterConnection`.
+- Two connection types: `SseConnection` (Datastar SDK) and `WsConnection` (raw HTML/JSON/script).
+- Per-tab connections via `crypto.randomUUID()`. Cleanup on `AbortSignal`.
 
 ### BlennyPublisher
 
-- Static class for zero-ceremony broadcasting from any code.
-- Four methods: `broadcastHtml`, `directHtml`, `broadcastData`, `directData`.
-- Initialized once at boot via `BlennyPublisher.init(hub)`. Testable via
-  `BlennyPublisher.reset()`.
-- `broadcastHtml`/`directHtml` delegate to `hub.patchElements()`.
-- `broadcastData`/`directData` parse JSON internally, validate via
-  `SignalSchema`, and delegate to `hub.mergeSignals()`.
-- **Prefer `state.hub.action(...)` in module code** for explicitness and
-  testability. Use `BlennyPublisher.*` in timers, event callbacks, and CLI tools
-  where threading a hub reference is overhead.
-- Singleton tradeoff: mirrors the one-hub-per-process runtime. Tests use
-  `reset()` for isolation.
-- **Double-init guard:** `init()` with a different hub throws `PublisherError`.
-  Call `reset()` first to swap hubs.
+- Static class for zero-ceremony real-time pushes: `broadcastHtml`, `directHtml`, `broadcastData`, `directData`.
+- Initialized once at boot via `BlennyPublisher.init(hub)`. Testable via `BlennyPublisher.reset()`.
 
 ### Pub-Sub Logging
 
-- Components publish log events via `publish("log", { level, template, args })`
-  instead of calling a logger directly.
-- `createLogger` subscribes to `"log"` events in one place and forwards them
-  to LogTape — no threading through components or `AppState`.
+- Components publish via `publish("log", { level, template, args })`.
+- `createLogger` subscribes to `"log"` events in one place and forwards to LogTape.
 - `requestLogger()` middleware also uses the bus.
-- `NULL_LOGGER` and the `BlennyLogger` interface remain for test use only.
 
 ### Auth
 
-- Pluggable by convention: a module sets `state.auth` (an `AuthBundle`) during
-  `initialize()`.
-- `AuthBundle` provides `middleware` (global JWT reader), `requireUser`,
-  `requireRole`.
-- `main.ts` checks `state.auth` after initialization — at most one module should
-  set it.
-- Capabilities declaration `capabilities: ["auth"]` enables boot-time conflict
-  detection.
-- Reference implementation: `form-auth.tsx` (SHA-256, registration, JWT
-  cookies).
+- Two peer modules; only one can be active (both declare `capabilities: ["auth"]`):
+  - **`.form-auth/`** (dot-prefixed, disabled) — KV-backed, Deno Deploy compatible, zero infra
+  - **`form-auth-surreal/`** — SurrealDB-backed, argon2 via SurrealQL, bucket-based avatar storage
+- A module sets `state.auth` (an `AuthBundle`) during `initialize()`.
+- `AuthBundle` provides `middleware` (global JWT reader), `requireUser`, `requireRole`.
+- `main.ts` checks `state.auth` after initialization.
+- Profile page at `/auth/profile` with avatar display and upload form.
 
 ### Conduit
 
-- HTMX-aware JSX renderer. Returns fragment on HTMX swaps, full layout on page
-  loads.
-- Detection: `c.req.header("HX-Request") !== undefined`.
+- Datastar-aware JSX renderer. Returns fragment on Datastar SSE merges, full layout on page loads.
+- Detection: `c.req.header("HX-Request") !== undefined` (HTMX) or Datastar signals.
 - Per-response layout override: `conduit.respond(c, content, { layout })`.
-- JSX types bridged via `as unknown as string` (zero `any` in source).
-
-### Logger
-
-- `BlennyLogger` interface with `debug`, `info`, `warn`, `error`, `child`
-  methods.
-- Default implementation wraps LogTape (`@logtape/logtape`) with ANSI colors in
-  dev, JSON Lines in production.
-- Created at boot via `createLogger(config)` (async — configures LogTape
-  sinks/level, subscribes to `"log"` events).
-- Logging is pub-sub: any component calls `publish("log", { level, template, args })`.
-  No logger threading through AppState or function params.
-- Config: `log.level` (auto: debug in dev, info in prod), `log.format` (auto:
-  text in dev, json in prod).
-- `requestLogger()` uses the bus — no logger param needed.
-- Test isolation: `resetLogger()` clears LogTape config between tests.
-- MockLogger class available for unit tests that need to capture log messages.
 
 ### Config
 
-- Composite provider: CLI args > env vars (`BLENNY_<KEY>`) > `blenny.json` >
-  embedded defaults.
-- Constructed once at boot. Test injection via `ConfigOverrides`.
-- Convenience getters: `config.port`, `config.jwtSecret`, `config.surrealUrl`,
-  etc.
+- Composite provider: CLI args > env vars (`BLENNY_<KEY>`) > `blenny.json` > embedded defaults.
+- Convenience getters: `config.port`, `config.jwtSecret`, `config.surrealUrl`, etc.
 - Raw access: `config.at("any.dotted.key")`.
 
 ### Validation
 
-- **`src/core/validation.ts`** is the central home for runtime schemas, shared
-  across the framework and modules.
-- Uses **Valibot** (`@valibot/valibot`) — imports via
-  `import * as v from "@valibot/valibot"`.
-- `SignalSchema` (via `v.safeParse`) guards `broadcastData`/`directData` —
-  rejects malformed JSON, non-object values, and arrays.
-- `UsernameSchema` / `PasswordSchema` available for auth validation (not yet
-  wired into `form-auth.tsx`).
-- `escapeHtml()` re-exported from `@std/html/entities` — opt-in utility for
-  escaping user-provided text in HTML strings. Not applied automatically;
-  callers must opt in.
+- **`src/core/validation.ts`** — Valibot schemas: `SignalSchema`, `UsernameSchema`, `PasswordSchema`.
+- `escapeHtml()` re-exported from `@std/html/entities`.
 
-### SSE/WS Handler Symmetry
+### Database
 
-- Both endpoints parse `?intent=` for connection-level routing.
-- Both extract `userId` from JWT cookie or `?token=` query param.
-- `SseConnection` wraps `ServerSentEventGenerator.stream()` with keepalive.
-- `WsConnection` wraps `upgradeWebSocket()` with `onOpen`/`onMessage`/`onClose`.
+- Optional SurrealDB connection. `state.db` is `Surreal | undefined`.
+- `requireDb()` / `withDb()` in `db-guard.ts` for fail-fast or graceful fallback.
+- `database.ts` connects at root level, creates NS/DB, then `use()` them.
+- SurrealDB v3 SDK v2 — CBOR codec, returns `ArrayBuffer` for binary data (not `Uint8Array`).
+
+### UserStore & BlobStore
+
+- `UserStore` interface: 6 methods — `findById`, `findByUsername`, `createUser`, `updatePasswordHash`, `updateAvatarKey`, `deleteUser`.
+- Implementations: `SurrealUserStore` (SurrealQL + argon2 server-side), `KvUserStore` (Deno.KV), `InMemoryUserStore` (tests).
+- `BlobStore` interface: `set`, `get`, `getAsResponse`, `delete`, `list`.
+- Implementations: `KvBlobStore` (Deno.KV), `FsBlobStore` (filesystem).
+
+---
+
+## Boot Order (`main.ts`)
+
+1. Load config + check JWT secret
+2. Create services (Hono app, hub, conduit, state, supervisor)
+3. Setup database (connect SurrealDB or Deno.KV)
+4. Configure middleware (CORS, CSRF, rate limiters, body limit)
+5. Configure error handler + not-found handler
+6. Discover modules (scan or manifest.ts)
+7. Detect capability conflicts
+8. Initialize modules (calls `initialize()`)
+9. Apply auth middleware globally
+10. Register module routes
+11. Subscribe module events
+12. Start modules (calls `start()`)
+13. Register platform endpoints (health, SSE, WS, static)
+14. Start server (`Deno.serve()`)
 
 ---
 
 ## Important Decisions & Rationale
 
-| Decision                               | Why                                                                                                         |
-| -------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
-| **SDK over custom encoder**            | Official `@starfederation/datastar-sdk` replaces all encoder code. No custom wire format to maintain.       |
-| **Capabilities on BlennyModule**       | Self-declaring modules enable boot-time conflict detection for auth (and future providers).                 |
-| **BlennyPublisher (static)**           | Zero-ceremony broadcasting from any code, matching Smalltalk/Rust/Clojure pattern.                          |
-| **Hub stays alongside publisher**      | Publisher covers 80% of cases; hub is still there for intent-level control.                                 |
-| **Zero `any` in source**               | `as unknown as X` casts where bridging is needed (JSX, JWT). Test files may use `as any` with lint ignores. |
-| **UUID-per-tab connections**           | Clean per-tab tracking, deduplication, and cleanup via `AbortSignal`.                                       |
-| **Connection is a `send()` interface** | Hub doesn't hold writers directly. SSE and WS each implement `send()` differently.                          |
-| **Auth via convention, not trait**     | A module sets `state.auth`. The framework doesn't define an auth trait — modules are the strategy.          |
-| **Passive framework**                  | No baked clock or tick loop. All active logic lives in module `start()`/`stop()`.                           |
-| **Layout per-response**                | `Conduit.respond(c, content, { layout })` — flexible per-call, no framework magic.                          |
-| **No `enabled` flag**                  | Removed. If a module's file is in `modules/`, it runs. Deployment policy is an operator concern.            |
+| Decision | Why |
+|----------|-----|
+| **Auth via convention** | A module sets `state.auth`. No framework trait. |
+| **SDK over custom encoder** | Official `@starfederation/datastar-sdk` replaces all encoder code. |
+| **Capabilities** | Self-declaring enables boot-time conflict detection (e.g., dual auth). |
+| **BlennyPublisher (static)** | Zero-ceremony broadcasting from any code. |
+| **Dot-prefix disable** | `module-loader.ts` skips entries starting with `.` — simple toggle. |
+| **CBOR ArrayBuffer** | SurrealDB SDK v2 CBOR decoder returns `ArrayBuffer` for byte strings, not `Uint8Array`. |
+| **SurrealDB argon2** | Password hashing done server-side via `crypto::argon2::generate/compare`. No app-side crypto. |
+| **Bucket ops try/catch** | `DEFINE BUCKET` requires `--experimental-files`; gracefully degraded. |
+| **Passive framework** | No baked clock. All active logic lives in module `start()`/`stop()`. |
 
 ---
 
-## Architectural Guardrails & Invariants (DO NOT REFACTOR AWAY)
+## Architectural Guardrails
 
-To prevent regression during automated refactoring, agents must preserve:
+### Module Lifecycles
 
-### Module Lifecycles & Self-Assembly
+- **No Manual Main Wiring** — modules self-assemble via filesystem discovery.
+- **Lifecycle Hooks** — respect `initialize`, `start`, `stop`.
 
-- **No Manual Main Wiring:** `main.ts` must remain purely infrastructure. Never
-  add explicit module initialization. Modules self-assemble via filesystem
-  discovery.
-- **Lifecycle Hooks:** Every module must respect `initialize`, `start`, and
-  `stop` hooks.
-- **BlennyModule annotation:** Use `const x: BlennyModule = { ... }` — never
-  `satisfies` or inferred types for module declarations.
+### Transport
 
-### Transport & Real-Time Defaults
+- **SSE Always Active** — WebSocket is a sidecar, never a replacement.
+- **Datastar SDK Only** — `@starfederation/datastar-sdk` is the sole SSE wire format.
+- **Intent Routing** — Messages retain `ui`, `data`, `command`, `notification` filtering.
+- **No HTMX** — Not used. Datastar for real-time, plain HTML forms for auth.
 
-- **SSE Always Active:** SSE must always be functional. WebSocket is a sidecar,
-  never a replacement.
-- **BlennyPublisher Exposed:** `broadcastHtml`, `directHtml`, `broadcastData`,
-  `directData` must be available from any code. Do not encapsulate behind module
-  instances.
-- **Intent Routing:** Messages must retain intent-based filtering (`ui`, `data`,
-  `command`, `notification`). Do not remove or collapse the intent system.
-- **Datastar SDK Only:** The official `@starfederation/datastar-sdk` is the sole
-  SSE wire format. No custom encoder logic.
-- **WS Sends Bare Payloads:** WebSocket delivers HTML/JSON/script directly — no
-  SSE framing.
+### Security
 
-### Rendering & Assets
-
-- **Conduit for JSX:** All HTML responses must pass through `Conduit` for
-  HTMX-aware fragment/layout handling.
-- **Per-Response Layout:** `respond()` must accept an `opts.layout` override.
-  Module-level defaults are documentation-only.
-
-### Security & Infrastructure
-
-- **Auth by Convention:** Auth is always a module that sets `state.auth`. The
-  framework must not hardcode auth logic.
-- **Config via Composite Provider:** CLI > env > file > defaults. No
-  single-source config.
-- **Zero Config Coupling:** No framework code reads `Deno.env` or `Deno.args`
-  directly — all paths go through `BlennyConfig`.
+- **Auth by Convention** — always a module that sets `state.auth`.
+- **Config via Composite Provider** — CLI > env > file > defaults.
+- **CSRF Protection** — `csrf()` middleware blocks POST without `Origin` header.
 
 ---
 
-## Current State (May 2026)
+## Current State (June 2026)
 
-- Core framework fully implemented: modules, hub, SSE, WS, conduit, config,
-  auth, database.
-- BlennyPublisher for zero-ceremony real-time pushes.
-- 32 source files, 10 test files, 80+ test steps — all passing.
-- `deno check` and `deno lint` clean across all files.
-- Three known gaps vs blenny-rs (see Gaps vs blenny-rs below).
+- Full framework: modules, hub, SSE, WS, conduit, config, auth (two peers), SurrealDB database, blob storage.
+- 67 test files/222 steps passing, 1 ignored (surreal-store without `BLENNY_SURREAL_URL`).
+- `deno check` and `deno lint` clean.
+- Compiled binaries: manifest.ts support for route registration without filesystem scan.
 
 ---
 
-## Code Style & Idioms
+## Code Style
 
 - **Formatting:** `deno fmt` (2-space indent, 120 char width).
-- **Type Checking:** `deno check` must pass with zero errors.
-- **Linting:** `deno lint` must pass with zero warnings.
-- **Zero `any`:** No `any` in source files (`src/`). Test files (`tests/`) may
-  use `as any` with `// deno-lint-ignore no-explicit-any`.
-- **Imports:** Always explicit file extensions (`.ts`, `.tsx`). Group: std lib,
-  external deps, internal modules.
-- **Naming:** PascalCase for types/classes/interfaces, camelCase for
-  functions/variables, kebab-case for files.
+- **Type Checking:** `deno check` — zero errors.
+- **Linting:** `deno lint` — zero warnings.
+- **Zero `any`:** No `any` in source files (`src/`). Test files (`tests/`) may use `as any` with `// deno-lint-ignore`.
+- **Imports:** Always explicit file extensions (`.ts`, `.tsx`). Group: std lib, external deps, internal modules.
 
 ---
 
 ## Testing
 
-All tests: `deno test --allow-read --allow-env`
+```bash
+deno test --allow-read --allow-env --allow-write --unstable-kv
+```
 
-### Patterns
+### Key test files
 
-- **HTTP-level tests:** Use Hono's `app.request()` — no port binding needed.
-- **WS tests:** Cannot use `app.request()`. Test `WsConnection.send()` and
-  `dispatchWsMessage()` in isolation.
-- **Config tests:** Pass `ConfigOverrides` to `BlennyConfig` — no global env
-  mutation.
-- **Auth tests:** Build an app with `form-auth.tsx`, seed admin user via async
-  `initialize()`.
-- **Publisher tests:** Call `BlennyPublisher.reset()` between test cases.
-
-### Test files
-
-| Test                        | What it covers                                                                                   |
-| --------------------------- | ------------------------------------------------------------------------------------------------ |
-| `tests/auth_test.ts`        | JWT sign/verify, cookie helpers, middleware redirects/roles                                      |
-| `tests/conduit_test.tsx`    | Layout wrapping, HTMX fragment detection                                                         |
-| `tests/config_test.ts`      | Defaults, overrides, priority, edge cases                                                        |
-| `tests/db-guard_test.ts`    | `requireDb`/`withDb` behavior                                                                    |
-| `tests/form-auth_test.ts`   | Registration, sign-in, sign-out, auth guard                                                      |
-| `tests/hub_test.ts`         | Connection lifecycle, broadcast, direct, intent filtering                                        |
-| `tests/logger_test.ts`      | createLogger, child context, requestLogger middleware, mock logger                               |
-| `tests/main-routes_test.ts` | Health, SSE, dashboard auth guard, token binding                                                 |
-| `tests/publisher_test.ts`   | Init/reset lifecycle, double-init guard, broadcast, direct, JSON parsing, JSON validation errors |
-| `tests/ws_test.ts`          | WsConnection.send(), dispatchWsMessage()                                                         |
+| Test | What it covers |
+|------|----------------|
+| `tests/form-auth_test.ts` | Registration, sign-in, sign-out, auth guard |
+| `tests/surreal-store_test.ts` | SurrealUserStore (gated behind `BLENNY_SURREAL_URL`) |
+| `tests/kv-store_test.ts` | KvUserStore, KvBlobStore |
+| `tests/fs-blob-store_test.ts` | FsBlobStore |
+| `tests/user-store_test.ts` | InMemoryUserStore |
+| `tests/module-loader_test.ts` | Module scanning, manifest, validation |
+| `tests/main-routes_test.ts` | Health, SSE, dashboard auth guard, route registration |
+| `tests/layout_test.tsx` | Conduit layout rendering |
 
 ---
 
-## How to Navigate the Codebase
+## Codebase Map
 
 ```
-main.ts              — Server entrypoint, lifecycle orchestration
+main.ts              — Server entrypoint
 src/
   core/
     app-state.ts     — AppState + AuthBundle interfaces
-    auth.ts          — JWT primitives, cookie helpers, middleware factories
-    conduit.ts       — Conduit class (JSX rendering, layout overrides)
+    auth.ts          — JWT, cookies, middleware factories
+    conduit.ts       — JSX rendering (Datastar-aware)
     config.ts        — BlennyConfig (composite provider)
-    database.ts      — connectDatabase() helper
-    db-guard.ts      — requireDb() / withDb() for optional DB
-    envelope.ts      — ServerMessage, Intent types
-    hub.ts           — TransportHub + typed event bus (publish/subscribe)
-    layout.tsx       — DefaultLayout JSX component
-    logger.ts        — BlennyLogger interface + LogTape impl + log subscriber + requestLogger
-    module-loader.ts — Filesystem module scanner
+    database.ts      — SurrealDB connect (root-level NS/DB creation)
+    db-guard.ts      — requireDb() / withDb()
+    store.ts         — UserStore + BlobStore interfaces
+    surreal-store.ts — SurrealUserStore (SurrealQL, argon2, bucket avatars)
+    kv-store.ts      — KvUserStore + KvBlobStore
+    fs-blob-store.ts — FsBlobStore (filesystem)
+    user-store.ts    — InMemoryUserStore (testing)
+    module-loader.ts — Filesystem scanner + manifest support
+    hub.ts           — TransportHub + typed event bus
     publisher.ts     — BlennyPublisher static class
-    sse-connection.ts — SseConnection wrapping Datastar SDK
-    user-store.ts    — In-memory user store (SHA-256)
-    validation.ts    — Valibot schemas (SignalSchema, UsernameSchema, PasswordSchema, escapeHtml)
-    ws.ts            — WsConnection, dispatchWsMessage, createWsHandler
+    layout.tsx       — DefaultLayout
+    validation.ts    — Valibot schemas
+    tracing.ts       — OpenTelemetry spans
+    rate-limiter.ts  — Token-bucket rate limiter
+    error.ts         — BlennyError + structured error responses
+    bootstrap/
+      config.ts      — loadConfig, checkJwtSecret
+      services.ts    — createServices (Hono, hub, conduit, state)
+      modules.ts     — discover, detect conflicts, initialize, register routes
+      middlewares.ts  — CORS, CSRF, rate limiters, body limit, error/not-found handlers
+      endpoints.ts   — health, SSE, WS, static files
+      server.ts      — Deno.serve with graceful shutdown
+      routing.ts     — withRouteSpan (tracing wrapper)
   modules/
-    dashboard.tsx    — Conduit rendering demo with sign-out form
-    demo.ts          — Datastar-first SSE + WS test page
-    form-auth.tsx    — Auth module (registration, login, sign-out)
-    hello.ts         — Root page module
-    simulation.ts    — Tick loop module (lifecycle hooks demo)
-  types.ts           — Route, BlennyModule, BlennyEvents interfaces
-tests/               — One test file per module/core file
-blenny.example.json  — Documented config keys with defaults
-deno.json            — Task definitions, imports, JSX config
+    form-auth-surreal/ — Active auth module (SurrealDB, bucket avatars)
+    .form-auth/        — Disabled auth module (KV, Deno Deploy)
+    dashboard.tsx     — Dashboard with profile link
+    demo.ts           — Datastar SSE + WS demo
+    index.ts          — Root page
+modes/                 — MCP-like mode system (detached editor, field codex)
+tests/                 — One per module/core file
 ```
 
 ---
 
 ## Common Pitfalls
 
-- **Hono JSX types:** `c.html()` expects `string`, not JSX. Use
-  `content as unknown as string` to bridge. Never use `any`.
-- **`HX-Request` header:** `c.req.header("HX-Request")` returns `undefined` (not
-  `null`) when absent. Check `!== undefined`.
-- **`c.html()` return type:** Returns `Response | Promise<Response>`. JSX
-  content wrapped in a function returns a Promise.
-- **ServerSentEventGenerator.stream():** Must return a `Promise<void>` that
-  resolves on abort. The `c.req.raw.signal` abort listener calls `cleanup()`
-  then `resolve()`.
-- **WS `upgradeWebSocket`:** The `ws` argument is `WSContext` (not native
-  `WebSocket`). Has `.send()`, `.close()`, `.readyState`.
-- **WS tests:** Cannot test via `app.request()`. Test connection logic and
-  message dispatch in isolation.
-- **Store injection:** `AppState.store` provides a `UserStore` instance
-  (in-memory or KV). Admin seeded once on `form-auth.initialize()`.
-- **In-memory store:** `createInMemoryUserStore()` in `src/core/user-store.ts` —
-  Map-backed, ephemeral, no flags.
-- **KV store:** `openKvStore()` in `src/core/kv-store.ts` — raw Deno KV,
-  requires `--unstable-kv`.
-- **Config test injection:** Use `ConfigOverrides.fileContent` (a JSON string)
-  or `ConfigOverrides.env`/`ConfigOverrides.args`. Not `ConfigOverrides.args` —
-  actually `args` in `ConfigOverrides`.
-- **`buildApp()` is async:** Auth module's `initialize()` is async (SHA-256
-  seeding). All test app builders must `await`.
-- **`handleSignOut()` is synchronous:** Uses `c.get("user")` which returns
-  `undefined` when unauthenticated. No `await` needed.
-- **`Keepalive` type:** The `@starfederation/datastar-sdk/web` module may not
-  export `KeepaliveOptions`. Pass `{ keepalive: true }` as literal.
-- **Valibot import:** Always `import * as v from "@valibot/valibot"`. Don't
-  destructure — Valibot's API is namespace-import idiomatic.
-- **Logging is pub-sub via `publish("log", ...)`:** No logger threading.
-  Import `publish` from `hub.ts`. `subscribe("log", ...)` wired in
-  `createLogger`.
-- **`SignalSchema` rejects arrays:** `v.objectWithRest` coerces arrays to
-  objects before checking. The pipe uses `v.check(isPlainObject)` first to
-  reject arrays, null, and primitives. Use `v.safeParse(SignalSchema, input)` —
-  not `v.parse()` which throws.
-- **`escapeHtml` is opt-in:** Re-exported from `@std/html/entities` in
-  `validation.ts`. Not applied automatically — callers must choose to use it
-  when interpolating user text into HTML.
+- **`Response` accepts `Uint8Array` directly** — no need for `bytes.buffer`.
+- **`ArrayBuffer` from CBOR** — SurrealDB SDK returns `ArrayBuffer`, not `Uint8Array` for binary. Check `raw instanceof ArrayBuffer`.
+- **`csrf()` blocks POST without `Origin`** — curl testing needs `-H "Origin: ..."`.
+- **Bucket `f'path'.put/get`** — requires `--experimental-files` on SurrealDB server.
+- **`requireDb` throws** — fails fast if SurrealDB needed but not connected. Use `withDb` for optional ops.
+- **SurrealQL scalars** — `RETURN <expr>` returns `[value]`, not `[[value]]`. Destructure `[result]`.
+- **Schema fields empty string** — `avatarKey`/`avatarMimeType` are `TYPE string DEFAULT ''` because SCHEMAFULL rejects `NONE`. `mapUser` converts `""` → `undefined`.
+- **HCaptcha config** — `form-auth.hcaptcha.secret` uses `at()` with dot-separated keys.
 
 ---
 
 ## Gaps vs blenny-rs
 
-| Priority | Gap                                                                                                                                                    | Status  |
-| -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ | ------- |
-| **High** | **Transport auth required by default** — `/sse` and `/ws` reject unauthenticated connections. Config flag `transport.auth_required` to disable.        | ✅ Done |
-| **High** | **Anti-fragile middleware** — Global error boundary (`BlennyError`, `onError`, `notFound`) catching uncaught exceptions and returning structured JSON. | ✅ Done |
-| **Low**  | **`broadcastData` intent tagging** — Tag messages with intent `"data"`.                                                                                | ✅ Done |
+| Priority | Gap | Status |
+|----------|-----|--------|
+| **High** | Transport auth required by default | ✅ Done |
+| **High** | Anti-fragile middleware (BlennyError, 404 handler) | ✅ Done |
+| **Low** | `broadcastData` intent tagging | ✅ Done |
