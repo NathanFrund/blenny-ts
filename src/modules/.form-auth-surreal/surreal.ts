@@ -1,5 +1,7 @@
 import type { Surreal } from "@surrealdb/surrealdb";
-import type { AvatarGetResult, AvatarPutResult, AvatarService } from "./service.ts";
+import type { AvatarPutResult, AvatarService } from "../../lib/avatar/service.ts";
+import { getAvatarFromBucket } from "../../lib/avatar/surreal.ts";
+import type { AvatarGetResult } from "../../lib/avatar/service.ts";
 
 export class SurrealBucketAvatarService implements AvatarService {
   constructor(private readonly db: Surreal) {}
@@ -16,25 +18,6 @@ export class SurrealBucketAvatarService implements AvatarService {
   }
 
   async get(userId: string): Promise<AvatarGetResult | null> {
-    const path = `avatars:/${userId}`;
-    const [raw] = await this.db.query(`f'${path}'.get()`);
-
-    let bytes: Uint8Array | null = null;
-    if (raw instanceof Uint8Array) {
-      bytes = raw;
-    } else if (raw instanceof ArrayBuffer) {
-      bytes = new Uint8Array(raw);
-    }
-
-    if (!bytes) return null;
-
-    const [metaRows] = await this.db.query(
-      "SELECT mimeType FROM type::record('avatar_meta', $id)",
-      { id: userId },
-    );
-    const metaRow = (metaRows as { mimeType?: string }[] | undefined)?.[0];
-    const mimeType = metaRow?.mimeType ?? "application/octet-stream";
-
-    return { bytes, mimeType };
+    return getAvatarFromBucket(this.db, userId);
   }
 }
