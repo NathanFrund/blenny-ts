@@ -139,6 +139,31 @@ export async function loadModules(): Promise<ModuleLoadResult> {
   const modules: BlennyModule[] = [];
   const failures: ModuleLoadFailure[] = [];
 
+  const manifestPath = join(modulesDir, "manifest.ts");
+  try {
+    await Deno.stat(manifestPath);
+    const manifestUrl = toFileUrl(manifestPath).href;
+    const manifest = await import(manifestUrl);
+    for (const [name, candidate] of Object.entries(manifest)) {
+      const result = validateModule(candidate, name);
+      if (result.mod) {
+        modules.push(result.mod);
+      } else {
+        failures.push({ file: name, error: result.err! });
+      }
+    }
+    return { modules, failures };
+  } catch (err) {
+    if (err instanceof Deno.errors.NotFound) {
+      // No manifest — scan directory (dev mode)
+    } else if (err instanceof Deno.errors.PermissionDenied) {
+      // No permission — scan directory
+    } else {
+      // Invalid manifest
+      failures.push({ file: "manifest.ts", error: String(err) });
+    }
+  }
+
   try {
     for await (const entry of Deno.readDir(modulesDir)) {
       const name = entry.name;
