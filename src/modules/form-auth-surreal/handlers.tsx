@@ -138,76 +138,7 @@ async function handleProfile(c: Context): Promise<Response> {
   );
 }
 
-async function handleAvatarUpload(c: Context): Promise<Response> {
-  const user = c.get("user") as UserInfo | undefined;
-  if (!user) return c.redirect("/auth/signin");
-
-  const form = await c.req.parseBody();
-  const file = form.avatar;
-
-  if (!(file instanceof File)) {
-    return c.redirect(`/auth/profile?error=${encodeURIComponent("avatar field must be a file")}`);
-  }
-
-  if (!file.type.startsWith("image/")) {
-    return c.redirect(`/auth/profile?error=${encodeURIComponent("Only image files are accepted")}`);
-  }
-
-  const db = state.db!;
-  const bytes = new Uint8Array(await file.arrayBuffer());
-  const filePath = `avatars:/${user.id}`;
-  await db.query(`f'${filePath}'.put($bytes)`, { bytes });
-  await db.query(
-    "UPDATE user MERGE { avatarKey: $key, avatarMimeType: $mime } WHERE uuid = $uuid",
-    { uuid: user.id, key: `avatars:${user.id}`, mime: file.type },
-  );
-
-  return c.redirect("/auth/profile");
-}
-
-async function handleAvatarServe(c: Context): Promise<Response> {
-  const userId = c.req.param("userId");
-  if (!userId) return c.json({ error: "Missing userId" }, 400);
-
-  const db = state.db!;
-
-  const result = await db.query(
-    "SELECT avatarKey, avatarMimeType FROM user WHERE uuid = $uuid",
-    { uuid: userId },
-  );
-  const [rows] = result as unknown as [{ avatarKey?: string; avatarMimeType?: string }[]];
-  const record = rows?.[0];
-
-  if (!record?.avatarKey) {
-    return c.json({ error: "No avatar found" }, 404);
-  }
-
-  const filePath = `avatars:/${userId}`;
-  const fileResult = await db.query(`f'${filePath}'.get()`);
-
-  const raw = fileResult?.[0];
-
-  let blob: Uint8Array;
-  if (raw instanceof Uint8Array) {
-    blob = raw;
-  } else if (raw instanceof ArrayBuffer) {
-    blob = new Uint8Array(raw);
-  } else if (Array.isArray(raw) && raw[0] instanceof Uint8Array) {
-    blob = raw[0];
-  } else if (Array.isArray(raw) && raw[0] instanceof ArrayBuffer) {
-    blob = new Uint8Array(raw[0]);
-  } else {
-    return c.json({ error: "Avatar data not found" }, 404);
-  }
-
-  return new Response(blob, {
-    headers: { "Content-Type": record.avatarMimeType ?? "application/octet-stream" },
-  });
-}
-
 export {
-  handleAvatarServe,
-  handleAvatarUpload,
   handleProfile,
   handleRegister,
   handleSignIn,

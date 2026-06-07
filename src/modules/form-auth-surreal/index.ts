@@ -8,10 +8,13 @@ import { requireDb } from "../../core/db-guard.ts";
 import { SurrealUserStore } from "../../core/surreal-store.ts";
 import { publish } from "../../core/hub.ts";
 import type { BlennyModule } from "../../types.ts";
+import { SurrealBucketAvatarService } from "../../lib/avatar/surreal.ts";
+import {
+  createHandleAvatarServe,
+  createHandleAvatarUpload,
+} from "../../lib/avatar/handlers.ts";
 import { state } from "./state.ts";
 import {
-  handleAvatarServe,
-  handleAvatarUpload,
   handleProfile,
   handleRegister,
   handleSignIn,
@@ -49,10 +52,10 @@ const authModule: BlennyModule = {
     {
       method: "POST",
       path: "/auth/avatar",
-      handler: handleAvatarUpload,
+      handler: (c) => state.handleAvatarUpload!(c),
       auth: true,
     },
-    { method: "GET", path: "/avatars/:userId", handler: handleAvatarServe },
+    { method: "GET", path: "/avatars/:userId", handler: (c) => state.handleAvatarServe!(c) },
   ],
   async initialize(state_: AppState) {
     state.conduit = state_.conduit;
@@ -84,7 +87,21 @@ const authModule: BlennyModule = {
       });
     }
 
+    try {
+      await db.query("DEFINE TABLE IF NOT EXISTS avatar_meta SCHEMAFULL");
+      await db.query(
+        "DEFINE FIELD mimeType ON avatar_meta TYPE string",
+      );
+    } catch {
+      // meta table not critical — will default to octet-stream
+    }
+
     state.store = store;
+
+    const avatarSvc = new SurrealBucketAvatarService(db);
+    state.deps = { store, avatarService: avatarSvc };
+    state.handleAvatarUpload = createHandleAvatarUpload(state.deps);
+    state.handleAvatarServe = createHandleAvatarServe(state.deps);
 
     state_.auth = {
       config: state.config,

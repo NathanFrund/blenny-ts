@@ -27,7 +27,7 @@ Deno.test("main routes", async (t) => {
   const app = new Hono();
 
   // Replicates main.ts bootstrap pipeline for endpoints-only test
-  const authModule = await import("../src/modules/.form-auth/index.ts");
+  const authModule = await import("../src/modules/.form-auth-kv/index.ts");
   await authModule.default.initialize?.(state);
   applyAuthMiddleware(app, state);
   const dashboardModule = await import("../src/modules/dashboard.tsx");
