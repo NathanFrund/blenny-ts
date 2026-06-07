@@ -42,8 +42,8 @@ Deno/TypeScript port of the Blenny framework. Hypermedia-driven, real-time, sing
 ### Auth
 
 - Two peer modules; only one can be active (both declare `capabilities: ["auth"]`):
-  - **`.form-auth-kv/`** (dot-prefixed, disabled) — KV-backed, Deno Deploy compatible, zero infra
-  - **`form-auth-surreal/`** — SurrealDB-backed, argon2 via SurrealQL, bucket-based avatar storage
+  - **`form-auth-kv/`** — KV-backed, Deno Deploy compatible, zero infra (currently active)
+  - **`.form-auth-surreal/`** (dot-prefixed, disabled) — SurrealDB-backed, argon2 via SurrealQL, bucket-based avatar storage
 - A module sets `state.auth` (an `AuthBundle`) during `initialize()`.
 - `AuthBundle` provides `middleware` (global JWT reader), `requireUser`, `requireRole`.
 - `main.ts` checks `state.auth` after initialization.
@@ -219,8 +219,8 @@ src/
       surreal.ts      — SurrealBucketAvatarService (SurrealDB buckets)
       handlers.ts     — createHandleAvatarUpload / createHandleAvatarServe factories
   modules/
-    form-auth-surreal/ — Active auth module (SurrealDB, bucket avatars)
-    .form-auth-kv/     — Disabled auth module (KV, Deno Deploy)
+    .form-auth-surreal/ — Disabled auth module (SurrealDB, bucket avatars)
+    form-auth-kv/       — Active auth module (KV, Deno Deploy)
     dashboard.tsx     — Dashboard with profile link
     demo.ts           — Datastar SSE + WS demo
     index.ts          — Root page

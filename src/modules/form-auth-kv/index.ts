@@ -9,11 +9,15 @@ import { createInMemoryUserStore } from "../../core/user-store.ts";
 import { FsBlobStore } from "../../core/fs-blob-store.ts";
 import { publish } from "../../core/hub.ts";
 import type { BlennyModule } from "../../types.ts";
+import { BlobStoreAvatarService } from "../../lib/avatar/blob-store.ts";
+import {
+  createHandleAvatarServe,
+  createHandleAvatarUpload,
+} from "../../lib/avatar/handlers.ts";
 import { deriveKey } from "./crypto.ts";
 import { state } from "./state.ts";
 import {
-  handleAvatarServe,
-  handleAvatarUpload,
+  handleProfile,
   handleRegister,
   handleSignIn,
   handleSignOut,
@@ -42,12 +46,18 @@ const authModule: BlennyModule = {
     { method: "POST", path: "/auth/register", handler: handleRegister },
     { method: "POST", path: "/auth/signout", handler: handleSignOut },
     {
-      method: "POST",
-      path: "/auth/avatar",
-      handler: handleAvatarUpload,
+      method: "GET",
+      path: "/auth/profile",
+      handler: handleProfile,
       auth: true,
     },
-    { method: "GET", path: "/avatars/:userId", handler: handleAvatarServe },
+    {
+      method: "POST",
+      path: "/auth/avatar",
+      handler: (c) => state.handleAvatarUpload!(c),
+      auth: true,
+    },
+    { method: "GET", path: "/avatars/:userId", handler: (c) => state.handleAvatarServe!(c) },
   ],
   async initialize(state_: AppState) {
     state.conduit = state_.conduit;
@@ -70,6 +80,11 @@ const authModule: BlennyModule = {
       state.store = createInMemoryUserStore();
       state.blobStore = new FsBlobStore();
     }
+
+    const avatarSvc = new BlobStoreAvatarService(state.blobStore);
+    state.deps = { store: state.store, avatarService: avatarSvc };
+    state.handleAvatarUpload = createHandleAvatarUpload(state.deps);
+    state.handleAvatarServe = createHandleAvatarServe(state.deps);
 
     state_.auth = {
       config: state.config,

@@ -49,7 +49,7 @@ export function createHandleAvatarServe(
     const result = await avatarService.get(userId);
     if (!result) return c.json({ error: "No avatar found" }, 404);
 
-    return new Response(result.bytes, {
+    return new Response(result.bytes as BodyInit, {
       headers: { "Content-Type": result.mimeType },
     });
   };

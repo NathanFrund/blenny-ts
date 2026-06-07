@@ -9,7 +9,7 @@ import { publish } from "../../core/hub.ts";
 import * as v from "@valibot/valibot";
 import { PasswordSchema, UsernameSchema } from "../../core/validation.ts";
 import { deriveKey, verifyKey } from "./crypto.ts";
-import { RegisterPage, SignInPage } from "./ui.tsx";
+import { ProfilePage, RegisterPage, SignInPage } from "./ui.tsx";
 import { state } from "./state.ts";
 
 function renderSignIn(
@@ -116,42 +116,29 @@ async function handleSignOut(c: Context): Promise<Response> {
   return c.redirect("/");
 }
 
-async function handleAvatarUpload(c: Context): Promise<Response> {
-  const user = c.get("user") as UserInfo | undefined;
-  if (!user) return c.json({ error: "Unauthorized" }, 401);
+async function handleProfile(c: Context): Promise<Response> {
+  const userInfo = c.get("user") as UserInfo | undefined;
+  if (!userInfo) return c.redirect("/auth/signin");
 
-  const form = await c.req.parseBody();
-  const file = form.avatar;
+  const user = await state.store.findById(userInfo.id);
+  if (!user) return c.redirect("/auth/signin");
 
-  if (!(file instanceof File)) {
-    return c.json({ error: "avatar field must be a file" }, 400);
-  }
-
-  if (!file.type.startsWith("image/")) {
-    return c.json({ error: "Only image files are accepted" }, 415);
-  }
-
-  const key = await state.blobStore.set("avatars", user.id, file);
-  await state.store.updateAvatarKey(user.id, key);
-
-  return c.json({ ok: true, key });
-}
-
-async function handleAvatarServe(c: Context): Promise<Response> {
-  const userId = c.req.param("userId");
-  if (!userId) return c.json({ error: "Missing userId" }, 400);
-
-  const user = await state.store.findById(userId);
-  if (!user?.avatarKey) {
-    return c.json({ error: "No avatar found" }, 404);
-  }
-
-  return state.blobStore.getAsResponse("avatars", userId);
+  const error = c.req.query("error");
+  return state.conduit.respond(
+    c,
+    <ProfilePage
+      id={user.id}
+      username={user.username}
+      displayName={user.displayName}
+      role={user.role}
+      avatarKey={user.avatarKey}
+      error={error}
+    />,
+  );
 }
 
 export {
-  handleAvatarServe,
-  handleAvatarUpload,
+  handleProfile,
   handleRegister,
   handleSignIn,
   handleSignOut,
