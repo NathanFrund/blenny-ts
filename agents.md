@@ -224,6 +224,9 @@ src/
     dashboard.tsx     — Dashboard with profile link
     demo.ts           — Datastar SSE + WS demo
     index.ts          — Root page
+    manifest.ts       — Auto-generated (gitignored); static import manifest for compiled binaries
+  tools/
+    generate-manifest.ts — Scans modules/, generates manifest.ts
 modes/                 — MCP-like mode system (detached editor, field codex)
 tests/                 — One per module/core file
 ```

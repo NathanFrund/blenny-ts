@@ -94,3 +94,6 @@ scratchpad
 
 # Blob storage (FsBlobStore) and Deno KV SQLite databases
 data/
+
+# Auto-generated module manifest for compiled binaries
+src/modules/manifest.ts
