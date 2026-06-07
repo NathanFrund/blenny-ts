@@ -216,10 +216,10 @@ src/
     avatar/
       service.ts      — AvatarService interface
       blob-store.ts   — BlobStoreAvatarService (wraps BlobStore)
-      surreal.ts      — SurrealBucketAvatarService (SurrealDB buckets)
       handlers.ts     — createHandleAvatarUpload / createHandleAvatarServe factories
   modules/
     .form-auth-surreal/ — Disabled auth module (SurrealDB, bucket avatars)
+      surreal.ts      — SurrealBucketAvatarService
     form-auth-kv/       — Active auth module (KV, Deno Deploy)
     dashboard.tsx     — Dashboard with profile link
     demo.ts           — Datastar SSE + WS demo

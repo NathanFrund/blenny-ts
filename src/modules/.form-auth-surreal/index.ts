@@ -8,7 +8,7 @@ import { requireDb } from "../../core/db-guard.ts";
 import { SurrealUserStore } from "../../core/surreal-store.ts";
 import { publish } from "../../core/hub.ts";
 import type { BlennyModule } from "../../types.ts";
-import { SurrealBucketAvatarService } from "../../lib/avatar/surreal.ts";
+import { SurrealBucketAvatarService } from "./surreal.ts";
 import {
   createHandleAvatarServe,
   createHandleAvatarUpload,
