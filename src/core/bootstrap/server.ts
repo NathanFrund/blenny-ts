@@ -22,6 +22,14 @@ export function startServer(
         args: { port: p },
       });
     },
+    onError: (err) => {
+      publish("log", {
+        level: "error",
+        template: "Server error: {error}",
+        args: { error: String(err) },
+      });
+      return new Response("Internal Server Error", { status: 500 });
+    },
   }, app.fetch);
 
   return { finished: server.finished };

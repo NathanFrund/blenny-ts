@@ -13,10 +13,19 @@ export function registerPlatformEndpoints(
   state: AppState,
   config: BlennyConfig,
 ): void {
-  app.get(
-    "/health",
-    (c) => c.json({ status: "ok", modules: state.moduleCount ?? 0 }),
-  );
+  app.get("/health", (c) => {
+    const uptime = Math.floor((Date.now() - state.startTime) / 1000);
+    const dbStatus = state.db?.connected ? "connected" : "unavailable";
+    const connections = state.hub.getConnections().length;
+    return c.json({
+      status: "ok",
+      version: state.version,
+      uptime,
+      modules: state.moduleCount ?? 0,
+      connections,
+      db: dbStatus,
+    });
+  });
 
   app.get("/sse", async (c) => {
     const intentParam = c.req.query("intent");
@@ -64,5 +73,10 @@ export function registerPlatformEndpoints(
     return wsHandler(c);
   });
 
-  app.use("/static/*", serveStatic({ root: "./static" }));
+  app.use("/static/*", async (c, next) => {
+    await next();
+    if (c.res.status === 200 && !c.res.headers.has("Cache-Control")) {
+      c.res.headers.set("Cache-Control", "public, max-age=31536000, immutable");
+    }
+  }, serveStatic({ root: "./static" }));
 }

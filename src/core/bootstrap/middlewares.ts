@@ -2,6 +2,7 @@ import type { Hono } from "@hono/hono";
 import { cors } from "@hono/hono/cors";
 import { bodyLimit } from "@hono/hono/body-limit";
 import { csrf } from "@hono/hono/csrf";
+import { secureHeaders } from "@hono/hono/secure-headers";
 import { createRateLimiter } from "../rate-limiter.ts";
 import { SpanStatusCode, trace } from "../tracing.ts";
 import { BlennyError, errorResponse } from "../error.ts";
@@ -14,6 +15,7 @@ export function configureMiddleware(
   config: BlennyConfig,
 ): void {
   app.use(requestLogger());
+  app.use(secureHeaders());
   app.use(cors({ origin: config.corsOrigin }));
   app.use("*", csrf());
 

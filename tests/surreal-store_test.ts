@@ -1,5 +1,6 @@
 import { assertEquals, assertExists, assertRejects } from "@std/assert";
 import { Surreal } from "@surrealdb/surrealdb";
+import type { DbManager } from "../src/core/db-manager.ts";
 import { SurrealUserStore } from "../src/core/surreal-store.ts";
 
 const passHash = "abc123hash";
@@ -40,7 +41,7 @@ Deno.test({
   ignore: !connection,
   async fn(t) {
     const surreal = connection!;
-    const store = new SurrealUserStore(surreal);
+    const store = new SurrealUserStore(surreal as unknown as DbManager);
     await store.setup();
 
     await t.step(

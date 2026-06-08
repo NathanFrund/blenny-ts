@@ -23,6 +23,8 @@ Deno.test("main routes", async (t) => {
     conduit,
     config,
     supervisor: new TaskSupervisor(),
+    startTime: Date.now(),
+    version: "0.2.0",
   };
   const app = new Hono();
 

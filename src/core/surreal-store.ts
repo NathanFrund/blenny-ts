@@ -1,5 +1,5 @@
-import { Surreal } from "@surrealdb/surrealdb";
 import * as v from "@valibot/valibot";
+import type { DbManager } from "./db-manager.ts";
 import { NewUserSchema } from "./validation.ts";
 import type { NewUserInput } from "./validation.ts";
 import type { StoredUser, UserStore } from "./store.ts";
@@ -29,7 +29,7 @@ function mapUser(r: SurrealUserRecord): StoredUser {
 }
 
 export class SurrealUserStore implements UserStore {
-  constructor(private readonly db: Surreal) {}
+  constructor(private readonly db: DbManager) {}
 
   async setup(): Promise<void> {
     const schema = [

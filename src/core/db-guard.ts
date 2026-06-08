@@ -1,4 +1,4 @@
-import type { Surreal } from "@surrealdb/surrealdb";
+import type { DbManager } from "./db-manager.ts";
 import { publish } from "./hub.ts";
 
 export class DbError extends Error {
@@ -9,9 +9,9 @@ export class DbError extends Error {
 }
 
 export function requireDb(
-  db: Surreal | undefined,
+  db: DbManager | undefined,
   context?: string,
-): Surreal {
+): DbManager {
   if (!db) {
     const msg = context
       ? `Database is not connected (${context})`
@@ -22,8 +22,8 @@ export function requireDb(
 }
 
 export async function withDb<T>(
-  db: Surreal | undefined,
-  fn: (db: Surreal) => Promise<T>,
+  db: DbManager | undefined,
+  fn: (db: DbManager) => Promise<T>,
   fallback: T,
 ): Promise<T> {
   if (!db) return fallback;

@@ -18,6 +18,8 @@ Deno.test("demo module", async (t) => {
     conduit,
     config,
     supervisor: new TaskSupervisor(),
+    startTime: Date.now(),
+    version: "0.2.0",
   });
 
   for (const route of demoModule.routes) {

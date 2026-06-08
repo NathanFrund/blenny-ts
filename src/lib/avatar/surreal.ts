@@ -1,8 +1,8 @@
-import type { Surreal } from "@surrealdb/surrealdb";
+import type { DbManager } from "../../core/db-manager.ts";
 import type { AvatarGetResult } from "./service.ts";
 
 export async function getAvatarFromBucket(
-  db: Surreal,
+  db: DbManager,
   userId: string,
 ): Promise<AvatarGetResult | null> {
   const path = `avatars:/${userId}`;

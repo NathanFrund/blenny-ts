@@ -1,4 +1,4 @@
-import type { Surreal } from "@surrealdb/surrealdb";
+import type { DbManager } from "../../core/db-manager.ts";
 import type {
   AvatarPutResult,
   AvatarService,
@@ -7,7 +7,7 @@ import { getAvatarFromBucket } from "../../lib/avatar/surreal.ts";
 import type { AvatarGetResult } from "../../lib/avatar/service.ts";
 
 export class SurrealBucketAvatarService implements AvatarService {
-  constructor(private readonly db: Surreal) {}
+  constructor(private readonly db: DbManager) {}
 
   async put(userId: string, file: File): Promise<AvatarPutResult> {
     const bytes = new Uint8Array(await file.arrayBuffer());

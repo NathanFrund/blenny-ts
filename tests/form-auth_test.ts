@@ -22,6 +22,8 @@ async function buildApp(): Promise<Hono> {
     conduit,
     config,
     supervisor: new TaskSupervisor(),
+    startTime: Date.now(),
+    version: "0.2.0",
   };
   const app = new Hono();
 
@@ -244,6 +246,8 @@ Deno.test("lifecycle", async (t) => {
       conduit,
       config,
       supervisor: new TaskSupervisor(),
+      startTime: Date.now(),
+      version: "0.2.0",
     };
 
     await authModule.initialize?.(state);
@@ -264,6 +268,8 @@ Deno.test("lifecycle", async (t) => {
       conduit,
       config,
       supervisor: new TaskSupervisor(),
+      startTime: Date.now(),
+      version: "0.2.0",
     };
 
     await authModule.initialize?.(state);

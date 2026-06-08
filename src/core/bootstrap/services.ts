@@ -16,7 +16,14 @@ export async function createServices(config: BlennyConfig) {
   const conduit = new Conduit();
   await createLogger(config);
   const supervisor = new TaskSupervisor();
-  const state: AppState = { hub, conduit, config, supervisor };
+  const state: AppState = {
+    hub,
+    conduit,
+    config,
+    supervisor,
+    startTime: Date.now(),
+    version: "0.2.0",
+  };
   const app = new Hono();
   return { hub, conduit, state, app, supervisor };
 }
