@@ -3,6 +3,7 @@ import type { BlennyModule } from "@blenny/types";
 
 let hub: TransportHub;
 let intervalId: ReturnType<typeof setInterval>;
+let toastCount = 0;
 
 const demoModule: BlennyModule = {
   name: "demo",
@@ -17,43 +18,50 @@ const demoModule: BlennyModule = {
       },
     },
     {
-      method: "GET",
-      path: "/trigger-broadcast",
-      handler: (c) => {
-        const category = c.req.query("category") || "none";
-        const ts = Date.now();
-        switch (category) {
-          case "ui":
-            hub.patchElements(
-              `<div style="padding:0.5rem;background:#58a6ff22;border:1px solid #58a6ff;border-radius:4px">UI at ${ts}</div>`,
-            );
-            break;
-          case "data":
-            hub.mergeSignals(
-              { event: "data", timestamp: ts, value: Math.random() },
-            );
-            break;
-          case "command":
-            hub.executeScript(
-              `console.log("command at ${ts}")`,
-            );
-            break;
-          case "notification":
-            hub.patchElements(
-              `<div style="padding:0.5rem;background:#f0883e22;border:1px solid #f0883e;border-radius:4px">Notification at ${ts}</div>`,
-            );
-            break;
-        }
-        return c.json({ ok: true, category });
-      },
-    },
-    {
       method: "POST",
-      path: "/demo/broadcast",
+      path: "/demo/trigger",
       handler: async (c) => {
-        const { html } = await c.req.json();
-        hub.patchElements(html as string);
-        return c.json({ ok: true });
+        const { intent } = await c.req.json() as { intent: string };
+        const time = new Date().toLocaleTimeString();
+        switch (intent) {
+          case "ui": {
+            toastCount++;
+            const colors = [
+              "#3fb950", "#58a6ff", "#f0883e", "#f85149", "#bc8cff",
+            ];
+            const color = colors[toastCount % colors.length];
+            hub.patchElements(
+              `<div id="toast-area">
+                <div class="toast" style="border-color:${color}">
+                  <span class="toast-dot" style="background:${color}"></span>
+                  <span>Toast #${toastCount} at ${time}</span>
+                </div>
+              </div>`,
+            );
+            hub.mergeSignals({
+              lastEvent: `UI — patched toast #${toastCount} at ${time}`,
+            });
+            break;
+          }
+          case "data": {
+            const dice = Math.floor(Math.random() * 6) + 1;
+            hub.mergeSignals({ dice });
+            hub.mergeSignals({
+              lastEvent: `Data — merged dice=${dice} at ${time}`,
+            });
+            break;
+          }
+          case "command": {
+            hub.executeScript(
+              `alert("Hello from the server!\\nCommand executed at ${time}")`,
+            );
+            hub.mergeSignals({
+              lastEvent: `Command — executed script alert at ${time}`,
+            });
+            break;
+          }
+        }
+        return c.json({ ok: true, intent });
       },
     },
   ],
@@ -62,8 +70,7 @@ const demoModule: BlennyModule = {
   },
   start() {
     intervalId = setInterval(() => {
-      const currentTime = new Date().toLocaleTimeString();
-      hub.mergeSignals({ currentTime });
+      hub.mergeSignals({ currentTime: new Date().toLocaleTimeString() });
     }, 1000);
   },
   stop() {
@@ -75,167 +82,99 @@ const PAGE = `<!doctype html>
 <html>
   <head>
     <meta charset="UTF-8" />
-    <title>Blenny — Datastar + WebSocket Demo</title>
+    <title>Blenny — Three-Intent Transport Demo</title>
     <script type="module" src="https://cdn.jsdelivr.net/gh/starfederation/datastar@v1.0.1/bundles/datastar.js"></script>
     <style>
       * { box-sizing: border-box; margin: 0; padding: 0; }
-      body { font-family: system-ui, sans-serif; background: #0d1117; color: #c9d1d9; padding: 2rem; }
+      body { font-family: system-ui, sans-serif; background: #0d1117; color: #c9d1d9; padding: 2rem; max-width: 720px; margin: 0 auto; }
       h1 { font-size: 1.25rem; margin-bottom: 0.25rem; }
-      p { color: #8b949e; font-size: 0.875rem; margin-bottom: 1.5rem; }
-      .clock { margin-bottom: 1rem; padding: 0.5rem; background: #161b22; border: 1px solid #30363d; border-radius: 4px; font-size: 0.875rem; }
-      .clock span { color: #8b949e; }
-      .clock .time { color: #3fb950; font-weight: 600; }
-      .row { display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; margin-bottom: 1rem; }
-      label { font-size: 0.875rem; color: #8b949e; }
-      input, select { background: #21262d; border: 1px solid #30363d; border-radius: 4px; padding: 0.375rem 0.5rem; color: #c9d1d9; font-size: 0.875rem; }
-      select { cursor: pointer; }
-      button { padding: 0.375rem 0.75rem; border: 1px solid #30363d; border-radius: 4px; background: #21262d; color: #c9d1d9; cursor: pointer; font-size: 0.875rem; }
-      button:hover { background: #30363d; }
-      .trigger-btn { min-width: 7rem; }
-      .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-top: 1rem; }
-      .panel { border: 1px solid #30363d; border-radius: 6px; padding: 0.75rem; }
-      .panel h3 { font-size: 0.875rem; margin-bottom: 0.5rem; }
-      .panel h3 span { color: #8b949e; font-weight: 400; font-size: 0.75rem; }
-      #sse-log, #ws-log { border: 1px solid #21262d; border-radius: 4px; height: 250px; overflow-y: scroll; padding: 0.5rem; font-family: monospace; font-size: 0.75rem; background: #161b22; }
-      #sse-log div, #ws-log div { padding: 0.25rem 0; border-bottom: 1px solid #21262d; white-space: pre-wrap; word-break: break-all; }
-      .event-name { color: #79c0ff; }
-      .data-line { color: #a5d6ff; }
-      .meta { color: #8b949e; font-size: 0.625rem; }
-      .green { color: #3fb950; }
-      .red { color: #f85149; }
-      .blue { color: #58a6ff; }
-      .orange { color: #f0883e; }
+      .subtitle { color: #8b949e; font-size: 0.875rem; margin-bottom: 1.5rem; }
+      .card { margin-bottom: 1rem; padding: 1rem; background: #161b22; border: 1px solid #30363d; border-radius: 6px; }
+      .card h2 { font-size: 1rem; margin-bottom: 0.25rem; display: flex; align-items: center; gap: 0.5rem; }
+      .card p { font-size: 0.875rem; color: #8b949e; margin-bottom: 0.75rem; }
+      .intent-tag { font-size: 0.7rem; font-weight: 400; padding: 0.125rem 0.375rem; border-radius: 3px; font-family: monospace; background: #21262d; border: 1px solid #30363d; }
+      .btn { padding: 0.5rem 1rem; border-radius: 6px; border: 1px solid; cursor: pointer; font-size: 0.875rem; font-weight: 500; }
+      .btn-ui { background: #3fb95022; color: #3fb950; border-color: #3fb950; }
+      .btn-ui:hover { background: #3fb95033; }
+      .btn-data { background: #58a6ff22; color: #58a6ff; border-color: #58a6ff; }
+      .btn-data:hover { background: #58a6ff33; }
+      .btn-cmd { background: #f0883e22; color: #f0883e; border-color: #f0883e; }
+      .btn-cmd:hover { background: #f0883e33; }
+      .clock-bar { padding: 0.75rem 1rem; background: #161b22; border: 1px solid #30363d; border-radius: 6px; font-size: 0.875rem; margin-bottom: 1rem; }
+      .clock-bar .time { color: #3fb950; font-weight: 600; }
+      .clock-bar .meta { color: #8b949e; font-size: 0.75rem; margin-left: 0.5rem; }
+      .dice-value { font-size: 1.5rem; font-weight: 700; color: #58a6ff; }
+      .result-row { display: flex; align-items: center; gap: 1rem; margin-top: 0.75rem; }
+      .last-event { font-family: monospace; font-size: 0.8125rem; color: #a5d6ff; background: #0d1117; padding: 0.5rem 0.75rem; border-radius: 4px; border: 1px solid #21262d; }
+      .toast { display: flex; align-items: center; gap: 0.5rem; padding: 0.75rem; background: #0d1117; border: 1px solid; border-radius: 6px; margin-top: 0.75rem; font-size: 0.875rem; }
+      .toast-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+      ul { font-size: 0.8125rem; color: #8b949e; padding-left: 1.25rem; margin-top: 0.5rem; }
+      ul li { margin-bottom: 0.25rem; }
+      .tag { display: inline-block; padding: 0.125rem 0.375rem; border-radius: 3px; font-size: 0.75rem; font-family: monospace; background: #21262d; color: #8b949e; border: 1px solid #30363d; }
     </style>
   </head>
   <body>
-    <h1>Datastar + WebSocket</h1>
-    <p>SSE uses the Datastar SDK for structured events. WS delivers bare payloads for HTMX clients.</p>
+    <h1>Three-Intent Transport Demo</h1>
+    <p class="subtitle">
+      A visual guide to the three transport intents: <code class="tag">ui</code>, <code class="tag">data</code>, and <code class="tag">command</code> — one-to-one with the Datastar wire operations.
+    </p>
 
-    <div class="clock" data-init="@get('/sse?intent=data')" data-signals='{"currentTime":"waiting..."}'>
-      <span>Server clock:</span>
-      <span class="time" data-text="$.currentTime"></span>
-      <span style="color:#8b949e;font-size:0.75rem"> (auto-pushed via Datastar signals every 1s)</span>
+    <div
+      data-init="@get('/sse?intent=ui,data,command')"
+      data-signals='{"currentTime":"...","dice":0,"lastEvent":"Ready"}'>
     </div>
 
-    <div class="row">
-      <label for="intent">Intent filter:</label>
-      <input id="intent" type="text" value="" placeholder="e.g. ui,data" />
+    <div class="clock-bar">
+      <span>Server clock: <strong class="time" data-text="$currentTime"></strong></span>
+      <span class="meta">(auto-pushed every 1s via <code>data</code> intent)</span>
     </div>
 
-    <div class="row">
-      <button onclick="connect()">Connect Both</button>
-      <button onclick="disconnect()">Disconnect</button>
-      <span id="status" style="font-size:0.75rem;color:#8b949e"></span>
+    <div class="card">
+      <h2>UI <span class="intent-tag">patchElements</span></h2>
+      <p>Delivers HTML fragments that Datastar merges into the DOM. Use for toasts, notifications, or partial page updates.</p>
+      <button class="btn btn-ui" onclick="trigger('ui')">Send Toast</button>
+      <div id="toast-area"></div>
     </div>
 
-    <div class="row">
-      <button class="trigger-btn" onclick="trigger('ui')">Send UI</button>
-      <button class="trigger-btn" onclick="trigger('data')">Send Data</button>
-      <button class="trigger-btn" onclick="trigger('command')">Send Command</button>
-      <button class="trigger-btn" onclick="trigger('notification')">Send Notification</button>
-    </div>
-
-    <div class="grid">
-      <div class="panel">
-        <h3>SSE (Datastar SDK) <span>structured events</span></h3>
-        <div id="sse-log"></div>
+    <div class="card">
+      <h2>Data <span class="intent-tag">mergeSignals</span></h2>
+      <p>Merges structured data into the client signal store. Bound elements update reactively via <code class="tag">data-text</code>, <code class="tag">data-show</code>, etc.</p>
+      <button class="btn btn-data" onclick="trigger('data')">Roll Dice</button>
+      <div class="result-row">
+        <span>Dice:</span>
+        <span class="dice-value" data-text="$dice">0</span>
       </div>
-      <div class="panel">
-        <h3>WebSocket <span>bare payloads</span></h3>
-        <div id="ws-log"></div>
-      </div>
+    </div>
+
+    <div class="card">
+      <h2>Command <span class="intent-tag">executeScript</span></h2>
+      <p>Executes JavaScript on connected clients. Use sparingly — only for actions that can't be expressed as HTML or signal merges.</p>
+      <button class="btn btn-cmd" onclick="trigger('command')">Show Alert</button>
+    </div>
+
+    <div class="card">
+      <h2>Event Log</h2>
+      <div class="last-event" data-text="$lastEvent">Ready</div>
+    </div>
+
+    <div class="card">
+      <h2>How it works</h2>
+      <ul>
+        <li>The page connects to SSE with <code class="tag">?intent=ui,data,command</code> — all three intents are available</li>
+        <li>Each button sends a POST to <code class="tag">/demo/trigger</code> with the target intent</li>
+        <li>The server calls the matching hub method, which routes to all connections subscribed to that intent</li>
+        <li>The clock runs independently — <code class="tag">hub.mergeSignals({ currentTime })</code> every 1s as a <code>data</code> broadcast</li>
+      </ul>
     </div>
 
     <script>
-      let eventSource = null;
-      let websocket = null;
-      const sseLog = document.getElementById("sse-log");
-      const wsLog = document.getElementById("ws-log");
-      const statusEl = document.getElementById("status");
-
-      function log(el, text, cls) {
-        const div = document.createElement("div");
-        if (cls) div.className = cls;
-        div.textContent = text;
-        el.appendChild(div);
-        el.scrollTop = el.scrollHeight;
-      }
-
-      function buildQs() {
-        const intent = document.getElementById("intent").value.trim();
-        const token = new URLSearchParams(window.location.search).get("token") || new URLSearchParams(window.location.search).get("blenny_token");
-        const parts = [];
-        if (intent) parts.push("intent=" + encodeURIComponent(intent));
-        if (token) parts.push("token=" + encodeURIComponent(token));
-        return parts.length ? "?" + parts.join("&") : "";
-      }
-
-      function connect() {
-        disconnect();
-        const qs = buildQs();
-        statusEl.textContent = "Connecting...";
-
-        // SSE — listens for Datastar SDK events
-        eventSource = new EventSource("/sse" + qs);
-        eventSource.onopen = () => {
-          log(sseLog, "SSE connected to /sse");
-          updateStatus();
-        };
-        eventSource.addEventListener("datastar-patch-elements", (e) => {
-          log(sseLog, "event: datastar-patch-elements", "event-name");
-          e.data.split("\\n").forEach(function(line) {
-            log(sseLog, "data: " + line, "data-line");
-          });
-        });
-        eventSource.addEventListener("datastar-patch-signals", (e) => {
-          log(sseLog, "event: datastar-patch-signals", "event-name");
-          e.data.split("\\n").forEach(function(line) {
-            log(sseLog, "data: " + line, "data-line");
-          });
-        });
-        eventSource.onerror = () => {
-          log(sseLog, "SSE connection error", "red");
-          updateStatus();
-        };
-
-        // WS — receives bare payloads
-        const wsUrl = (location.protocol === "https:" ? "wss:" : "ws:") + "//" + location.host + "/ws" + qs;
-        websocket = new WebSocket(wsUrl);
-        websocket.onopen = () => {
-          log(wsLog, "WebSocket connected to /ws");
-          updateStatus();
-        };
-        websocket.onmessage = (e) => {
-          log(wsLog, e.data, "green");
-        };
-        websocket.onclose = () => {
-          log(wsLog, "WebSocket disconnected", "red");
-          updateStatus();
-        };
-        websocket.onerror = () => {
-          log(wsLog, "WebSocket connection error", "red");
-          updateStatus();
-        };
-      }
-
-      function disconnect() {
-        if (eventSource) { eventSource.close(); eventSource = null; log(sseLog, "SSE disconnected", "orange"); }
-        if (websocket) { websocket.close(1000); websocket = null; log(wsLog, "WebSocket disconnected", "orange"); }
-        statusEl.textContent = "Disconnected";
-      }
-
-      function updateStatus() {
-        const sseOk = eventSource && eventSource.readyState === EventSource.OPEN;
-        const wsOk = websocket && websocket.readyState === WebSocket.OPEN;
-        const parts = [];
-        if (sseOk) parts.push("SSE");
-        if (wsOk) parts.push("WS");
-        statusEl.textContent = parts.length ? "Connected: " + parts.join(", ") : "Disconnected";
-      }
-
-      function trigger(category) {
-        fetch("/trigger-broadcast?category=" + category).catch(function(e) {
-          log(sseLog, "trigger error: " + e.message, "red");
+      function trigger(intent) {
+        fetch("/demo/trigger", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ intent }),
+        }).catch(function(e) {
+          console.error("trigger failed", e);
         });
       }
     </script>

@@ -30,7 +30,7 @@ Deno.test("demo module", async (t) => {
     const res = await app.request("http://localhost/demo");
     assertEquals(res.status, 200);
     const html = await res.text();
-    assertEquals(html.includes("Datastar + WebSocket"), true);
+    assertEquals(html.includes("Three-Intent Transport Demo"), true);
     assertEquals(html.includes("<!doctype html>"), true);
   });
 
@@ -41,73 +41,43 @@ Deno.test("demo module", async (t) => {
     assertEquals(html.includes("data-signals="), true);
     assertEquals(html.includes('"currentTime"'), true);
     assertEquals(html.includes("data-init"), true);
+    assertEquals(html.includes("?intent=ui,data,command"), true);
   });
 
-  await t.step("GET /trigger-broadcast with ui returns JSON", async () => {
-    const res = await app.request(
-      "http://localhost/trigger-broadcast?category=ui",
-    );
-    assertEquals(res.status, 200);
-    const body = await res.json();
-    assertEquals(body.ok, true);
-    assertEquals(body.category, "ui");
-  });
-
-  await t.step("GET /trigger-broadcast with data returns JSON", async () => {
-    const res = await app.request(
-      "http://localhost/trigger-broadcast?category=data",
-    );
-    assertEquals(res.status, 200);
-    const body = await res.json();
-    assertEquals(body.ok, true);
-    assertEquals(body.category, "data");
-  });
-
-  await t.step("GET /trigger-broadcast with command returns JSON", async () => {
-    const res = await app.request(
-      "http://localhost/trigger-broadcast?category=command",
-    );
-    assertEquals(res.status, 200);
-    const body = await res.json();
-    assertEquals(body.ok, true);
-    assertEquals(body.category, "command");
-  });
-
-  await t.step(
-    "GET /trigger-broadcast with notification returns JSON",
-    async () => {
-      const res = await app.request(
-        "http://localhost/trigger-broadcast?category=notification",
-      );
-      assertEquals(res.status, 200);
-      const body = await res.json();
-      assertEquals(body.ok, true);
-      assertEquals(body.category, "notification");
-    },
-  );
-
-  await t.step(
-    "GET /trigger-broadcast with unknown category returns JSON",
-    async () => {
-      const res = await app.request(
-        "http://localhost/trigger-broadcast?category=none",
-      );
-      assertEquals(res.status, 200);
-      const body = await res.json();
-      assertEquals(body.ok, true);
-      assertEquals(body.category, "none");
-    },
-  );
-
-  await t.step("POST /demo/broadcast accepts JSON body", async () => {
-    const res = await app.request("http://localhost/demo/broadcast", {
+  await t.step("POST /demo/trigger with ui returns JSON", async () => {
+    const res = await app.request("http://localhost/demo/trigger", {
       method: "POST",
-      body: JSON.stringify({ intent: "ui", html: "<div>test</div>" }),
+      body: JSON.stringify({ intent: "ui" }),
       headers: { "Content-Type": "application/json" },
     });
     assertEquals(res.status, 200);
     const body = await res.json();
     assertEquals(body.ok, true);
+    assertEquals(body.intent, "ui");
+  });
+
+  await t.step("POST /demo/trigger with data returns JSON", async () => {
+    const res = await app.request("http://localhost/demo/trigger", {
+      method: "POST",
+      body: JSON.stringify({ intent: "data" }),
+      headers: { "Content-Type": "application/json" },
+    });
+    assertEquals(res.status, 200);
+    const body = await res.json();
+    assertEquals(body.ok, true);
+    assertEquals(body.intent, "data");
+  });
+
+  await t.step("POST /demo/trigger with command returns JSON", async () => {
+    const res = await app.request("http://localhost/demo/trigger", {
+      method: "POST",
+      body: JSON.stringify({ intent: "command" }),
+      headers: { "Content-Type": "application/json" },
+    });
+    assertEquals(res.status, 200);
+    const body = await res.json();
+    assertEquals(body.ok, true);
+    assertEquals(body.intent, "command");
   });
 
   await t.step("start and stop lifecycle are safe", async () => {
