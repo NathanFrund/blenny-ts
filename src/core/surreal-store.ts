@@ -1,5 +1,5 @@
 import * as v from "@valibot/valibot";
-import type { DbManager } from "./db-manager.ts";
+import type { DatabaseConnection } from "./db-connection.ts";
 import { NewUserSchema } from "./validation.ts";
 import type { NewUserInput } from "./validation.ts";
 import type { StoredUser, UserStore } from "./store.ts";
@@ -29,7 +29,7 @@ function mapUser(r: SurrealUserRecord): StoredUser {
 }
 
 export class SurrealUserStore implements UserStore {
-  constructor(private readonly db: DbManager) {}
+  constructor(private readonly db: DatabaseConnection) {}
 
   async setup(): Promise<void> {
     const schema = [

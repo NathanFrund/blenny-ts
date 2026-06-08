@@ -1,11 +1,13 @@
 import { Surreal } from "@surrealdb/surrealdb";
 import type { BlennyConfig } from "./config.ts";
 import { publish } from "./hub.ts";
+import type { DatabaseConnection } from "./db-connection.ts";
+import { registerConnectionType } from "./db-connection.ts";
 
 const HEALTH_INTERVAL_MS = 30_000;
 const MAX_CONNECT_RETRIES = 3;
 
-export class DbManager {
+export class SurrealConnectionManager implements DatabaseConnection {
   private client: Surreal | null = null;
   private healthTimer: ReturnType<typeof setInterval> | null = null;
   private _connected = false;
@@ -76,15 +78,7 @@ export class DbManager {
     }
 
     this._connected = false;
-    publish("log", {
-      level: "warn",
-      template:
-        "Failed to connect to SurrealDB after {maxRetries} attempts: {error}",
-      args: {
-        maxRetries: MAX_CONNECT_RETRIES,
-        error: lastErr?.message ?? "unknown",
-      },
-    });
+    if (lastErr) throw lastErr;
   }
 
   private startHealthCheck(): void {
@@ -131,20 +125,32 @@ export class DbManager {
     await this.connect();
   }
 
-  async query<T extends unknown[] = unknown[]>(
+  async query<T = unknown[]>(
     query: string,
     vars?: Record<string, unknown>,
   ): Promise<T> {
     if (!this.client || !this._connected) {
       throw new Error("Database not connected");
     }
-    return await this.client.query<T>(query, vars) as unknown as T;
+    return await this.client.query<T extends unknown[] ? T : unknown[]>(
+      query,
+      vars,
+    ) as unknown as T;
   }
 
   async close(): Promise<void> {
     this.stopHealthCheck();
-    this.client?.close();
+    try {
+      this.client?.close();
+    } catch {
+      // close is idempotent — swallow errors
+    }
     this.client = null;
     this._connected = false;
   }
 }
+
+registerConnectionType(
+  "surreal",
+  (config) => new SurrealConnectionManager(config),
+);

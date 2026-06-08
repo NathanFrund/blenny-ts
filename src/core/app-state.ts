@@ -1,7 +1,7 @@
 import type { MiddlewareHandler } from "@hono/hono";
 import type { TransportHub } from "./hub.ts";
 import type { Conduit } from "./conduit.ts";
-import type { DbManager } from "./db-manager.ts";
+import type { DatabaseConnection } from "./db-connection.ts";
 import type { AuthConfig } from "./auth.ts";
 import type { BlennyConfig } from "./config.ts";
 import type { TaskSupervisor } from "./task-supervisor.ts";
@@ -19,7 +19,7 @@ export interface AppState {
   config: BlennyConfig;
   supervisor: TaskSupervisor;
   auth?: AuthBundle;
-  db?: DbManager;
+  db?: DatabaseConnection;
   moduleCount?: number;
   startTime: number;
   version: string;

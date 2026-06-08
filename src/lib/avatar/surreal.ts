@@ -1,8 +1,8 @@
-import type { DbManager } from "../../core/db-manager.ts";
+import type { DatabaseConnection } from "../../core/db-connection.ts";
 import type { AvatarGetResult } from "./service.ts";
 
 export async function getAvatarFromBucket(
-  db: DbManager,
+  db: DatabaseConnection,
   userId: string,
 ): Promise<AvatarGetResult | null> {
   const path = `avatars:/${userId}`;

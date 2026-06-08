@@ -1,17 +1,11 @@
-import type { DbManager } from "./db-manager.ts";
+import type { DatabaseConnection } from "./db-connection.ts";
+import { DbError } from "./db-connection.ts";
 import { publish } from "./hub.ts";
 
-export class DbError extends Error {
-  constructor(msg: string) {
-    super(msg);
-    this.name = "DbError";
-  }
-}
-
 export function requireDb(
-  db: DbManager | undefined,
+  db: DatabaseConnection | undefined,
   context?: string,
-): DbManager {
+): DatabaseConnection {
   if (!db) {
     const msg = context
       ? `Database is not connected (${context})`
@@ -22,8 +16,8 @@ export function requireDb(
 }
 
 export async function withDb<T>(
-  db: DbManager | undefined,
-  fn: (db: DbManager) => Promise<T>,
+  db: DatabaseConnection | undefined,
+  fn: (db: DatabaseConnection) => Promise<T>,
   fallback: T,
 ): Promise<T> {
   if (!db) return fallback;

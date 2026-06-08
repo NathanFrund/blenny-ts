@@ -16,7 +16,7 @@ Deno.test("module-loader", async (t) => {
     assertEquals(names.includes("index"), true);
     assertEquals(names.includes("demo"), true);
     assertEquals(names.includes("dashboard"), true);
-    assertEquals(names.includes("form-auth"), true);
+    assertEquals(names.includes("form-auth-surreal"), true);
     assertEquals(names.includes("task-demo"), true);
   });
 
@@ -40,19 +40,21 @@ Deno.test("module-loader", async (t) => {
     assertEquals(typeof demo.start, "function");
     assertEquals(typeof demo.stop, "function");
 
-    const formAuth = result.modules.find((m) => m.name === "form-auth");
-    assertExists(formAuth);
-    assertEquals(typeof formAuth.initialize, "function");
-
-    const oldSurrealAuth = result.modules.find((m) =>
+    const formAuthSurreal = result.modules.find((m) =>
       m.name === "form-auth-surreal"
     );
-    assertEquals(oldSurrealAuth, undefined);
+    assertExists(formAuthSurreal);
+    assertEquals(typeof formAuthSurreal.initialize, "function");
+
+    const oldKvAuth = result.modules.find((m) => m.name === "form-auth");
+    assertEquals(oldKvAuth, undefined);
   });
 
-  await t.step("form-auth declares auth capability", async () => {
+  await t.step("form-auth-surreal declares auth capability", async () => {
     const result = await loadModules();
-    const formAuth = result.modules.find((m) => m.name === "form-auth");
+    const formAuth = result.modules.find((m) =>
+      m.name === "form-auth-surreal"
+    );
     assertExists(formAuth);
     assertExists(formAuth.capabilities);
     assertEquals(formAuth.capabilities!.includes("auth"), true);
