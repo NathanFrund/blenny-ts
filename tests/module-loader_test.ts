@@ -17,6 +17,7 @@ Deno.test("module-loader", async (t) => {
     assertEquals(names.includes("demo"), true);
     assertEquals(names.includes("dashboard"), true);
     assertEquals(names.includes("form-auth-surreal"), true);
+    assertEquals(names.includes("system"), true);
     assertEquals(names.includes("task-demo"), true);
   });
 
@@ -45,6 +46,12 @@ Deno.test("module-loader", async (t) => {
     );
     assertExists(formAuthSurreal);
     assertEquals(typeof formAuthSurreal.initialize, "function");
+
+    const systemMod = result.modules.find((m) => m.name === "system");
+    assertExists(systemMod);
+    assertEquals(typeof systemMod.initialize, "function");
+    assertEquals(typeof systemMod.start, "function");
+    assertEquals(typeof systemMod.stop, "function");
 
     const oldKvAuth = result.modules.find((m) => m.name === "form-auth");
     assertEquals(oldKvAuth, undefined);
