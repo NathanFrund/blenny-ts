@@ -113,6 +113,31 @@ Deno.test("KvUserStore", async (t) => {
     assertEquals(await store.findByUsername("delete-me"), null);
   });
 
+  await t.step(
+    "deleteUser removes avatar blob when present",
+    async () => {
+      const user = await store.createUser({
+        username: "avatar-delete",
+        passwordHash: passHash,
+        salt: "x",
+        displayName: "Avatar Delete",
+      });
+      assertExists(user);
+
+      await store.updateAvatarKey(user.id, `avatars:${user.id}`);
+      const blobStore = new KvBlobStore(kv);
+      const file = new File(["avatar data"], "avatar.png", {
+        type: "image/png",
+      });
+      await blobStore.set("avatars", user.id, file);
+
+      await store.deleteUser(user.id);
+
+      const res = await blobStore.getAsResponse("avatars", user.id);
+      assertEquals(res.status, 404);
+    },
+  );
+
   await t.step("deleteUser returns false for non-existent id", async () => {
     const result = await store.deleteUser(
       "00000000-0000-0000-0000-000000000000",

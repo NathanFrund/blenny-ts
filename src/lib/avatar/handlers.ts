@@ -1,11 +1,12 @@
 import type { Context } from "@hono/hono";
 import type { UserInfo } from "../../core/auth.ts";
-import type { UserStore } from "../../core/store.ts";
+import type { BlobStore, UserStore } from "../../core/store.ts";
 import type { AvatarService } from "./service.ts";
 
 export interface AvatarHandlerDeps {
   store: UserStore;
   avatarService: AvatarService;
+  blobStore?: BlobStore;
 }
 
 export function createHandleAvatarUpload(
@@ -15,6 +16,14 @@ export function createHandleAvatarUpload(
   return async (c: Context): Promise<Response> => {
     const user = c.get("user") as UserInfo | undefined;
     if (!user) return c.redirect("/auth/signin");
+
+    if (deps.blobStore) {
+      const currentUser = await store.findById(user.id);
+      if (currentUser?.avatarKey) {
+        const [prefix, id] = currentUser.avatarKey.split(":");
+        await deps.blobStore.remove(prefix, id);
+      }
+    }
 
     const form = await c.req.parseBody();
     const file = form.avatar;

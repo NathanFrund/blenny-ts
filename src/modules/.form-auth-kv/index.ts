@@ -86,7 +86,7 @@ const authModule: BlennyModule = {
     }
 
     const avatarSvc = new BlobStoreAvatarService(state.blobStore);
-    state.deps = { store: state.store, avatarService: avatarSvc };
+    state.deps = { store: state.store, avatarService: avatarSvc, blobStore: state.blobStore };
     state.handleAvatarUpload = createHandleAvatarUpload(state.deps);
     state.handleAvatarServe = createHandleAvatarServe(state.deps);
 

@@ -67,6 +67,9 @@ export class KvUserStore implements UserStore {
       .delete(["users", id])
       .delete(["by_username", doc.value.username])
       .commit();
+    if (doc.value.avatarKey) {
+      await blob.remove(this.kv, ["blobs", "avatars", id]);
+    }
     return true;
   }
 }
