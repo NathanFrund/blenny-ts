@@ -92,7 +92,7 @@ Deno.test("BlennyPublisher broadcasts to all connections", () => {
 
   BlennyPublisher.broadcastHtml("<div>Hello</div>");
   assertEquals(conn.sent.length, 1);
-  const msg = JSON.parse(conn.sent[0]) as ServerMessage;
+  const msg = JSON.parse(conn.sent[0]) as { html: string };
   assertEquals(msg.html, "<div>Hello</div>");
 });
 
@@ -106,7 +106,7 @@ Deno.test("BlennyPublisher broadcastData parses JSON internally", () => {
 
   BlennyPublisher.broadcastData('{"score":42,"name":"alice"}');
   assertEquals(conn.sent.length, 1);
-  const msg = JSON.parse(conn.sent[0]) as ServerMessage;
+  const msg = JSON.parse(conn.sent[0]) as { signals: Record<string, unknown>; intent: string };
   assertEquals(msg.signals, { score: 42, name: "alice" });
   assertEquals(msg.intent, "data");
 });
@@ -164,7 +164,7 @@ Deno.test("BlennyPublisher directs to specific user only", () => {
   assertEquals(alice.sent.length, 1);
   assertEquals(bob.sent.length, 0);
 
-  const msg = JSON.parse(alice.sent[0]) as ServerMessage;
+  const msg = JSON.parse(alice.sent[0]) as { html: string };
   assertEquals(msg.html, "<div>Private for alice</div>");
 });
 
@@ -182,7 +182,7 @@ Deno.test("BlennyPublisher directData to specific user", () => {
   assertEquals(alice.sent.length, 1);
   assertEquals(bob.sent.length, 0);
 
-  const msg = JSON.parse(alice.sent[0]) as ServerMessage;
+  const msg = JSON.parse(alice.sent[0]) as { signals: Record<string, unknown>; intent: string };
   assertEquals(msg.signals, { msg: "secret" });
   assertEquals(msg.intent, "data");
 });
@@ -199,7 +199,7 @@ Deno.test("BlennyPublisher broadcastJsx auto-escapes text content", () => {
     jsx("p", null, "<script>alert(1)</script>"),
   );
   assertEquals(conn.sent.length, 1);
-  const msg = JSON.parse(conn.sent[0]) as ServerMessage;
+  const msg = JSON.parse(conn.sent[0]) as { html: string };
   assertEquals(msg.html, "<p>&lt;script&gt;alert(1)&lt;/script&gt;</p>");
 });
 
@@ -219,7 +219,7 @@ Deno.test("BlennyPublisher broadcastJsx escapes attribute bindings", () => {
     ),
   );
   assertEquals(conn.sent.length, 1);
-  const msg = JSON.parse(conn.sent[0]) as ServerMessage;
+  const msg = JSON.parse(conn.sent[0]) as { html: string };
   assertEquals(
     msg.html,
     '<div class="msg" data-x="&quot;&gt;&lt;script&gt;alert(1)&lt;/script&gt;">hello</div>',
@@ -243,7 +243,7 @@ Deno.test("BlennyPublisher directJsx targets specific user", () => {
   assertEquals(alice.sent.length, 1);
   assertEquals(bob.sent.length, 0);
 
-  const msg = JSON.parse(alice.sent[0]) as ServerMessage;
+  const msg = JSON.parse(alice.sent[0]) as { html: string };
   assertEquals(msg.html, "<strong>Private message</strong>");
 });
 

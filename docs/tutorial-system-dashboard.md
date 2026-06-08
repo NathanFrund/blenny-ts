@@ -2,8 +2,8 @@
 
 In this tutorial you'll create a live system dashboard module. By the end you'll
 have a working `/system` page (auth-protected) that shows memory usage, load
-average, and hostname — all collected every 5 seconds via the module's lifecycle
-hooks.
+average, and hostname — all streamed live every 5 seconds via Datastar SSE
+with no page refresh.
 
 **Time:** ~10 minutes
 
@@ -12,15 +12,20 @@ hooks.
 ## Step 1: Create the module directory
 
 ```
-src/modules/system/
+docs/examples/system-dashboard/
   state.ts
   ui.tsx
   handlers.tsx
   index.ts
 ```
 
-Any directory under `src/modules/` with an `index.ts` is auto-discovered.
-Drop the files in and restart — no config, no registry.
+Copy the directory into `src/modules/system/` to activate it. Any directory
+under `src/modules/` with an `index.ts` is auto-discovered — no config, no
+registry.
+
+> The completed example lives at `docs/examples/system-dashboard/` for
+> reference. Code snippets below use `../../` imports relative to
+> `src/modules/system/`.
 
 ---
 
@@ -30,56 +35,46 @@ Module-level state is a plain exported object. No classes, no DI — just a shar
 typed object that `index.ts`, `handlers.tsx`, and `ui.tsx` import.
 
 ```ts
-import type { Conduit } from "../../core/conduit.ts";
-
-export interface SystemMetrics {
-  memory: { total: number; free: number; used: number };
-  loadAvg: number[];
-  hostname: string;
-  startTime: number;
-  collectedAt: string;
-}
+import type { TransportHub } from "../../core/hub.ts";
 
 export const state = {
-  conduit: undefined! as unknown as Conduit,
-  metrics: undefined as SystemMetrics | undefined,
+  hub: undefined! as unknown as TransportHub,
   intervalHandle: undefined as ReturnType<typeof setInterval> | undefined,
   startedAt: 0,
 };
 ```
 
-The `conduit` reference is set during `initialize()`. The `intervalHandle` is
+The `hub` reference is set during `initialize()`. The `intervalHandle` is
 set during `start()` and cleared during `stop()`.
 
 ---
 
 ## Step 3: UI component (`ui.tsx`)
 
-A JSX component renders the metrics:
+A JSX component renders the dashboard with Datastar `data-text` bindings that
+reactively update from SSE signals:
 
 ```tsx
 import type { FC } from "@hono/hono/jsx";
-import type { SystemMetrics } from "./state.ts";
 
-const bytes = (n: number) => {
-  const units = ["B", "KB", "MB", "GB"];
-  let i = 0;
-  let v = n;
-  while (v >= 1024 && i < units.length - 1) { v /= 1024; i++; }
-  return `${v.toFixed(1)} ${units[i]}`;
-};
-
-const Dashboard: FC<{ metrics: SystemMetrics }> = ({ metrics }) => (
+const Dashboard: FC = () => (
   <div>
     <h1>System Dashboard</h1>
-    <table>
-      <tr><td><strong>Hostname</strong></td><td>{metrics.hostname}</td></tr>
-      <tr><td><strong>Memory Total</strong></td><td>{bytes(metrics.memory.total)}</td></tr>
-      <tr><td><strong>Memory Used</strong></td><td>{bytes(metrics.memory.used)}</td></tr>
-      <tr><td><strong>Memory Free</strong></td><td>{bytes(metrics.memory.free)}</td></tr>
-      <tr><td><strong>Load Average</strong></td><td>{metrics.loadAvg.map((n) => n.toFixed(2)).join(", ")}</td></tr>
-      <tr><td><strong>Process Uptime</strong></td><td>{((Date.now() - metrics.startTime) / 3600000).toFixed(1)} hours</td></tr>
-      <tr><td><strong>Collected At</strong></td><td>{metrics.collectedAt}</td></tr>
+    <p style="color:#666">Updates every 5 seconds via Datastar SSE</p>
+    <table style="text-align:left">
+      <tr><td><strong>Hostname</strong></td><td data-text="$.sys.hostname">—</td></tr>
+      <tr><td><strong>Memory Total</strong></td><td data-text="$.sys.memTotal">—</td></tr>
+      <tr><td><strong>Memory Used</strong></td><td data-text="$.sys.memUsed">—</td></tr>
+      <tr><td><strong>Memory Free</strong></td><td data-text="$.sys.memFree">—</td></tr>
+      <tr><td><strong>Load Average</strong></td><td>
+        <span data-text="$.sys.load1m">—</span> /
+        <span data-text="$.sys.load5m">—</span> /
+        <span data-text="$.sys.load15m">—</span>
+      </td></tr>
+      <tr><td><strong>Process Uptime</strong></td><td>
+        <span data-text="$.sys.uptime">—</span> hours
+      </td></tr>
+      <tr><td><strong>Collected At</strong></td><td data-text="$.sys.collectedAt">—</td></tr>
     </table>
     <p><a href="/dashboard">Back to Dashboard</a></p>
   </div>
@@ -88,50 +83,74 @@ const Dashboard: FC<{ metrics: SystemMetrics }> = ({ metrics }) => (
 export default Dashboard;
 ```
 
+Each `data-text="$.sys.hostname"` binds to a signal pushed from the server.
+The initial `—` shows until the first SSE message arrives.
+
 ---
 
 ## Step 4: Route handler (`handlers.tsx`)
 
-Handlers read from module state and render through Conduit:
+The handler serves a full HTML page with the Datastar client library and opens
+an SSE connection scoped to the `system` intent:
 
 ```tsx
 import type { Context } from "@hono/hono";
-import { state } from "./state.ts";
 import Dashboard from "./ui.tsx";
 
-export function handleDashboard(c: Context): Response | Promise<Response> {
-  if (!state.metrics) {
-    return c.text("Metrics not yet available — refresh in a moment", 503);
-  }
-  return state.conduit.respond(c, <Dashboard metrics={state.metrics} />);
+export async function handleDashboard(c: Context): Promise<Response> {
+  return c.html(
+    <html>
+      <head>
+        <title>System Dashboard</title>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <script
+          type="module"
+          src="https://cdn.jsdelivr.net/gh/starfederation/datastar@v1.0.1/bundles/datastar.js"
+        >
+        </script>
+      </head>
+      <body>
+        <div
+          data-init="@get('/sse?intent=data')"
+          data-signals='{"sys":{"hostname":"","memTotal":0,"memUsed":0,"memFree":0,"load1m":0,"load5m":0,"load15m":0,"uptime":0,"collectedAt":""}}'
+        >
+          <Dashboard />
+        </div>
+      </body>
+    </html>,
+  );
 }
 ```
 
-`conduit.respond()` automatically detects HTMX requests and returns just the
-fragment — no layout wrapping. Full page loads get the default layout.
+Key details:
+
+- **`data-init="@get('/sse?intent=data')"`** — on page load, opens an SSE
+  connection and subscribes to signals delivered via the `data` intent.
+- **`data-signals`** — initialises the `sys` signal namespace with defaults.
+  Datastar merges incoming values into this reactive object.
+- The page is rendered server-side as a complete HTML document (no Conduit
+  layout needed — this is a standalone dashboard).
 
 ---
 
 ## Step 5: Module definition (`index.ts`)
 
-This is where routes, lifecycle hooks, and metric collection live:
+This is where routes, lifecycle hooks, and the metric-push loop live:
 
 ```ts
 import type { AppState } from "../../core/app-state.ts";
 import type { BlennyModule } from "../../types.ts";
 import { publish } from "../../core/hub.ts";
-import { state, type SystemMetrics } from "./state.ts";
+import { state } from "./state.ts";
 import { handleDashboard } from "./handlers.tsx";
 
-function collectMetrics(): SystemMetrics {
-  const mem = Deno.systemMemoryInfo();
-  return {
-    memory: { total: mem.total, free: mem.free, used: mem.total - mem.free },
-    loadAvg: Deno.loadavg?.() ?? [],
-    hostname: Deno.hostname(),
-    startTime: state.startedAt,
-    collectedAt: new Date().toISOString(),
-  };
+function bytes(n: number): string {
+  const units = ["B", "KB", "MB", "GB"];
+  let i = 0;
+  let v = n;
+  while (v >= 1024 && i < units.length - 1) { v /= 1024; i++; }
+  return `${v.toFixed(1)} ${units[i]}`;
 }
 
 const systemModule: BlennyModule = {
@@ -145,22 +164,37 @@ const systemModule: BlennyModule = {
     },
   ],
   initialize(state_: AppState) {
-    state.conduit = state_.conduit;
+    state.hub = state_.hub;
   },
   start() {
     state.startedAt = Date.now();
-    state.metrics = collectMetrics();
-    state.intervalHandle = setInterval(() => {
+    const push = () => {
       try {
-        state.metrics = collectMetrics();
+        const mem = Deno.systemMemoryInfo();
+        const loadAvg = Deno.loadavg?.() ?? [];
+        state.hub.mergeSignals({
+          sys: {
+            hostname: Deno.hostname(),
+            memTotal: bytes(mem.total),
+            memUsed: bytes(mem.total - mem.free),
+            memFree: bytes(mem.free),
+            load1m: (loadAvg[0] ?? 0).toFixed(2),
+            load5m: (loadAvg[1] ?? 0).toFixed(2),
+            load15m: (loadAvg[2] ?? 0).toFixed(2),
+            uptime: ((Date.now() - state.startedAt) / 3600000).toFixed(1),
+            collectedAt: new Date().toLocaleTimeString(),
+          },
+        });
       } catch (err) {
         publish("log", {
           level: "error",
-          template: "System metrics collection failed: {error}",
+          template: "System metrics push failed: {error}",
           args: { error: String(err) },
         });
       }
-    }, 5_000);
+    };
+    push();
+    state.intervalHandle = setInterval(push, 5_000);
   },
   stop() {
     if (state.intervalHandle) clearInterval(state.intervalHandle);
@@ -174,24 +208,41 @@ Key points:
 
 - **`auth: true`** — the route requires a signed-in user. Unauthenticated
   visitors are redirected to `/auth/signin`.
-- **`initialize()`** — called once at boot. Grab references from `AppState`
-  (like `conduit`) and store them in module state.
+- **`initialize()`** — called once at boot. Grab the `hub` from `AppState`
+  and store it in module state.
 - **`start()`** — called after ALL modules have initialized. Safe to start
-  collection loops here.
-- **`stop()`** — called on shutdown. Clean up timers to prevent leaks.
+  the push loop here.
+- **`hub.mergeSignals(data)`** — pushes Datastar signals to every SSE
+  connection subscribed to `?intent=data`. The client's `data-text` bindings
+  reactively update.
+- **`stop()`** — called on shutdown. Clear the interval to prevent leaks.
 
 ---
 
 ## Step 6: Try it
 
 ```sh
-deno run dev
+deno task dev
 ```
 
 Sign in at `/auth/signin` (default: admin/admin), then visit `/system`.
 
-The page refreshes with fresh metrics every 5 seconds. Hit the back button,
-the timer stops cleanly.
+The page shows live metrics that update every 5 seconds with no refresh.
+Open the browser DevTools network tab — you'll see the persistent SSE
+connection pushing `datastar-merge-signals` events.
+
+---
+
+## Step 7: Add `--allow-sys` to your task
+
+If you use a custom `dev` task, make sure it includes `--allow-sys`:
+
+```
+deno run --allow-net --allow-read --allow-sys --watch src/app.ts
+```
+
+The module uses `Deno.systemMemoryInfo()`, `Deno.hostname()`, and
+`Deno.loadavg()` — all require the `sys` permission.
 
 ---
 
@@ -201,12 +252,13 @@ the timer stops cleanly.
 |---|---|
 | Module auto-discovery | Just drop a directory in `src/modules/` |
 | Route with `auth: true` | `routes` array in module definition |
-| Conduit rendering | `conduit.respond(c, <Component />)` |
+| Datastar SSE signals | `hub.mergeSignals()` server-side + `data-text` on client |
+| Intent-based filtering | `hub.mergeSignals(data)` targets `data` intent subscribers |
 | Module-level state | Shared `state` object in `state.ts` |
 | `initialize()` hook | Grab references from `AppState` |
 | `start()` / `stop()` hooks | Timers, connections, cleanup |
 | Event publishing | `publish("log", ...)` for errors |
 | Deno built-ins | `systemMemoryInfo()`, `loadavg()`, `hostname()` |
 
-The system dashboard is a real, working module in your project now —
-`src/modules/system/`. Read it through, experiment with it, then build your own.
+The system dashboard is a real, working example in `docs/examples/system-dashboard/`.
+Copy it into `src/modules/system/` to try it, then build your own.

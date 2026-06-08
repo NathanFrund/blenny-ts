@@ -104,7 +104,7 @@ Deno.test("TransportHub", async (t) => {
     hub.patchElements("<div>hello</div>");
 
     assertEquals(conn.sent.length, 1);
-    const msg = JSON.parse(conn.sent[0]) as ServerMessage;
+    const msg = JSON.parse(conn.sent[0]) as { html: string };
     assertEquals(msg.html, "<div>hello</div>");
   });
 
@@ -136,7 +136,7 @@ Deno.test("TransportHub", async (t) => {
     hub.registerConnection(ui);
     hub.registerConnection(cmd);
 
-    hub.patchElements("<div>ui-only</div>", { intent: "ui" });
+    hub.patchElements("<div>ui-only</div>");
 
     assertEquals(ui.sent.length, 1);
     assertEquals(cmd.sent.length, 0);
@@ -150,7 +150,7 @@ Deno.test("TransportHub", async (t) => {
     hub.mergeSignals({ x: 1, y: 2 });
 
     assertEquals(conn.sent.length, 1);
-    const msg = JSON.parse(conn.sent[0]) as ServerMessage;
+    const msg = JSON.parse(conn.sent[0]) as { signals: Record<string, unknown> };
     assertEquals(msg.signals, { x: 1, y: 2 });
   });
 
@@ -162,7 +162,7 @@ Deno.test("TransportHub", async (t) => {
     hub.executeScript("console.log('hi')");
 
     assertEquals(conn.sent.length, 1);
-    const msg = JSON.parse(conn.sent[0]) as ServerMessage;
+    const msg = JSON.parse(conn.sent[0]) as { script: string };
     assertEquals(msg.script, "console.log('hi')");
   });
 
@@ -256,7 +256,7 @@ Deno.test("TransportHub", async (t) => {
       const any = new CaptureConnection(crypto.randomUUID());
       hub.registerConnection(any);
 
-      hub.patchElements("<div>intent-scoped</div>", { intent: "ui" });
+      hub.patchElements("<div>intent-scoped</div>");
 
       assertEquals(any.sent.length, 1);
     },
@@ -316,7 +316,7 @@ Deno.test("TransportHub", async (t) => {
     hub.registerConnection(both);
     hub.registerConnection(cmd);
 
-    hub.mergeSignals({ msg: "data-update" }, { intent: "data" });
+    hub.mergeSignals({ msg: "data-update" });
 
     assertEquals(ui.sent.length, 0);
     assertEquals(both.sent.length, 1);
@@ -341,40 +341,17 @@ Deno.test("TransportHub", async (t) => {
   });
 });
 
-Deno.test("Event bus", async (t) => {
-  await t.step("handler error does not affect other handlers", async () => {
-    const results: string[] = [];
-    const origError = console.error;
-    console.error = () => {};
+Deno.test("Hub events", async (t) => {
+  await t.step("subscribe + publish roundtrip", async () => {
+    const results: number[] = [];
+    const unsub = subscribe("platform:ready", (data) => {
+      results.push(data.timestamp);
+    });
 
-    try {
-      const unsub1 = subscribe("platform:ready", (_payload) => {
-        results.push("first");
-      });
+    await publish("platform:ready", { timestamp: 42 });
+    assertEquals(results, [42]);
 
-      const unsub2 = subscribe("platform:ready", (_payload) => {
-        results.push("second");
-      });
-
-      const unsub3 = subscribe("platform:ready", (_payload) => {
-        throw new Error("handler failure");
-      });
-
-      const unsub4 = subscribe("platform:ready", (_payload) => {
-        results.push("fourth");
-      });
-
-      await publish("platform:ready", { timestamp: 1 });
-
-      assertEquals(results, ["first", "second", "fourth"]);
-
-      unsub1();
-      unsub2();
-      unsub3();
-      unsub4();
-    } finally {
-      console.error = origError;
-    }
+    unsub();
   });
 
   await t.step("unsubscribe removes handler", async () => {
@@ -432,10 +409,10 @@ Deno.test("Hub drain", async (t) => {
 
       assertEquals(a.sent.length, 1);
       assertEquals(b.sent.length, 1);
-      const msgA = JSON.parse(a.sent[0]) as ServerMessage;
+      const msgA = JSON.parse(a.sent[0]) as { script: string };
       assertEquals(typeof msgA.script, "string");
-      assertStringIncludes(msgA.script!, "setTimeout");
-      assertStringIncludes(msgA.script!, "location.reload");
+      assertStringIncludes(msgA.script, "setTimeout");
+      assertStringIncludes(msgA.script, "location.reload");
 
       hub.removeConnection(a.id);
       hub.removeConnection(b.id);

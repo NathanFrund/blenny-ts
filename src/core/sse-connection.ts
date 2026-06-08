@@ -23,9 +23,17 @@ export class SseConnection implements Connection {
   }
 
   send(msg: ServerMessage): void {
-    if (msg.html) this.stream.patchElements(msg.html);
-    if (msg.signals) this.stream.patchSignals(JSON.stringify(msg.signals));
-    if (msg.script) this.stream.executeScript(msg.script);
+    switch (msg.intent) {
+      case "ui":
+        this.stream.patchElements(msg.html);
+        break;
+      case "data":
+        this.stream.patchSignals(JSON.stringify(msg.signals));
+        break;
+      case "command":
+        this.stream.executeScript(msg.script);
+        break;
+    }
   }
 
   close(): void {

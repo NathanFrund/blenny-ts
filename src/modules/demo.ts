@@ -1,5 +1,4 @@
 import type { TransportHub } from "../core/hub.ts";
-import type { Intent } from "../core/envelope.ts";
 import type { BlennyModule } from "@blenny/types";
 
 let hub: TransportHub;
@@ -27,25 +26,21 @@ const demoModule: BlennyModule = {
           case "ui":
             hub.patchElements(
               `<div style="padding:0.5rem;background:#58a6ff22;border:1px solid #58a6ff;border-radius:4px">UI at ${ts}</div>`,
-              { intent: "ui" },
             );
             break;
           case "data":
             hub.mergeSignals(
               { event: "data", timestamp: ts, value: Math.random() },
-              { intent: "data" },
             );
             break;
           case "command":
             hub.executeScript(
               `console.log("command at ${ts}")`,
-              { intent: "command" },
             );
             break;
           case "notification":
             hub.patchElements(
               `<div style="padding:0.5rem;background:#f0883e22;border:1px solid #f0883e;border-radius:4px">Notification at ${ts}</div>`,
-              { intent: "notification" },
             );
             break;
         }
@@ -56,10 +51,8 @@ const demoModule: BlennyModule = {
       method: "POST",
       path: "/demo/broadcast",
       handler: async (c) => {
-        const { intent, html } = await c.req.json();
-        hub.patchElements(html as string, {
-          intent: intent as Intent | undefined,
-        });
+        const { html } = await c.req.json();
+        hub.patchElements(html as string);
         return c.json({ ok: true });
       },
     },
@@ -70,7 +63,7 @@ const demoModule: BlennyModule = {
   start() {
     intervalId = setInterval(() => {
       const currentTime = new Date().toLocaleTimeString();
-      hub.mergeSignals({ currentTime }, { intent: "clock" });
+      hub.mergeSignals({ currentTime });
     }, 1000);
   },
   stop() {
@@ -118,7 +111,7 @@ const PAGE = `<!doctype html>
     <h1>Datastar + WebSocket</h1>
     <p>SSE uses the Datastar SDK for structured events. WS delivers bare payloads for HTMX clients.</p>
 
-    <div class="clock" data-init="@get('/sse?intent=clock')" data-signals='{"currentTime":"waiting..."}'>
+    <div class="clock" data-init="@get('/sse?intent=data')" data-signals='{"currentTime":"waiting..."}'>
       <span>Server clock:</span>
       <span class="time" data-text="$.currentTime"></span>
       <span style="color:#8b949e;font-size:0.75rem"> (auto-pushed via Datastar signals every 1s)</span>

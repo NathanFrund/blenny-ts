@@ -22,9 +22,17 @@ export class WsConnection implements Connection {
   }
 
   send(msg: ServerMessage): void {
-    if (msg.html) this.ws.send(msg.html);
-    if (msg.signals) this.ws.send(JSON.stringify(msg.signals));
-    if (msg.script) this.ws.send(msg.script);
+    switch (msg.intent) {
+      case "ui":
+        this.ws.send(msg.html);
+        break;
+      case "data":
+        this.ws.send(JSON.stringify(msg.signals));
+        break;
+      case "command":
+        this.ws.send(msg.script);
+        break;
+    }
   }
 }
 

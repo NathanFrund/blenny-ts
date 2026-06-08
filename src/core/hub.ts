@@ -126,7 +126,10 @@ export class TransportHub {
     // Send staggered reconnect script to every connection, bypassing intent filtering
     for (const conn of this.conns.values()) {
       const delay = randomInt(1_000, 6_000);
-      conn.send({ script: `setTimeout(()=>location.reload(),${delay})` });
+      conn.send({
+        intent: "command",
+        script: `setTimeout(()=>location.reload(),${delay})`,
+      });
     }
 
     return this.drainPromise;
@@ -219,7 +222,7 @@ export class TransportHub {
   // ── Internal dispatch ───────────────────────────────────────
 
   private async write(msg: ServerMessage, conn: Connection): Promise<void> {
-    if (msg.intent && conn.intents && !conn.intents.has(msg.intent)) {
+    if (conn.intents && !conn.intents.has(msg.intent)) {
       return;
     }
     const start = performance.now();
@@ -252,33 +255,44 @@ export class TransportHub {
 
   // ── Actions (module-facing API) ──────────────────────────────
 
+  /**
+   * Patch HTML elements on connected DataStar SSE clients.
+   * Delivered via `datastar-patch-elements` events to connections
+   * subscribed to the `ui` intent.
+   */
   patchElements(
     html: string,
-    opts?: { intent?: Intent; userId?: string },
+    opts?: { userId?: string },
   ): Promise<void> {
-    return this.sendMessage({ intent: opts?.intent, html }, opts?.userId);
+    return this.sendMessage({ intent: "ui", html }, opts?.userId);
   }
 
+  /**
+   * Merge signals on connected DataStar SSE clients.
+   * Delivered via `datastar-patch-signals` events to connections
+   * subscribed to the `data` intent.
+   */
   mergeSignals(
     data: Record<string, unknown>,
-    opts?: { intent?: Intent; userId?: string },
+    opts?: { userId?: string },
   ): Promise<void> {
     return this.sendMessage(
-      { intent: opts?.intent, signals: data },
+      { intent: "data", signals: data },
       opts?.userId,
     );
   }
 
   /**
    * Execute JavaScript on connected clients.
+   * Delivered via `datastar-execute-script` events to connections
+   * subscribed to the `command` intent.
    * Script is sent verbatim — only use with trusted content.
-   * For untrusted input, use `patchElements` or `mergeSignals` instead.
    */
   executeScript(
     script: string,
-    opts?: { intent?: Intent; userId?: string },
+    opts?: { userId?: string },
   ): Promise<void> {
-    return this.sendMessage({ intent: opts?.intent, script }, opts?.userId);
+    return this.sendMessage({ intent: "command", script }, opts?.userId);
   }
 
   private sendMessage(
@@ -297,24 +311,18 @@ export class TransportHub {
   private async broadcastToAll(msg: ServerMessage): Promise<void> {
     if (this.conns.size === 0) return;
     await withSpan("hub.broadcast", async (span) => {
-      span.setAttribute("msg.intent", msg.intent ?? "none");
+      span.setAttribute("msg.intent", msg.intent);
       const writes: Promise<void>[] = [];
-      if (msg.intent) {
-        const group = this.intentGroups.get(msg.intent);
-        if (group) {
-          for (const id of group) {
-            const conn = this.conns.get(id);
-            if (conn) writes.push(this.write(msg, conn));
-          }
-        }
-        for (const id of this.noIntentConns) {
+      const group = this.intentGroups.get(msg.intent);
+      if (group) {
+        for (const id of group) {
           const conn = this.conns.get(id);
           if (conn) writes.push(this.write(msg, conn));
         }
-      } else {
-        for (const conn of this.conns.values()) {
-          writes.push(this.write(msg, conn));
-        }
+      }
+      for (const id of this.noIntentConns) {
+        const conn = this.conns.get(id);
+        if (conn) writes.push(this.write(msg, conn));
       }
       const results = await Promise.allSettled(writes);
       const failed = results.filter((r) => r.status === "rejected");

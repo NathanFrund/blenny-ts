@@ -2,9 +2,39 @@ import type { TransportHub } from "../core/hub.ts";
 import type { TaskSupervisor } from "../core/task-supervisor.ts";
 import type { BlennyModule } from "@blenny/types";
 
+const INTERVAL_MS = 2000;
+const MAX_BACKOFF_MS = 30_000;
+const MAX_LOG = 10;
+
 let hub: TransportHub;
 let supervisor: TaskSupervisor;
-let flakyFailures = 0;
+let failureCount = 0;
+let attemptCount = 0;
+
+interface LogEntry {
+  attempt: number;
+  time: string;
+  status: "ok" | "fail";
+  retryMs?: number;
+}
+
+const history: LogEntry[] = [];
+
+function pushLog(entry: LogEntry): void {
+  history.push(entry);
+  if (history.length > MAX_LOG) history.shift();
+}
+
+function formatLog(): string {
+  return history.map((e) => {
+    const icon = e.status === "ok" ? " ✓" : " ✗";
+    const idx = String(e.attempt).padStart(3);
+    const retry = e.retryMs != null
+      ? `  (next in ${(e.retryMs / 1000).toFixed(1)}s)`
+      : "  (next in 2.0s)";
+    return `${idx}${icon}  ${e.time}${retry}`;
+  }).join("\n");
+}
 
 const taskDemoModule: BlennyModule = {
   name: "task-demo",
@@ -27,34 +57,49 @@ const taskDemoModule: BlennyModule = {
     supervisor.add(
       "flaky",
       () => {
+        attemptCount++;
         const now = new Date().toLocaleTimeString();
         if (Math.random() < 0.65) {
-          flakyFailures++;
-          const backoffMs = Math.min(2000 * Math.pow(2, flakyFailures), 30_000);
-          hub.mergeSignals(
-            {
-              flakyStatus: `✗ FAILED at ${now} (backoff ${
-                (backoffMs / 1000).toFixed(1)
-              }s)`,
-              flakyOk: false,
-              flakyFail: true,
-            },
-            { intent: "task-demo" },
+          failureCount++;
+          const retryMs = Math.min(
+            INTERVAL_MS * Math.pow(2, failureCount),
+            MAX_BACKOFF_MS,
           );
+          pushLog({
+            attempt: attemptCount,
+            time: now,
+            status: "fail",
+            retryMs,
+          });
+          hub.mergeSignals({
+            flakyStatus: `✗ FAILED at ${now} (attempt #${attemptCount}, retry #${failureCount} in ${(retryMs / 1000).toFixed(1)}s)`,
+            flakyOk: false,
+            flakyFail: true,
+            flakyAttempts: attemptCount,
+            flakyFailures: failureCount,
+            flakyNextRetry: `${(retryMs / 1000).toFixed(1)}s`,
+            flakyLog: formatLog(),
+          });
           throw new Error(`Flaky service failed at ${now}`);
         }
-        flakyFailures = 0;
-        hub.mergeSignals(
-          {
-            flakyStatus: `✓ OK at ${now}`,
-            flakyOk: true,
-            flakyFail: false,
-          },
-          { intent: "task-demo" },
-        );
+        failureCount = 0;
+        pushLog({
+          attempt: attemptCount,
+          time: now,
+          status: "ok",
+        });
+        hub.mergeSignals({
+          flakyStatus: `✓ OK at ${now} (attempt #${attemptCount})`,
+          flakyOk: true,
+          flakyFail: false,
+          flakyAttempts: attemptCount,
+          flakyFailures: 0,
+          flakyNextRetry: `${(INTERVAL_MS / 1000).toFixed(1)}s`,
+          flakyLog: formatLog(),
+        });
       },
-      2000,
-      30_000,
+      INTERVAL_MS,
+      MAX_BACKOFF_MS,
     );
   },
   stop() {
@@ -80,6 +125,9 @@ const PAGE = `<!doctype html>
       .status-ok { background: #3fb95022; color: #3fb950; border: 1px solid #3fb950; }
       .status-fail { background: #f8514922; color: #f85149; border: 1px solid #f85149; }
       .tag { display: inline-block; padding: 0.125rem 0.375rem; border-radius: 3px; font-size: 0.75rem; font-family: monospace; background: #21262d; color: #8b949e; border: 1px solid #30363d; }
+      .meta { font-size: 0.75rem; color: #8b949e; margin-top: 0.5rem; }
+      .meta span { margin-right: 1rem; }
+      .log { font-family: ui-monospace, monospace; font-size: 0.8125rem; line-height: 1.6; white-space: pre; background: #0d1117; border: 1px solid #21262d; border-radius: 4px; padding: 0.75rem; color: #8b949e; min-height: 3.5rem; overflow-x: auto; }
       ul { font-size: 0.8125rem; color: #8b949e; padding-left: 1.25rem; }
       ul li { margin-bottom: 0.25rem; }
     </style>
@@ -90,16 +138,26 @@ const PAGE = `<!doctype html>
 
     <div class="card">
       <h2>Flaky Service</h2>
-      <p data-init="@get('/sse?intent=task-demo')" data-signals='{"flakyStatus":"waiting...","flakyOk":true,"flakyFail":false}'>
+      <p data-init="@get('/sse?intent=data')" data-signals='{"flakyStatus":"waiting...","flakyOk":true,"flakyFail":false,"flakyAttempts":0,"flakyFailures":0,"flakyNextRetry":"2.0s","flakyLog":""}'>
         Status:
         <span data-show="$flakyOk" class="status status-ok" data-text="$flakyStatus"></span>
         <span data-show="$flakyFail" class="status status-fail" data-text="$flakyStatus"></span>
       </p>
+      <div class="meta">
+        <span>Attempts: <strong data-text="$flakyAttempts">0</strong></span>
+        <span>Consecutive failures: <strong data-text="$flakyFailures">0</strong></span>
+        <span>Next retry in: <strong data-text="$flakyNextRetry">2.0s</strong></span>
+      </div>
       <p style="font-size:0.75rem;color:#8b949e">
         Fails ~65% of the time so you can see the backoff stack up. On failure the supervisor backs off
         exponentially (2s → 4s → 8s → … capped at 30s) and logs the error.
         Once healthy, it recovers immediately.
       </p>
+    </div>
+
+    <div class="card">
+      <h2>Run Log</h2>
+      <div class="log" data-text="$flakyLog"></div>
     </div>
 
     <div class="card">
@@ -109,6 +167,7 @@ const PAGE = `<!doctype html>
         <li>On success: failure counter resets, next run in 2s</li>
         <li>On error: counter increments, delay doubles (up to 30s)</li>
         <li>On shutdown: <code class="tag">supervisor.remove("flaky")</code> in <code class="tag">stop()</code></li>
+        <li>Run log shows the last 10 attempts with status and next-retry timing</li>
       </ul>
     </div>
   </body>

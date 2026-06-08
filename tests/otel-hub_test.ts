@@ -64,7 +64,7 @@ Deno.test("OTel hub instrumentation", async (t) => {
     assertEquals(spans.length, 1);
     assertEquals(spans[0].name, "hub.broadcast");
     assertEquals(spans[0].attributes?.["conn.count"], 1);
-    assertEquals(spans[0].attributes?.["msg.intent"], "none");
+    assertEquals(spans[0].attributes?.["msg.intent"], "data");
   });
 
   await t.step("directToUser creates a hub.direct span", async () => {
@@ -130,7 +130,7 @@ Deno.test("OTel hub instrumentation", async (t) => {
   });
 
   await t.step(
-    "unmatched intent still creates span with conn.count and no errors",
+    "intent-mismatched connection still creates span with no errors",
     async () => {
       exporter.reset();
       const hub = new TransportHub();
@@ -140,7 +140,7 @@ Deno.test("OTel hub instrumentation", async (t) => {
       );
       hub.registerConnection(conn);
 
-      await hub.mergeSignals({ test: true }, { intent: "data" });
+      await hub.mergeSignals({ test: true });
 
       const spans = exporter.getFinishedSpans();
       assertEquals(spans.length, 1);
@@ -152,7 +152,7 @@ Deno.test("OTel hub instrumentation", async (t) => {
   );
 
   await t.step(
-    "intent broadcast adds msg.intent attribute on span",
+    "broadcast span includes msg.intent attribute",
     async () => {
       exporter.reset();
       const hub = new TransportHub();
@@ -162,7 +162,7 @@ Deno.test("OTel hub instrumentation", async (t) => {
       );
       hub.registerConnection(conn);
 
-      await hub.mergeSignals({ test: true }, { intent: "ui" });
+      await hub.patchElements("<div>test</div>");
 
       const spans = exporter.getFinishedSpans();
       assertEquals(spans.length, 1);

@@ -91,7 +91,7 @@ export class BlennyPublisher {
       );
     }
     const parsed = parseJsonData(data);
-    hubInstance.mergeSignals(parsed, { intent: "data" });
+    hubInstance.mergeSignals(parsed);
   }
 
   static directData(data: string, userId: string): void {
@@ -101,7 +101,7 @@ export class BlennyPublisher {
       );
     }
     const parsed = parseJsonData(data);
-    hubInstance.mergeSignals(parsed, { intent: "data", userId });
+    hubInstance.mergeSignals(parsed, { userId });
   }
 }
 

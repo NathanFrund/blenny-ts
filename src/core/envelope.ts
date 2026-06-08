@@ -1,14 +1,6 @@
-export type Intent =
-  | "ui"
-  | "data"
-  | "command"
-  | "notification"
-  | "clock"
-  | "task-demo";
+export type Intent = "ui" | "data" | "command";
 
-export interface ServerMessage {
-  intent?: Intent;
-  html?: string;
-  signals?: Record<string, unknown>;
-  script?: string;
-}
+export type ServerMessage =
+  | { intent: "ui"; html: string }
+  | { intent: "data"; signals: Record<string, unknown> }
+  | { intent: "command"; script: string };
