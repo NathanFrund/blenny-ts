@@ -2,7 +2,6 @@ import { Surreal } from "@surrealdb/surrealdb";
 import type { BlennyConfig } from "./config.ts";
 import { publish } from "./hub.ts";
 import type { DatabaseConnection } from "./db-connection.ts";
-import { registerConnectionType } from "./db-connection.ts";
 
 const HEALTH_INTERVAL_MS = 30_000;
 const MAX_CONNECT_RETRIES = 3;
@@ -149,8 +148,3 @@ export class SurrealConnectionManager implements DatabaseConnection {
     this._connected = false;
   }
 }
-
-registerConnectionType(
-  "surreal",
-  (config) => new SurrealConnectionManager(config),
-);

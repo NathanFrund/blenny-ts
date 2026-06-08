@@ -259,11 +259,35 @@ Unknown routes return a `404` via `app.notFound()`. Infrastructure endpoints
 
 ## Database
 
-Optional SurrealDB integration via `state.db`:
+Optional database integration via `state.db`. The available drivers are
+registered in `src/core/database.ts`:
 
 ```ts
-// main.ts connects automatically if config.surrealUrl is set
-const result = await state.db?.query("SELECT * FROM person");
+const DRIVERS: Record<string, (config: BlennyConfig) => Promise<DatabaseConnection>> = {
+  surreal: async (cfg) => {
+    const { SurrealConnectionManager } = await import("./db-manager.ts");
+    const mgr = new SurrealConnectionManager(cfg);
+    await mgr.connect();
+    return mgr;
+  },
+};
+```
+
+All drivers implement the `DatabaseConnection` interface:
+
+```ts
+interface DatabaseConnection {
+  readonly connected: boolean;
+  connect(): Promise<void>;
+  close(): Promise<void>;
+  query<T = unknown[]>(query: string, vars?: Record<string, unknown>): Promise<T>;
+}
+```
+
+Usage in app code:
+
+```ts
+await state.db?.query("SELECT * FROM person");
 ```
 
 Helper utilities:
@@ -272,6 +296,26 @@ Helper utilities:
 requireDb(state.db)   // Throws DbError if undefined
 await withDb(state.db, async (db) => { ... }, fallback)  // Graceful fallback
 ```
+
+### Adding a new driver (e.g. Postgres)
+
+1. Create `src/core/pg-connection.ts` with a class implementing `DatabaseConnection`
+2. Add one entry to the `DRIVERS` map in `database.ts`:
+
+```ts
+postgres: async (cfg) => {
+  const { PostgresConnectionManager } = await import("./pg-connection.ts");
+  const mgr = new PostgresConnectionManager(cfg);
+  await mgr.connect();
+  return mgr;
+},
+```
+
+3. Set `"database.type": "postgres"` in config (or `BLENNY_DATABASE_TYPE=postgres`).
+4. Write store implementations for the new backend (e.g. `PgUserStore` implements `UserStore`).
+
+The `await import()` ensures the driver module is only loaded when its type is
+configured, keeping compiled binaries tree-shakable.
 
 ## Graceful Shutdown
 

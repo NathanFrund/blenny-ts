@@ -1,17 +1,33 @@
 import type { BlennyConfig } from "./config.ts";
 import type { DatabaseConnection } from "./db-connection.ts";
-import { createConnection } from "./db-connection.ts";
-// Side-effect import — registers the "surreal" connection driver
-import "./db-manager.ts";
+import { DbError } from "./db-connection.ts";
+
+const DRIVERS: Record<
+  string,
+  (config: BlennyConfig) => Promise<DatabaseConnection>
+> = {
+  surreal: async (cfg) => {
+    const { SurrealConnectionManager } = await import("./db-manager.ts");
+    const mgr = new SurrealConnectionManager(cfg);
+    await mgr.connect();
+    return mgr;
+  },
+};
 
 export async function connectDatabase(
   config: BlennyConfig,
 ): Promise<DatabaseConnection | null> {
   const type = config.at("database.type") ?? "surreal";
+  const instantiate = DRIVERS[type];
+
+  if (!instantiate) {
+    throw new DbError(
+      `Unknown database type "${type}". Supported types: ${Object.keys(DRIVERS).join(", ")}`,
+    );
+  }
+
   try {
-    const manager = createConnection(type, config);
-    await manager.connect();
-    return manager;
+    return await instantiate(config);
   } catch (err) {
     console.error(`[database] Failed to connect to "${type}":`, err);
     return null;
