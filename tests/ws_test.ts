@@ -1,5 +1,5 @@
 import { assertEquals } from "@std/assert";
-import { WsConnection } from "../src/core/ws.ts";
+import { WsConnection } from "@blenny/core/ws.ts";
 
 Deno.test("WsConnection", async (t) => {
   await t.step("send() delivers bare HTML for ui messages", () => {

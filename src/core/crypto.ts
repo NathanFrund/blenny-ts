@@ -1,4 +1,4 @@
-import { withSpan } from "../../core/tracing.ts";
+import { withSpan } from "./tracing.ts";
 
 function pbkdf2(password: string, salt: string): Promise<string> {
   return withSpan("auth.deriveKey", async (_span) => {

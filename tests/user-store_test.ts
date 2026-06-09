@@ -1,5 +1,5 @@
 import { assertEquals, assertExists, assertRejects } from "@std/assert";
-import { createInMemoryUserStore } from "../src/core/user-store.ts";
+import { createInMemoryUserStore } from "@blenny/core/user-store.ts";
 
 const passHash = "abc123hash";
 

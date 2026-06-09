@@ -1,4 +1,4 @@
-import type { BlobStore } from "../../core/store.ts";
+import type { BlobStore } from "@blenny/core/store.ts";
 import type {
   AvatarGetResult,
   AvatarPutResult,

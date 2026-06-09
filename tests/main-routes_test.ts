@@ -1,18 +1,18 @@
 import { assertEquals, assertExists } from "@std/assert";
 import { Hono } from "@hono/hono";
-import { TransportHub } from "../src/core/hub.ts";
-import { Conduit } from "../src/core/conduit.ts";
-import { BlennyConfig } from "../src/core/config.ts";
-import { TaskSupervisor } from "../src/core/task-supervisor.ts";
-import { getUser } from "../src/core/auth.ts";
-import type { AppState } from "../src/core/app-state.ts";
+import { TransportHub } from "@blenny/core/hub.ts";
+import { Conduit } from "@blenny/core/conduit.ts";
+import { BlennyConfig } from "@blenny/core/config.ts";
+import { TaskSupervisor } from "@blenny/core/task-supervisor.ts";
+import { getUser } from "@blenny/core/auth.ts";
+import type { AppState } from "@blenny/core/app-state.ts";
 import { ServerSentEventGenerator } from "@starfederation/datastar-sdk/web";
-import { SseConnection } from "../src/core/sse-connection.ts";
-import { registerPlatformEndpoints } from "../src/core/bootstrap/endpoints.ts";
+import { SseConnection } from "@blenny/core/sse-connection.ts";
+import { registerPlatformEndpoints } from "@blenny/core/bootstrap/endpoints.ts";
 import {
   applyAuthMiddleware,
   registerModuleRoutes,
-} from "../src/core/bootstrap/modules.ts";
+} from "@blenny/core/bootstrap/modules.ts";
 
 Deno.test("main routes", async (t) => {
   const config = new BlennyConfig();
@@ -29,7 +29,7 @@ Deno.test("main routes", async (t) => {
   const app = new Hono();
 
   // Replicates main.ts bootstrap pipeline for endpoints-only test
-  const authModule = await import("../src/modules/.form-auth-kv/index.ts");
+  const authModule = await import("../src/modules/auth/.form-auth-kv/index.ts");
   await authModule.default.initialize?.(state);
   applyAuthMiddleware(app, state);
   const dashboardModule = await import("../src/modules/dashboard.tsx");
@@ -79,7 +79,7 @@ Deno.test("main routes", async (t) => {
   await t.step(
     "GET /sse with valid token returns SSE content-type",
     async () => {
-      const { createToken } = await import("../src/core/auth.ts");
+      const { createToken } = await import("@blenny/core/auth.ts");
       const token = await createToken(
         { id: "admin", role: "admin" },
         state.auth!.config,
@@ -105,7 +105,7 @@ Deno.test("main routes", async (t) => {
   );
 
   await t.step("GET /sse with token and intent works", async () => {
-    const { createToken } = await import("../src/core/auth.ts");
+    const { createToken } = await import("@blenny/core/auth.ts");
     const token = await createToken(
       { id: "admin", role: "admin" },
       state.auth!.config,
@@ -119,7 +119,7 @@ Deno.test("main routes", async (t) => {
   await t.step(
     "GET /sse with token creates authenticated connection",
     async () => {
-      const { createToken } = await import("../src/core/auth.ts");
+      const { createToken } = await import("@blenny/core/auth.ts");
       const token = await createToken(
         { id: "admin", role: "admin" },
         state.auth!.config,

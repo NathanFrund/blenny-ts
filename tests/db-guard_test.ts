@@ -1,6 +1,6 @@
 import { assertEquals, assertRejects, assertThrows } from "@std/assert";
-import { DbError } from "../src/core/db-connection.ts";
-import { requireDb, withDb } from "../src/core/db-guard.ts";
+import { DbError } from "@blenny/core/db-connection.ts";
+import { requireDb, withDb } from "@blenny/core/db-guard.ts";
 
 Deno.test("requireDb", async (t) => {
   await t.step("throws DbError when db is undefined", () => {

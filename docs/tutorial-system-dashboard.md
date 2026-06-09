@@ -2,8 +2,8 @@
 
 In this tutorial you'll create a live system dashboard module. By the end you'll
 have a working `/system` page (auth-protected) that shows memory usage, load
-average, and hostname — all streamed live every 5 seconds via Datastar SSE
-with no page refresh.
+average, and hostname — all streamed live every 5 seconds via Datastar SSE with
+no page refresh.
 
 **Time:** ~10 minutes
 
@@ -44,8 +44,8 @@ export const state = {
 };
 ```
 
-The `hub` reference is set during `initialize()`. The `intervalHandle` is
-set during `start()` and cleared during `stop()`.
+The `hub` reference is set during `initialize()`. The `intervalHandle` is set
+during `start()` and cleared during `stop()`.
 
 ---
 
@@ -62,29 +62,66 @@ const Dashboard: FC = () => (
     <h1>System Dashboard</h1>
     <p style="color:#666">Updates every 5 seconds via Datastar SSE</p>
     <table style="text-align:left">
-      <tr><td><strong>Hostname</strong></td><td data-text="$.sys.hostname">—</td></tr>
-      <tr><td><strong>Memory Total</strong></td><td data-text="$.sys.memTotal">—</td></tr>
-      <tr><td><strong>Memory Used</strong></td><td data-text="$.sys.memUsed">—</td></tr>
-      <tr><td><strong>Memory Free</strong></td><td data-text="$.sys.memFree">—</td></tr>
-      <tr><td><strong>Load Average</strong></td><td>
-        <span data-text="$.sys.load1m">—</span> /
-        <span data-text="$.sys.load5m">—</span> /
-        <span data-text="$.sys.load15m">—</span>
-      </td></tr>
-      <tr><td><strong>Process Uptime</strong></td><td>
-        <span data-text="$.sys.uptime">—</span> hours
-      </td></tr>
-      <tr><td><strong>Collected At</strong></td><td data-text="$.sys.collectedAt">—</td></tr>
+      <tr>
+        <td>
+          <strong>Hostname</strong>
+        </td>
+        <td data-text="$.sys.hostname">—</td>
+      </tr>
+      <tr>
+        <td>
+          <strong>Memory Total</strong>
+        </td>
+        <td data-text="$.sys.memTotal">—</td>
+      </tr>
+      <tr>
+        <td>
+          <strong>Memory Used</strong>
+        </td>
+        <td data-text="$.sys.memUsed">—</td>
+      </tr>
+      <tr>
+        <td>
+          <strong>Memory Free</strong>
+        </td>
+        <td data-text="$.sys.memFree">—</td>
+      </tr>
+      <tr>
+        <td>
+          <strong>Load Average</strong>
+        </td>
+        <td>
+          <span data-text="$.sys.load1m">—</span> /
+          <span data-text="$.sys.load5m">—</span> /
+          <span data-text="$.sys.load15m">—</span>
+        </td>
+      </tr>
+      <tr>
+        <td>
+          <strong>Process Uptime</strong>
+        </td>
+        <td>
+          <span data-text="$.sys.uptime">—</span> hours
+        </td>
+      </tr>
+      <tr>
+        <td>
+          <strong>Collected At</strong>
+        </td>
+        <td data-text="$.sys.collectedAt">—</td>
+      </tr>
     </table>
-    <p><a href="/dashboard">Back to Dashboard</a></p>
+    <p>
+      <a href="/dashboard">Back to Dashboard</a>
+    </p>
   </div>
 );
 
 export default Dashboard;
 ```
 
-Each `data-text="$.sys.hostname"` binds to a signal pushed from the server.
-The initial `—` shows until the first SSE message arrives.
+Each `data-text="$.sys.hostname"` binds to a signal pushed from the server. The
+initial `—` shows until the first SSE message arrives.
 
 ---
 
@@ -149,7 +186,10 @@ function bytes(n: number): string {
   const units = ["B", "KB", "MB", "GB"];
   let i = 0;
   let v = n;
-  while (v >= 1024 && i < units.length - 1) { v /= 1024; i++; }
+  while (v >= 1024 && i < units.length - 1) {
+    v /= 1024;
+    i++;
+  }
   return `${v.toFixed(1)} ${units[i]}`;
 }
 
@@ -208,13 +248,13 @@ Key points:
 
 - **`auth: true`** — the route requires a signed-in user. Unauthenticated
   visitors are redirected to `/auth/signin`.
-- **`initialize()`** — called once at boot. Grab the `hub` from `AppState`
-  and store it in module state.
-- **`start()`** — called after ALL modules have initialized. Safe to start
-  the push loop here.
-- **`hub.mergeSignals(data)`** — pushes Datastar signals to every SSE
-  connection subscribed to `?intent=data`. The client's `data-text` bindings
-  reactively update.
+- **`initialize()`** — called once at boot. Grab the `hub` from `AppState` and
+  store it in module state.
+- **`start()`** — called after ALL modules have initialized. Safe to start the
+  push loop here.
+- **`hub.mergeSignals(data)`** — pushes Datastar signals to every SSE connection
+  subscribed to `?intent=data`. The client's `data-text` bindings reactively
+  update.
 - **`stop()`** — called on shutdown. Clear the interval to prevent leaks.
 
 ---
@@ -227,9 +267,9 @@ deno task dev
 
 Sign in at `/auth/signin` (default: admin/admin), then visit `/system`.
 
-The page shows live metrics that update every 5 seconds with no refresh.
-Open the browser DevTools network tab — you'll see the persistent SSE
-connection pushing `datastar-merge-signals` events.
+The page shows live metrics that update every 5 seconds with no refresh. Open
+the browser DevTools network tab — you'll see the persistent SSE connection
+pushing `datastar-merge-signals` events.
 
 ---
 
@@ -248,17 +288,18 @@ The module uses `Deno.systemMemoryInfo()`, `Deno.hostname()`, and
 
 ## What you learned
 
-| Concept | Where |
-|---|---|
-| Module auto-discovery | Just drop a directory in `src/modules/` |
-| Route with `auth: true` | `routes` array in module definition |
-| Datastar SSE signals | `hub.mergeSignals()` server-side + `data-text` on client |
-| Intent-based filtering | `hub.mergeSignals(data)` targets `data` intent subscribers |
-| Module-level state | Shared `state` object in `state.ts` |
-| `initialize()` hook | Grab references from `AppState` |
-| `start()` / `stop()` hooks | Timers, connections, cleanup |
-| Event publishing | `publish("log", ...)` for errors |
-| Deno built-ins | `systemMemoryInfo()`, `loadavg()`, `hostname()` |
+| Concept                    | Where                                                      |
+| -------------------------- | ---------------------------------------------------------- |
+| Module auto-discovery      | Just drop a directory in `src/modules/`                    |
+| Route with `auth: true`    | `routes` array in module definition                        |
+| Datastar SSE signals       | `hub.mergeSignals()` server-side + `data-text` on client   |
+| Intent-based filtering     | `hub.mergeSignals(data)` targets `data` intent subscribers |
+| Module-level state         | Shared `state` object in `state.ts`                        |
+| `initialize()` hook        | Grab references from `AppState`                            |
+| `start()` / `stop()` hooks | Timers, connections, cleanup                               |
+| Event publishing           | `publish("log", ...)` for errors                           |
+| Deno built-ins             | `systemMemoryInfo()`, `loadavg()`, `hostname()`            |
 
-The system dashboard is a real, working example in `docs/examples/system-dashboard/`.
-Copy it into `src/modules/system/` to try it, then build your own.
+The system dashboard is a real, working example in
+`docs/examples/system-dashboard/`. Copy it into `src/modules/system/` to try it,
+then build your own.

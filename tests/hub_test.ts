@@ -10,9 +10,9 @@ import {
   publish,
   subscribe,
   TransportHub,
-} from "../src/core/hub.ts";
-import { BlennyError } from "../src/core/error.ts";
-import type { Intent, ServerMessage } from "../src/core/envelope.ts";
+} from "@blenny/core/hub.ts";
+import { BlennyError } from "@blenny/core/error.ts";
+import type { Intent, ServerMessage } from "@blenny/core/envelope.ts";
 
 class CaptureConnection implements Connection {
   id: ConnId;
@@ -150,7 +150,9 @@ Deno.test("TransportHub", async (t) => {
     hub.mergeSignals({ x: 1, y: 2 });
 
     assertEquals(conn.sent.length, 1);
-    const msg = JSON.parse(conn.sent[0]) as { signals: Record<string, unknown> };
+    const msg = JSON.parse(conn.sent[0]) as {
+      signals: Record<string, unknown>;
+    };
     assertEquals(msg.signals, { x: 1, y: 2 });
   });
 

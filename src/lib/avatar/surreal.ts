@@ -1,4 +1,4 @@
-import type { DatabaseConnection } from "../../core/db-connection.ts";
+import type { DatabaseConnection } from "@blenny/core/db-connection.ts";
 import type { AvatarGetResult } from "./service.ts";
 
 export async function getAvatarFromBucket(

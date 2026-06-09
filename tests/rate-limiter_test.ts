@@ -5,7 +5,7 @@ import {
   assertLessOrEqual,
 } from "@std/assert";
 import { Hono } from "@hono/hono";
-import { createRateLimiter } from "../src/core/rate-limiter.ts";
+import { createRateLimiter } from "@blenny/core/rate-limiter.ts";
 
 Deno.test("rate limiter", async (t) => {
   await t.step("passes requests under the limit", async () => {

@@ -1,13 +1,14 @@
 import type { Context } from "@hono/hono";
-import type { UserInfo } from "../../core/auth.ts";
+import type { UserInfo } from "@blenny/core/auth.ts";
 import {
   clearSessionCookie,
   createToken,
   setSessionCookie,
-} from "../../core/auth.ts";
-import { publish } from "../../core/hub.ts";
+} from "@blenny/core/auth.ts";
+import { publish } from "@blenny/core/hub.ts";
 import * as v from "@valibot/valibot";
-import { PasswordSchema, UsernameSchema } from "../../core/validation.ts";
+import { PasswordSchema, UsernameSchema } from "@blenny/core/validation.ts";
+import { deriveKey, verifyKey } from "./crypto.ts";
 import { ProfilePage, RegisterPage, SignInPage } from "./ui.tsx";
 import { state } from "./state.ts";
 
@@ -31,11 +32,8 @@ async function handleSignIn(c: Context): Promise<Response> {
     return renderSignIn(c, "Invalid username or password");
   }
 
-  const [isValid] = await state.db!.query<[boolean]>(
-    "RETURN crypto::argon2::compare($hash, $password)",
-    { hash: user.passwordHash, password },
-  );
-  if (!isValid) {
+  const hash = await verifyKey(password, user.salt);
+  if (user.passwordHash !== hash) {
     return renderSignIn(c, "Invalid username or password");
   }
 
@@ -80,10 +78,11 @@ async function handleRegister(c: Context): Promise<Response> {
     return renderRegister(c, "Display name is required");
   }
 
+  const { hash, salt } = await deriveKey(password);
   const user = await state.store.createUser({
     username,
-    passwordHash: password,
-    salt: "",
+    passwordHash: hash,
+    salt,
     displayName,
     role: "user",
   }).catch((err: unknown) => {

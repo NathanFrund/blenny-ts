@@ -263,7 +263,10 @@ Optional database integration via `state.db`. The available drivers are
 registered in `src/core/database.ts`:
 
 ```ts
-const DRIVERS: Record<string, (config: BlennyConfig) => Promise<DatabaseConnection>> = {
+const DRIVERS: Record<
+  string,
+  (config: BlennyConfig) => Promise<DatabaseConnection>
+> = {
   surreal: async (cfg) => {
     const { SurrealConnectionManager } = await import("./db-manager.ts");
     const mgr = new SurrealConnectionManager(cfg);
@@ -280,7 +283,10 @@ interface DatabaseConnection {
   readonly connected: boolean;
   connect(): Promise<void>;
   close(): Promise<void>;
-  query<T = unknown[]>(query: string, vars?: Record<string, unknown>): Promise<T>;
+  query<T = unknown[]>(
+    query: string,
+    vars?: Record<string, unknown>,
+  ): Promise<T>;
 }
 ```
 
@@ -299,7 +305,8 @@ await withDb(state.db, async (db) => { ... }, fallback)  // Graceful fallback
 
 ### Adding a new driver (e.g. Postgres)
 
-1. Create `src/core/pg-connection.ts` with a class implementing `DatabaseConnection`
+1. Create `src/core/pg-connection.ts` with a class implementing
+   `DatabaseConnection`
 2. Add one entry to the `DRIVERS` map in `database.ts`:
 
 ```ts
@@ -311,8 +318,10 @@ postgres: async (cfg) => {
 },
 ```
 
-3. Set `"database.type": "postgres"` in config (or `BLENNY_DATABASE_TYPE=postgres`).
-4. Write store implementations for the new backend (e.g. `PgUserStore` implements `UserStore`).
+3. Set `"database.type": "postgres"` in config (or
+   `BLENNY_DATABASE_TYPE=postgres`).
+4. Write store implementations for the new backend (e.g. `PgUserStore`
+   implements `UserStore`).
 
 The `await import()` ensures the driver module is only loaded when its type is
 configured, keeping compiled binaries tree-shakable.

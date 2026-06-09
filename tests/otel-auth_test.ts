@@ -5,8 +5,8 @@ import {
   SimpleSpanProcessor,
 } from "@opentelemetry/sdk-trace-base";
 import { trace } from "@opentelemetry/api";
-import { createToken, getUser } from "../src/core/auth.ts";
-import type { AuthConfig } from "../src/core/auth.ts";
+import { createToken, getUser } from "@blenny/core/auth.ts";
+import type { AuthConfig } from "@blenny/core/auth.ts";
 import { Context } from "@hono/hono";
 
 const config: AuthConfig = {

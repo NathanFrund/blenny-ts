@@ -5,7 +5,7 @@ import {
   SimpleSpanProcessor,
 } from "@opentelemetry/sdk-trace-base";
 import { SpanStatusCode, trace } from "@opentelemetry/api";
-import { deriveKey } from "../src/modules/.form-auth-kv/crypto.ts";
+import { deriveKey } from "../src/modules/auth/.form-auth-kv/crypto.ts";
 
 const exporter = new InMemorySpanExporter();
 const provider = new BasicTracerProvider();

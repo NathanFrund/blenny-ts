@@ -1,5 +1,5 @@
 import { assertEquals, assertThrows } from "@std/assert";
-import { BlennyConfig } from "../src/core/config.ts";
+import { BlennyConfig } from "@blenny/core/config.ts";
 
 Deno.test("BlennyConfig defaults", async (t) => {
   await t.step("returns embedded default port", () => {

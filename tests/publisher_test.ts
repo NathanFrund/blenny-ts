@@ -1,8 +1,8 @@
 import { assertEquals, assertThrows } from "@std/assert";
-import { BlennyPublisher, PublisherError } from "../src/core/publisher.ts";
-import { TransportHub } from "../src/core/hub.ts";
+import { BlennyPublisher, PublisherError } from "@blenny/core/publisher.ts";
+import { TransportHub } from "@blenny/core/hub.ts";
 import { jsx } from "@hono/hono/jsx";
-import type { Intent, ServerMessage } from "../src/core/envelope.ts";
+import type { Intent, ServerMessage } from "@blenny/core/envelope.ts";
 
 class CaptureConnection {
   id: string;
@@ -106,7 +106,10 @@ Deno.test("BlennyPublisher broadcastData parses JSON internally", () => {
 
   BlennyPublisher.broadcastData('{"score":42,"name":"alice"}');
   assertEquals(conn.sent.length, 1);
-  const msg = JSON.parse(conn.sent[0]) as { signals: Record<string, unknown>; intent: string };
+  const msg = JSON.parse(conn.sent[0]) as {
+    signals: Record<string, unknown>;
+    intent: string;
+  };
   assertEquals(msg.signals, { score: 42, name: "alice" });
   assertEquals(msg.intent, "data");
 });
@@ -182,7 +185,10 @@ Deno.test("BlennyPublisher directData to specific user", () => {
   assertEquals(alice.sent.length, 1);
   assertEquals(bob.sent.length, 0);
 
-  const msg = JSON.parse(alice.sent[0]) as { signals: Record<string, unknown>; intent: string };
+  const msg = JSON.parse(alice.sent[0]) as {
+    signals: Record<string, unknown>;
+    intent: string;
+  };
   assertEquals(msg.signals, { msg: "secret" });
   assertEquals(msg.intent, "data");
 });

@@ -1,9 +1,9 @@
 import { assertEquals } from "@std/assert";
-import { stopModules } from "../src/core/bootstrap/modules.ts";
-import type { AppState } from "../src/core/app-state.ts";
+import { stopModules } from "@blenny/core/bootstrap/modules.ts";
+import type { AppState } from "@blenny/core/app-state.ts";
 import type { BlennyModule } from "../src/types.ts";
-import { TransportHub } from "../src/core/hub.ts";
-import { TaskSupervisor } from "../src/core/task-supervisor.ts";
+import { TransportHub } from "@blenny/core/hub.ts";
+import { TaskSupervisor } from "@blenny/core/task-supervisor.ts";
 
 Deno.test("stopModules calls all cleanup", async (t) => {
   const hub = new TransportHub();

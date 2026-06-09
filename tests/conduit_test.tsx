@@ -1,7 +1,7 @@
 import { assertEquals } from "@std/assert";
 import { Context } from "@hono/hono";
 import type { Child, FC } from "@hono/hono/jsx";
-import { Conduit } from "../src/core/conduit.ts";
+import { Conduit } from "@blenny/core/conduit.ts";
 
 const MiniLayout: FC<{ children: Child }> = (props) => (
   <html>

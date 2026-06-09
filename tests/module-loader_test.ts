@@ -1,5 +1,5 @@
 import { assertEquals, assertExists } from "@std/assert";
-import { loadModules } from "../src/core/module-loader.ts";
+import { loadModules } from "@blenny/core/module-loader.ts";
 
 Deno.test("module-loader", async (t) => {
   await t.step("loadModules returns modules and failures arrays", async () => {
@@ -52,9 +52,7 @@ Deno.test("module-loader", async (t) => {
 
   await t.step("form-auth-surreal declares auth capability", async () => {
     const result = await loadModules();
-    const formAuth = result.modules.find((m) =>
-      m.name === "form-auth-surreal"
-    );
+    const formAuth = result.modules.find((m) => m.name === "form-auth-surreal");
     assertExists(formAuth);
     assertExists(formAuth.capabilities);
     assertEquals(formAuth.capabilities!.includes("auth"), true);

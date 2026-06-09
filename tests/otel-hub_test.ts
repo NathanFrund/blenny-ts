@@ -5,9 +5,9 @@ import {
   SimpleSpanProcessor,
 } from "@opentelemetry/sdk-trace-base";
 import { SpanStatusCode, trace } from "@opentelemetry/api";
-import { TransportHub } from "../src/core/hub.ts";
-import type { Connection, ConnId } from "../src/core/hub.ts";
-import type { Intent, ServerMessage } from "../src/core/envelope.ts";
+import { TransportHub } from "@blenny/core/hub.ts";
+import type { Connection, ConnId } from "@blenny/core/hub.ts";
+import type { Intent, ServerMessage } from "@blenny/core/envelope.ts";
 
 class CaptureOtelConnection implements Connection {
   id: ConnId;

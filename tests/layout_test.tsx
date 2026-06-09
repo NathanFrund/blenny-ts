@@ -1,5 +1,5 @@
 import { assertEquals } from "@std/assert";
-import { DefaultLayout } from "../src/core/layout.tsx";
+import { DefaultLayout } from "@blenny/core/layout.tsx";
 import { Hono } from "@hono/hono";
 import type { FC } from "@hono/hono/jsx";
 

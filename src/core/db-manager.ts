@@ -82,7 +82,10 @@ export class SurrealConnectionManager implements DatabaseConnection {
 
   private startHealthCheck(): void {
     this.stopHealthCheck();
-    this.healthTimer = setInterval(() => this.healthCheck(), HEALTH_INTERVAL_MS);
+    this.healthTimer = setInterval(
+      () => this.healthCheck(),
+      HEALTH_INTERVAL_MS,
+    );
   }
 
   private stopHealthCheck(): void {

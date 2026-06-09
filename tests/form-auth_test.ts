@@ -1,12 +1,12 @@
 import { assertEquals, assertExists } from "@std/assert";
 import { Hono } from "@hono/hono";
 import type { MiddlewareHandler } from "@hono/hono";
-import { TransportHub } from "../src/core/hub.ts";
-import { Conduit } from "../src/core/conduit.ts";
-import { BlennyConfig } from "../src/core/config.ts";
-import { TaskSupervisor } from "../src/core/task-supervisor.ts";
-import authModule from "../src/modules/.form-auth-kv/index.ts";
-import type { AppState } from "../src/core/app-state.ts";
+import { TransportHub } from "@blenny/core/hub.ts";
+import { Conduit } from "@blenny/core/conduit.ts";
+import { BlennyConfig } from "@blenny/core/config.ts";
+import { TaskSupervisor } from "@blenny/core/task-supervisor.ts";
+import authModule from "../src/modules/auth/.form-auth-kv/index.ts";
+import type { AppState } from "@blenny/core/app-state.ts";
 import type { HttpMethod } from "../src/types.ts";
 
 function buildBody(base: Record<string, string>): URLSearchParams {

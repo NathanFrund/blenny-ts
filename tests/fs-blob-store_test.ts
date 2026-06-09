@@ -1,5 +1,5 @@
 import { assertEquals } from "@std/assert";
-import { FsBlobStore } from "../src/core/fs-blob-store.ts";
+import { FsBlobStore } from "@blenny/core/fs-blob-store.ts";
 
 function makeTempStore(): { store: FsBlobStore; dir: string } {
   const dir = Deno.makeTempDirSync({ prefix: "blenny-fs-blob-" });

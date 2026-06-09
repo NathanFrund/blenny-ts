@@ -1,5 +1,5 @@
-import type { TransportHub } from "../core/hub.ts";
-import type { TaskSupervisor } from "../core/task-supervisor.ts";
+import type { TransportHub } from "@blenny/core/hub.ts";
+import type { TaskSupervisor } from "@blenny/core/task-supervisor.ts";
 import type { BlennyModule } from "@blenny/types";
 
 const INTERVAL_MS = 2000;
@@ -72,7 +72,10 @@ const taskDemoModule: BlennyModule = {
             retryMs,
           });
           hub.mergeSignals({
-            flakyStatus: `✗ FAILED at ${now} (attempt #${attemptCount}, retry #${failureCount} in ${(retryMs / 1000).toFixed(1)}s)`,
+            flakyStatus:
+              `✗ FAILED at ${now} (attempt #${attemptCount}, retry #${failureCount} in ${
+                (retryMs / 1000).toFixed(1)
+              }s)`,
             flakyOk: false,
             flakyFail: true,
             flakyAttempts: attemptCount,

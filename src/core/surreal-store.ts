@@ -131,6 +131,38 @@ export class SurrealUserStore implements UserStore {
     if (!record) throw new Error(`User ${id} not found`);
   }
 
+  async findAll(): Promise<StoredUser[]> {
+    const result = await this.db.query<[SurrealUserRecord[]]>(
+      "SELECT * FROM user ORDER BY createdAt ASC",
+    );
+    return (result[0] ?? []).map(mapUser);
+  }
+
+  async updateRole(id: string, role: string): Promise<void> {
+    const result = await this.db.query(
+      "UPDATE user MERGE { role: $role } WHERE uuid = $uuid",
+      { uuid: id, role },
+    );
+    const [[record]] = result as unknown as [[SurrealUserRecord[]]];
+    if (!record) throw new Error(`User ${id} not found`);
+  }
+
+  async changePassword(
+    id: string,
+    currentPassword: string,
+    newPassword: string,
+  ): Promise<void> {
+    const user = await this.findById(id);
+    if (!user) throw new Error(`User ${id} not found`);
+    const valid = await this.verifyPassword(currentPassword, user.passwordHash);
+    if (!valid) throw new Error("Current password is incorrect");
+    const hash = await this.hashPassword(newPassword);
+    await this.db.query(
+      "UPDATE user MERGE { password: $hash } WHERE uuid = $uuid",
+      { uuid: id, hash },
+    );
+  }
+
   async deleteUser(id: string): Promise<boolean> {
     const result = await this.db.query(
       "DELETE user WHERE uuid = $uuid",

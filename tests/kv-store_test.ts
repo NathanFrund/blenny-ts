@@ -1,5 +1,9 @@
 import { assertEquals, assertExists, assertRejects } from "@std/assert";
-import { KvBlobStore, KvUserStore, openKvStore } from "../src/core/kv-store.ts";
+import {
+  KvBlobStore,
+  KvUserStore,
+  openKvStore,
+} from "@blenny/core/kv-store.ts";
 
 const passHash = "abc123hash";
 

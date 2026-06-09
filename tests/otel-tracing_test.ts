@@ -5,7 +5,7 @@ import {
   SimpleSpanProcessor,
 } from "@opentelemetry/sdk-trace-base";
 import { SpanStatusCode, trace } from "@opentelemetry/api";
-import { withSpan } from "../src/core/tracing.ts";
+import { withSpan } from "@blenny/core/tracing.ts";
 
 const exporter = new InMemorySpanExporter();
 const provider = new BasicTracerProvider();

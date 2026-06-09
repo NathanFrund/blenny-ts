@@ -1,10 +1,10 @@
-import type { DatabaseConnection } from "../../core/db-connection.ts";
+import type { DatabaseConnection } from "@blenny/core/db-connection.ts";
 import type {
   AvatarPutResult,
   AvatarService,
-} from "../../lib/avatar/service.ts";
-import { getAvatarFromBucket } from "../../lib/avatar/surreal.ts";
-import type { AvatarGetResult } from "../../lib/avatar/service.ts";
+} from "@blenny/lib/avatar/service.ts";
+import { getAvatarFromBucket } from "@blenny/lib/avatar/surreal.ts";
+import type { AvatarGetResult } from "@blenny/lib/avatar/service.ts";
 
 export class SurrealBucketAvatarService implements AvatarService {
   constructor(private readonly db: DatabaseConnection) {}

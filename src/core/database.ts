@@ -22,7 +22,9 @@ export async function connectDatabase(
 
   if (!instantiate) {
     throw new DbError(
-      `Unknown database type "${type}". Supported types: ${Object.keys(DRIVERS).join(", ")}`,
+      `Unknown database type "${type}". Supported types: ${
+        Object.keys(DRIVERS).join(", ")
+      }`,
     );
   }
 

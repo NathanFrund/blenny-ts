@@ -3,6 +3,7 @@ import * as blob from "@kitsonk/kv-toolbox/blob";
 import { NewUserSchema, UserSchema } from "./validation.ts";
 import type { NewUserInput, UserData } from "./validation.ts";
 import type { BlobStore, StoredUser, UserStore } from "./store.ts";
+import { deriveKey, verifyKey } from "./crypto.ts";
 
 // ── KvUserStore ────────────────────────────────────────────────
 
@@ -58,6 +59,44 @@ export class KvUserStore implements UserStore {
     const doc = await this.kv.get<UserData>(["users", id]);
     if (!doc.value) throw new Error(`User ${id} not found`);
     await this.kv.set(["users", id], { ...doc.value, avatarKey: key });
+  }
+
+  async findAll(): Promise<StoredUser[]> {
+    const users: StoredUser[] = [];
+    const iter = this.kv.list<UserData>({ prefix: ["users"] });
+    for await (const entry of iter) {
+      const id = entry.key[1] as string;
+      const parsed = v.safeParse(UserSchema, entry.value);
+      if (parsed.success) {
+        users.push({ ...parsed.output, id });
+      }
+    }
+    return users;
+  }
+
+  async updateRole(id: string, role: string): Promise<void> {
+    const doc = await this.kv.get<UserData>(["users", id]);
+    if (!doc.value) throw new Error(`User ${id} not found`);
+    await this.kv.set(["users", id], { ...doc.value, role });
+  }
+
+  async changePassword(
+    id: string,
+    currentPassword: string,
+    newPassword: string,
+  ): Promise<void> {
+    const doc = await this.kv.get<UserData>(["users", id]);
+    if (!doc.value) throw new Error(`User ${id} not found`);
+    const hash = await verifyKey(currentPassword, doc.value.salt);
+    if (doc.value.passwordHash !== hash) {
+      throw new Error("Current password is incorrect");
+    }
+    const { hash: newHash, salt: newSalt } = await deriveKey(newPassword);
+    await this.kv.set(["users", id], {
+      ...doc.value,
+      passwordHash: newHash,
+      salt: newSalt,
+    });
   }
 
   async deleteUser(id: string): Promise<boolean> {

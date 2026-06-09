@@ -155,62 +155,82 @@ export async function loadModules(): Promise<ModuleLoadResult> {
     // No manifest or import failed — fall through to scan mode
   }
 
-  try {
-    for await (const entry of Deno.readDir(modulesDir)) {
+  async function scanDir(
+    dirPath: string,
+    labelPrefix: string,
+    results: { modules: BlennyModule[]; failures: ModuleLoadFailure[] },
+  ): Promise<void> {
+    for await (const entry of Deno.readDir(dirPath)) {
       const name = entry.name;
       if (name.startsWith(".")) continue;
 
-      let sourceUrl: string;
-      let label: string;
+      const label = labelPrefix ? `${labelPrefix}/${name}` : name;
+      const entryPath = join(dirPath, name);
 
       if (entry.isFile && (name.endsWith(".ts") || name.endsWith(".tsx"))) {
-        sourceUrl = toFileUrl(join(modulesDir, name)).href;
-        label = name;
-      } else if (entry.isDirectory) {
-        const indexFile = await findIndexFile(join(modulesDir, name));
-        if (!indexFile) {
-          failures.push({
-            file: name,
-            error: "directory module has no index.ts or index.tsx",
+        try {
+          const sourceUrl = toFileUrl(entryPath).href;
+          const mod = await import(sourceUrl);
+          const result = validateModule(mod.default, label);
+          if (result.mod) {
+            results.modules.push(result.mod);
+          } else {
+            results.failures.push({ file: label, error: result.err! });
+          }
+        } catch (err) {
+          results.failures.push({
+            file: label,
+            error: err instanceof Error ? err.message : String(err),
+            stack: err instanceof Error ? err.stack : undefined,
           });
-          continue;
         }
-        sourceUrl = toFileUrl(indexFile).href;
-        label = name;
-      } else {
-        continue;
-      }
-
-      try {
-        const mod = await import(sourceUrl);
-        const result = validateModule(mod.default, label);
-        if (result.mod) {
-          modules.push(result.mod);
+      } else if (entry.isDirectory) {
+        const indexFile = await findIndexFile(entryPath);
+        if (indexFile) {
+          try {
+            const sourceUrl = toFileUrl(indexFile).href;
+            const mod = await import(sourceUrl);
+            const result = validateModule(mod.default, label);
+            if (result.mod) {
+              results.modules.push(result.mod);
+            } else {
+              results.failures.push({ file: label, error: result.err! });
+            }
+          } catch (err) {
+            results.failures.push({
+              file: label,
+              error: err instanceof Error ? err.message : String(err),
+              stack: err instanceof Error ? err.stack : undefined,
+            });
+          }
         } else {
-          failures.push({ file: name, error: result.err! });
+          await scanDir(entryPath, label, results);
         }
-      } catch (err) {
-        failures.push({
-          file: name,
-          error: err instanceof Error ? err.message : String(err),
-          stack: err instanceof Error ? err.stack : undefined,
-        });
       }
-    }
-  } catch (err) {
-    if (err instanceof Deno.errors.NotFound) {
-      failures.push({
-        file: String(modulesDir),
-        error: "modules dir not found",
-      });
-    } else {
-      failures.push({
-        file: String(modulesDir),
-        error: err instanceof Error ? err.message : String(err),
-        stack: err instanceof Error ? err.stack : undefined,
-      });
     }
   }
 
-  return { modules, failures };
+  try {
+    const results: ModuleLoadResult = { modules: [], failures: [] };
+    await scanDir(modulesDir, "", results);
+    return results;
+  } catch (err) {
+    if (err instanceof Deno.errors.NotFound) {
+      return {
+        modules: [],
+        failures: [{
+          file: String(modulesDir),
+          error: "modules dir not found",
+        }],
+      };
+    }
+    return {
+      modules: [],
+      failures: [{
+        file: String(modulesDir),
+        error: err instanceof Error ? err.message : String(err),
+        stack: err instanceof Error ? err.stack : undefined,
+      }],
+    };
+  }
 }

@@ -1,19 +1,19 @@
-import type { AppState } from "../../core/app-state.ts";
+import type { AppState } from "@blenny/core/app-state.ts";
 import {
   createAuthMiddleware,
   requireRole,
   requireUser,
-} from "../../core/auth.ts";
-import { openKvStore } from "../../core/kv-store.ts";
-import { createInMemoryUserStore } from "../../core/user-store.ts";
-import { FsBlobStore } from "../../core/fs-blob-store.ts";
-import { publish } from "../../core/hub.ts";
-import type { BlennyModule } from "../../types.ts";
-import { BlobStoreAvatarService } from "../../lib/avatar/blob-store.ts";
+} from "@blenny/core/auth.ts";
+import { openKvStore } from "@blenny/core/kv-store.ts";
+import { createInMemoryUserStore } from "@blenny/core/user-store.ts";
+import { FsBlobStore } from "@blenny/core/fs-blob-store.ts";
+import { publish } from "@blenny/core/hub.ts";
+import type { BlennyModule } from "@blenny/types";
+import { BlobStoreAvatarService } from "@blenny/lib/avatar/blob-store.ts";
 import {
   createHandleAvatarServe,
   createHandleAvatarUpload,
-} from "../../lib/avatar/handlers.ts";
+} from "@blenny/lib/avatar/handlers.ts";
 import { deriveKey } from "./crypto.ts";
 import { state } from "./state.ts";
 import {
@@ -86,9 +86,15 @@ const authModule: BlennyModule = {
     }
 
     const avatarSvc = new BlobStoreAvatarService(state.blobStore);
-    state.deps = { store: state.store, avatarService: avatarSvc, blobStore: state.blobStore };
+    state.deps = {
+      store: state.store,
+      avatarService: avatarSvc,
+      blobStore: state.blobStore,
+    };
     state.handleAvatarUpload = createHandleAvatarUpload(state.deps);
     state.handleAvatarServe = createHandleAvatarServe(state.deps);
+
+    state_.store = state.store;
 
     state_.auth = {
       config: state.config,

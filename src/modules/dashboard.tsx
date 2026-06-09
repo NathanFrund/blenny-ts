@@ -1,5 +1,5 @@
 import type { FC } from "@hono/hono/jsx";
-import type { Conduit } from "../core/conduit.ts";
+import type { Conduit } from "@blenny/core/conduit.ts";
 import type { BlennyModule } from "@blenny/types";
 
 let conduit: Conduit;

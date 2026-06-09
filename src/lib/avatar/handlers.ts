@@ -1,6 +1,6 @@
 import type { Context } from "@hono/hono";
-import type { UserInfo } from "../../core/auth.ts";
-import type { BlobStore, UserStore } from "../../core/store.ts";
+import type { UserInfo } from "@blenny/core/auth.ts";
+import type { BlobStore, UserStore } from "@blenny/core/store.ts";
 import type { AvatarService } from "./service.ts";
 
 export interface AvatarHandlerDeps {

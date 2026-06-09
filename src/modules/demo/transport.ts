@@ -1,4 +1,4 @@
-import type { TransportHub } from "../core/hub.ts";
+import type { TransportHub } from "@blenny/core/hub.ts";
 import type { BlennyModule } from "@blenny/types";
 
 let hub: TransportHub;
@@ -27,7 +27,11 @@ const demoModule: BlennyModule = {
           case "ui": {
             toastCount++;
             const colors = [
-              "#3fb950", "#58a6ff", "#f0883e", "#f85149", "#bc8cff",
+              "#3fb950",
+              "#58a6ff",
+              "#f0883e",
+              "#f85149",
+              "#bc8cff",
             ];
             const color = colors[toastCount % colors.length];
             hub.patchElements(

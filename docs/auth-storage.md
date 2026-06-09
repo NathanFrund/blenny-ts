@@ -229,8 +229,8 @@ auto-discovery because it shares the `"auth"` capability) reads:
 | `form-auth.db.path` | `BLENNY_FORM_AUTH_DB_PATH` | _(Deno KV default)_ | SQLite path or `""`  |
 
 **store = "kv"** (recommended for production): Deno KV backed by SQLite (local)
-or FoundationDB (Deploy). Provides persistent disk-backed storage — data survives
-restarts. Requires `--unstable-kv`. Full BlobStore support.
+or FoundationDB (Deploy). Provides persistent disk-backed storage — data
+survives restarts. Requires `--unstable-kv`. Full BlobStore support.
 
 **store = "memory"** (default): In-memory Maps. No unstable flags needed. No
 BlobStore (blob endpoints return clear error). Data lost on restart. Dev-only;

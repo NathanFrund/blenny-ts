@@ -8,8 +8,8 @@ import {
   requireRole,
   requireUser,
   setSessionCookie,
-} from "../src/core/auth.ts";
-import type { AuthConfig } from "../src/core/auth.ts";
+} from "@blenny/core/auth.ts";
+import type { AuthConfig } from "@blenny/core/auth.ts";
 
 const config: AuthConfig = {
   jwtSecret: "test-secret",

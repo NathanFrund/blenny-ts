@@ -1,5 +1,5 @@
 import { assertEquals } from "@std/assert";
-import { TaskSupervisor } from "../src/core/task-supervisor.ts";
+import { TaskSupervisor } from "@blenny/core/task-supervisor.ts";
 
 Deno.test("TaskSupervisor", async (t) => {
   await t.step("fires on cadence", async () => {

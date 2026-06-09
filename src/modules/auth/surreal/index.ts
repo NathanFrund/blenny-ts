@@ -1,18 +1,18 @@
-import type { AppState } from "../../core/app-state.ts";
+import type { AppState } from "@blenny/core/app-state.ts";
 import {
   createAuthMiddleware,
   requireRole,
   requireUser,
-} from "../../core/auth.ts";
-import { requireDb } from "../../core/db-guard.ts";
-import { SurrealUserStore } from "../../core/surreal-store.ts";
-import { publish } from "../../core/hub.ts";
-import type { BlennyModule } from "../../types.ts";
+} from "@blenny/core/auth.ts";
+import { requireDb } from "@blenny/core/db-guard.ts";
+import { SurrealUserStore } from "@blenny/core/surreal-store.ts";
+import { publish } from "@blenny/core/hub.ts";
+import type { BlennyModule } from "@blenny/types";
 import { SurrealBucketAvatarService } from "./surreal.ts";
 import {
   createHandleAvatarServe,
   createHandleAvatarUpload,
-} from "../../lib/avatar/handlers.ts";
+} from "@blenny/lib/avatar/handlers.ts";
 import { state } from "./state.ts";
 import {
   handleProfile,
@@ -107,6 +107,8 @@ const authModule: BlennyModule = {
     state.deps = { store, avatarService: avatarSvc };
     state.handleAvatarUpload = createHandleAvatarUpload(state.deps);
     state.handleAvatarServe = createHandleAvatarServe(state.deps);
+
+    state_.store = store;
 
     state_.auth = {
       config: state.config,

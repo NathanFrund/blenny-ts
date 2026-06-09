@@ -5,7 +5,7 @@ import {
   SignalSchema,
   UserInfoSchema,
   UsernameSchema,
-} from "../src/core/validation.ts";
+} from "@blenny/core/validation.ts";
 
 Deno.test("SignalSchema", async (t) => {
   await t.step("accepts a plain object", () => {

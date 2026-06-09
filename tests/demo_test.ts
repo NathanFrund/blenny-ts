@@ -1,9 +1,9 @@
 import { assertEquals } from "@std/assert";
-import demoModule from "../src/modules/demo.ts";
-import { TransportHub } from "../src/core/hub.ts";
-import { Conduit } from "../src/core/conduit.ts";
-import { BlennyConfig } from "../src/core/config.ts";
-import { TaskSupervisor } from "../src/core/task-supervisor.ts";
+import demoModule from "../src/modules/demo/transport.ts";
+import { TransportHub } from "@blenny/core/hub.ts";
+import { Conduit } from "@blenny/core/conduit.ts";
+import { BlennyConfig } from "@blenny/core/config.ts";
+import { TaskSupervisor } from "@blenny/core/task-supervisor.ts";
 import { Hono } from "@hono/hono";
 import type { HttpMethod } from "../src/types.ts";
 

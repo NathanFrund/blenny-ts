@@ -1,5 +1,5 @@
 import { assertEquals } from "@std/assert";
-import { BlennyError, errorResponse } from "../src/core/error.ts";
+import { BlennyError, errorResponse } from "@blenny/core/error.ts";
 
 Deno.test("BlennyError notFound factory", () => {
   const err = BlennyError.notFound();
