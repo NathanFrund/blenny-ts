@@ -98,7 +98,7 @@ single-binary platform.
 ### UserStore & BlobStore
 
 - `UserStore` interface: 6 methods — `findById`, `findByUsername`, `createUser`,
-  `updatePasswordHash`, `updateAvatarKey`, `deleteUser`.
+  `setPassword`, `updateAvatarKey`, `deleteUser`.
 - Implementations: `SurrealUserStore` (SurrealQL + argon2 server-side),
   `KvUserStore` (Deno.KV), `InMemoryUserStore` (tests).
 - `BlobStore` interface: `set`, `get`, `getAsResponse`, `delete`, `list`.

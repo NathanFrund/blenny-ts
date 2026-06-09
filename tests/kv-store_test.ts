@@ -4,6 +4,7 @@ import {
   KvUserStore,
   openKvStore,
 } from "@blenny/core/kv-store.ts";
+import { verifyKey } from "@blenny/core/crypto.ts";
 
 const passHash = "abc123hash";
 
@@ -68,7 +69,7 @@ Deno.test("KvUserStore", async (t) => {
     assertEquals(user.username, "alice");
   });
 
-  await t.step("updatePasswordHash persists the new hash", async () => {
+  await t.step("setPassword hashes and persists the new password", async () => {
     const user = await store.createUser({
       username: "hash-test",
       passwordHash: passHash,
@@ -77,11 +78,12 @@ Deno.test("KvUserStore", async (t) => {
     });
     assertExists(user);
 
-    await store.updatePasswordHash(user.id, "newhash999");
+    await store.setPassword(user.id, "new-password");
 
     const updated = await store.findById(user.id);
     assertExists(updated);
-    assertEquals(updated.passwordHash, "newhash999");
+    const expectedHash = await verifyKey("new-password", updated.salt);
+    assertEquals(updated.passwordHash, expectedHash);
   });
 
   await t.step("updateAvatarKey persists the avatar key", async () => {

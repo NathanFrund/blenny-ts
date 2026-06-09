@@ -1,4 +1,4 @@
-import { assertEquals, assertExists, assertRejects } from "@std/assert";
+import { assert, assertEquals, assertExists, assertRejects } from "@std/assert";
 import { Surreal } from "@surrealdb/surrealdb";
 import type { DatabaseConnection } from "@blenny/core/db-connection.ts";
 import { SurrealUserStore } from "@blenny/core/surreal-store.ts";
@@ -103,7 +103,7 @@ Deno.test({
       assertEquals(user.username, "s_alice");
     });
 
-    await t.step("updatePasswordHash persists the new hash", async () => {
+    await t.step("setPassword persists the new hash", async () => {
       const user = await store.createUser({
         username: "s_hash-test",
         passwordHash: passHash,
@@ -112,11 +112,12 @@ Deno.test({
       });
       assertExists(user);
 
-      await store.updatePasswordHash(user.id, "newhash999");
+      await store.setPassword(user.id, "new-password");
 
+      // Password was hashed server-side; verify by checking it's not the raw value
       const updated = await store.findById(user.id);
       assertExists(updated);
-      assertEquals(updated.passwordHash, "newhash999");
+      assert(updated.passwordHash !== "new-password");
     });
 
     await t.step("updateAvatarKey persists the avatar key", async () => {

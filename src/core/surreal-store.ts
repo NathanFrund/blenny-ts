@@ -128,10 +128,10 @@ export class SurrealUserStore implements UserStore {
     };
   }
 
-  async updatePasswordHash(id: string, newHash: string): Promise<void> {
+  async setPassword(id: string, newPassword: string): Promise<void> {
     const result = await this.db.query<[SurrealUserRecord[]]>(
       "UPDATE user MERGE { password: $hash } WHERE uuid = $uuid",
-      { uuid: id, hash: await this.hashPassword(newHash) },
+      { uuid: id, hash: await this.hashPassword(newPassword) },
     );
     if (!unwrapFirst(result)) throw new Error(`User ${id} not found`);
   }
@@ -164,15 +164,11 @@ export class SurrealUserStore implements UserStore {
     currentPassword: string,
     newPassword: string,
   ): Promise<void> {
-    const user = await this.findById(id);
+    const user = await this.findById(id, ["password"]);
     if (!user) throw new Error(`User ${id} not found`);
     const valid = await this.verifyPassword(currentPassword, user.passwordHash);
     if (!valid) throw new Error("Current password is incorrect");
-    const hash = await this.hashPassword(newPassword);
-    await this.db.query(
-      "UPDATE user MERGE { password: $hash } WHERE uuid = $uuid",
-      { uuid: id, hash },
-    );
+    await this.setPassword(id, newPassword);
   }
 
   async deleteUser(id: string): Promise<boolean> {

@@ -69,7 +69,7 @@ interface UserStore {
   findById(id: string): Promise<StoredUser | null>;
   findByUsername(username: string): Promise<StoredUser | null>;
   createUser(data: NewUserInput): Promise<StoredUser>;
-  updatePasswordHash(id: string, newHash: string): Promise<void>;
+  setPassword(id: string, newPassword: string): Promise<void>;
   updateAvatarKey(id: string, key: string): Promise<void>;
   deleteUser(id: string): Promise<boolean>;
 }
@@ -307,10 +307,11 @@ async function deriveKey(password: string, salt: string): Promise<string> {
 ```
 
 The hash is computed in the auth module handler (not the store), and the result
-is passed to `UserStore.createUser()` or `UserStore.updatePasswordHash()`. The
-sign-in handler derives the candidate hash and compares it against the stored
-hash — the store never sees the raw password, and the interface has no
-password-aware method.
+is passed to `UserStore.createUser()`. The `setPassword()` method takes a raw
+password and hashes it before storing — the store interface never exposes a
+pre-hashing step. The sign-in handler derives the candidate hash and compares it
+against the stored hash — the store never sees the raw password, and the
+interface has no password-aware method.
 
 Upgrade path: if you need argon2 or bcrypt, you can swap the handler-side hash
 function without touching the store or the interface. PBKDF2 covers the needs of
@@ -326,7 +327,7 @@ When using `form-auth-surreal`, password hashing moves entirely to SurrealDB:
 - **Sign-in**: `SurrealUserStore.verifyPassword()` calls
   `RETURN crypto::argon2::compare($hash, $password)` in SurrealQL. The boolean
   result is returned directly.
-- **Password change**: `updatePasswordHash()` re-hashes via
+- **Password change**: `setPassword()` hashes the raw password via
   `crypto::argon2::generate()` before storing.
 
 No app-side crypto imports, no salt management, no WASM. The `UserStore`

@@ -12,7 +12,7 @@ export interface UserStore {
   ): Promise<StoredUser | null>;
   findAll(): Promise<StoredUser[]>;
   createUser(data: NewUserInput): Promise<StoredUser>;
-  updatePasswordHash(id: string, newHash: string): Promise<void>;
+  setPassword(id: string, newPassword: string): Promise<void>;
   updateAvatarKey(id: string, key: string): Promise<void>;
   updateRole(id: string, role: string): Promise<void>;
   changePassword(

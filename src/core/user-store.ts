@@ -44,11 +44,13 @@ export function createInMemoryUserStore() {
       return Promise.resolve(user);
     },
 
-    updatePasswordHash(id: string, newHash: string): Promise<void> {
+    setPassword(id: string, newPassword: string): Promise<void> {
       const user = users.get(id);
       if (!user) return Promise.reject(new Error(`User ${id} not found`));
-      user.passwordHash = newHash;
-      return Promise.resolve();
+      return deriveKey(newPassword).then(({ hash, salt }) => {
+        user.passwordHash = hash;
+        user.salt = salt;
+      });
     },
 
     updateAvatarKey(id: string, key: string): Promise<void> {
@@ -88,9 +90,7 @@ export function createInMemoryUserStore() {
       if (user.passwordHash !== hash) {
         throw new Error("Current password is incorrect");
       }
-      const { hash: newHash, salt: newSalt } = await deriveKey(newPassword);
-      user.passwordHash = newHash;
-      user.salt = newSalt;
+      await this.setPassword(id, newPassword);
     },
   };
 }

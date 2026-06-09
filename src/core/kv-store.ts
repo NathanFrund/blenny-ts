@@ -49,10 +49,15 @@ export class KvUserStore implements UserStore {
     return { ...user, id };
   }
 
-  async updatePasswordHash(id: string, newHash: string): Promise<void> {
+  async setPassword(id: string, newPassword: string): Promise<void> {
     const doc = await this.kv.get<UserData>(["users", id]);
     if (!doc.value) throw new Error(`User ${id} not found`);
-    await this.kv.set(["users", id], { ...doc.value, passwordHash: newHash });
+    const { hash, salt } = await deriveKey(newPassword);
+    await this.kv.set(["users", id], {
+      ...doc.value,
+      passwordHash: hash,
+      salt,
+    });
   }
 
   async updateAvatarKey(id: string, key: string): Promise<void> {
@@ -91,12 +96,7 @@ export class KvUserStore implements UserStore {
     if (doc.value.passwordHash !== hash) {
       throw new Error("Current password is incorrect");
     }
-    const { hash: newHash, salt: newSalt } = await deriveKey(newPassword);
-    await this.kv.set(["users", id], {
-      ...doc.value,
-      passwordHash: newHash,
-      salt: newSalt,
-    });
+    await this.setPassword(id, newPassword);
   }
 
   async deleteUser(id: string): Promise<boolean> {
