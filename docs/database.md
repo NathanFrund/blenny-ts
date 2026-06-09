@@ -348,6 +348,23 @@ reconnection, so the subscription survives health-check reconnects without
 re-issuing the query. Call `sub.kill()` during your module's `stop()` to tear it
 down.
 
+### Testing liveQuery
+
+Unit tests in `tests/db-live_test.ts` cover the builder chain wiring,
+error behavior, and unsubscribe semantics using mock Surreal objects — these
+run on every `deno test` with no special flags.
+
+An integration test is gated behind `BLENNY_SURREAL_URL`:
+it connects to a real SurrealDB instance, subscribes, inserts a matching row,
+and asserts the event fires. Run it with:
+
+```sh
+BLENNY_SURREAL_URL=ws://127.0.0.1:8000/rpc deno test --allow-env --filter="integration"
+```
+
+The integration test is silently ignored when the env var is unset or
+`--allow-env` is not granted, so it never blocks the regular test suite.
+
 ---
 
 ## Pattern 5: Graceful fallback with `withDb()`
