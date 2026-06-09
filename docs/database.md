@@ -1,0 +1,359 @@
+# Database Access from Modules
+
+Modules interact with the database through two distinct paths depending on what
+they need:
+
+| Path                                    | When to use                                                     |
+| --------------------------------------- | --------------------------------------------------------------- |
+| `state.store` (UserStore)               | Standard user CRUD — find, create, update role/password, delete |
+| `state.db.query()` (DatabaseConnection) | Custom business-logic tables, SurrealQL-specific features, DDL  |
+
+---
+
+## Lifecycle
+
+The database connection is created during boot **before** any module's
+`initialize()` runs, and closed after all modules have stopped.
+
+```
+boot → connectDatabase() → module.initialize() → ... → stopModules() → db.close()
+```
+
+A module receives the database in two forms:
+
+```ts
+interface AppState {
+  db?: DatabaseConnection; // Raw query interface, optional at boot
+  store?: UserStore; // Domain-level CRUD, set by the auth module
+}
+```
+
+Both are optional because:
+
+- `db` may be absent if no database driver is configured (e.g. Deno.Kv-only
+  deployments)
+- `store` is set by whichever auth module loads first (Surreal, Kv, or
+  in-memory)
+
+Guard at the top of `initialize()` to fail fast if a dependency is missing:
+
+```ts
+const db = requireDb(state_.db, "my-module");
+```
+
+---
+
+## Pattern 1: Standard CRUD via `state.store`
+
+When you need user data — find, create, update role, change password, delete —
+use the `UserStore` interface. This keeps your module backend-agnostic (it works
+identically with SurrealDB, Deno.Kv, or in-memory stores).
+
+```ts
+let store: NonNullable<AppState["store"]>;
+
+const myModule: BlennyModule = {
+  name: "my-module",
+  requires: ["auth"],
+  initialize(state_: AppState) {
+    store = state_.store!;
+  },
+};
+```
+
+```ts
+// Single user
+const user = await store.findById(id);
+const byName = await store.findByUsername("alice");
+
+// Only fetch specific fields (SurrealDB backend reduces wire data)
+const partial = await store.findById(id, ["password", "role"]);
+
+// All users
+const all = await store.findAll();
+
+// Mutations
+await store.createUser(data);
+await store.updateRole(id, "admin");
+await store.changePassword(id, currentPassword, newPassword);
+await store.updateAvatarKey(id, "avatars:abc123");
+await store.deleteUser(id);
+```
+
+**When to use projection (`fields` param):**
+
+The `fields` parameter on `findById` / `findByUsername` is a hint to the SQL
+backend to SELECT only those columns, reducing data transfer. The Kv and
+in-memory backends ignore it (they return the full object). Use it when you only
+need a subset of fields:
+
+```ts
+// changePassword only needs the password hash to verify
+const user = await store.findById(id, ["password"]);
+```
+
+**When NOT to use `state.store`:**
+
+- Your data doesn't fit the `UserStore` shape (not a user)
+- You need SurrealQL features like `LIVE SELECT`, `GROUP BY`, or joins
+- You're doing DDL (CREATE TABLE, DEFINE INDEX)
+
+For those, use `state.db.query()` directly.
+
+---
+
+## Pattern 2: Custom queries via `db.query()`
+
+For custom tables and SurrealQL queries, get the `DatabaseConnection` through
+`requireDb()` and run queries with parameter binding.
+
+```ts
+import { requireDb, withDb } from "@blenny/core/db-guard.ts";
+import { unwrapFirst } from "@blenny/core/db-query.ts";
+import type { DatabaseConnection } from "@blenny/core/db-connection.ts";
+
+let db: DatabaseConnection;
+
+const myModule: BlennyModule = {
+  name: "events",
+  initialize(state_: AppState) {
+    db = requireDb(state_.db, "events");
+  },
+};
+```
+
+### Multiple rows
+
+Always pass a typed generic to `query()` so the result is correctly shaped:
+
+```ts
+interface EventRow {
+  id: string;
+  name: string;
+  status: string;
+}
+
+const result = await db.query<[EventRow[]]>(
+  "SELECT * FROM event WHERE status = $status ORDER BY createdAt DESC",
+  { status: "active" },
+);
+const events = result[0] ?? [];
+```
+
+### Single row
+
+Append `LIMIT 1` and use `unwrapFirst()`:
+
+```ts
+const event = unwrapFirst(
+  await db.query<[EventRow[]]>(
+    "SELECT * FROM event WHERE id = $id LIMIT 1",
+    { id: "abc" },
+  ),
+);
+if (!event) return c.text("Not found", 404);
+```
+
+### INSERT / CREATE
+
+```ts
+await db.query(
+  "CREATE event CONTENT $data",
+  {
+    data: {
+      name: "Airsoft Op",
+      status: "planned",
+      createdBy: userId,
+    },
+  },
+);
+```
+
+### UPDATE / MERGE
+
+```ts
+await db.query(
+  "UPDATE event MERGE { status: $status } WHERE id = $id",
+  { id: eventId, status: "cancelled" },
+);
+```
+
+### DELETE
+
+```ts
+await db.query("DELETE event WHERE id = $id", { id: eventId });
+```
+
+### DDL (schema setup)
+
+Run DDL during `initialize()`. It's idempotent when `IF NOT EXISTS` is used:
+
+```ts
+async initialize(state_: AppState) {
+  const db = requireDb(state_.db, "events");
+
+  await db.query("DEFINE TABLE IF NOT EXISTS event SCHEMAFULL");
+  await db.query("DEFINE FIELD IF NOT EXISTS name ON event TYPE string");
+  await db.query("DEFINE FIELD IF NOT EXISTS status ON event TYPE string");
+  await db.query("DEFINE INDEX IF NOT EXISTS idx_event_status ON TABLE event COLUMNS status");
+}
+```
+
+---
+
+## Pattern 3: Scalar queries
+
+For `RETURN` statements or aggregate functions that return a single value (not a
+row set), use a scalar generic:
+
+```ts
+const [count] = await db.query<[number]>("RETURN count(SELECT * FROM event)");
+
+const [exists] = await db.query<[boolean]>(
+  "RETURN array::len((SELECT id FROM event WHERE id = $id)) > 0",
+  { id: eventId },
+);
+
+const [hash] = await db.query<[string]>(
+  "RETURN crypto::argon2::generate($password)",
+  { password: rawPassword },
+);
+```
+
+**Note:** Scalars are wrapped in a single-element outer array `[T]`, not
+`[T[]]`. `unwrapFirst` is for `[T[]]` patterns only — for scalars, destructure
+directly.
+
+---
+
+## Pattern 4: SurrealDB-specific features via `db.native()`
+
+When you need the raw SurrealDB SDK — for features like file buckets, live
+queries, or methods not exposed through `query()` — use the `native()` escape
+hatch.
+
+```ts
+import { Surreal } from "@surrealdb/surrealdb";
+
+const surreal = db.native<Surreal>();
+```
+
+### File bucket operations
+
+SurrealDB's built-in file storage (`f'prefix:/id'`) already works through
+`query()`, but the SDK also exposes `.put()` / `.get()` / `.delete()`:
+
+```ts
+// Via query() — preferred for most cases
+await db.query(`f'avatars:/${userId}'.put($bytes)`, { bytes });
+
+// Via native() — when you need typed SDK methods
+const surreal = db.native<Surreal>();
+```
+
+### Live queries (real-time subscriptions)
+
+```ts
+import { Surreal } from "@surrealdb/surrealdb";
+
+// 1. Start the live query — returns a UUID
+const [[liveId]] = await db.native<Surreal>().query("LIVE SELECT * FROM event WHERE status = 'active'");
+
+// 2. Subscribe to events
+await surreal.listenLive(liveId as string, (action, result) => {
+  // action: "CREATE" | "UPDATE" | "DELETE"
+  // result: the changed record
+  publish("event:update", { action, data: result });
+});
+
+// 3. Kill the subscription when done (e.g. in stop())
+async stop() {
+  if (liveId) {
+    await surreal.kill(liveId as string);
+  }
+}
+```
+
+The `liveId` typing is `unknown` because `Surreal.query()` returns
+`Promise<unknown[]>`. The `as string` cast is expected — the SurrealDB SDK
+returns the live query UUID as a string.
+
+**Lifecycle note:** `listenLive` auto-resubscribes after a reconnection, so you
+don't need to re-issue `LIVE SELECT` on reconnect.
+
+---
+
+## Pattern 5: Graceful fallback with `withDb()`
+
+When a database query is non-critical (e.g. an optional feature), use `withDb()`
+to avoid crashing if the DB is unavailable:
+
+```ts
+const result = await withDb(
+  state_.db,
+  (db) =>
+    db.query<[string[]]>("SELECT name FROM feature_flags WHERE active = true"),
+  [], // fallback — empty list if DB is down
+);
+```
+
+The fallback is returned if:
+
+- `db` is undefined (not configured)
+- The query throws a non-`DbError` (e.g. network timeout)
+
+---
+
+## Result typing reference
+
+| Query shape              | Generic                      | Extraction                               |
+| ------------------------ | ---------------------------- | ---------------------------------------- |
+| Rows                     | `<[RowType[]]>`              | `result[0] ?? []`                        |
+| Single row               | `<[RowType[]]>`              | `unwrapFirst(result) ?? null`            |
+| Scalar                   | `<[ScalarType]>`             | `const [value] = result`                 |
+| INSERT / UPDATE / DELETE | omit (or `<[RecordType[]]>`) | `unwrapFirst(result)` to check existence |
+
+`unwrapFirst` is defined as:
+
+```ts
+export function unwrapFirst<T>(result: [T[]]): T | undefined {
+  return result?.[0]?.[0];
+}
+```
+
+It safely handles empty result sets (`[[]]`) and returns `undefined`.
+
+---
+
+## Quick reference
+
+```ts
+// ── Guards ──
+const db = requireDb(state_.db, "module-name"); // crash if missing
+const result = await withDb(state_.db, fn, fallback); // graceful fallback
+
+// ── Store (user CRUD, backend-agnostic) ──
+const user = await store.findById(id, ["role"]); // projection
+const users = await store.findAll();
+const alice = await store.findByUsername("alice");
+await store.createUser(data);
+await store.updateRole(id, "admin");
+await store.changePassword(id, current, newPassword);
+await store.deleteUser(id);
+
+// ── Custom queries (SurrealQL) ──
+const rows = (await db.query<[Row[]]>("SELECT ...", { vars }))[0] ?? [];
+const single = unwrapFirst(
+  await db.query<[Row[]]>("SELECT ... LIMIT 1", { vars }),
+);
+const [scalar] = await db.query<[number]>("RETURN ...", { vars });
+await db.query("CREATE ... CONTENT $data", { data });
+await db.query("UPDATE ... MERGE ... WHERE ...", { vars });
+await db.query("DELETE ... WHERE ...", { vars });
+
+// ── SurrealDB-specific (escape hatch) ──
+const surreal = db.native<Surreal>();
+const [[liveId]] = await surreal.query("LIVE SELECT * FROM ...");
+await surreal.listenLive(liveId as string, callback);
+await surreal.kill(liveId as string);
+```
