@@ -10,7 +10,7 @@ import { deriveKey, verifyKey } from "./crypto.ts";
 export class KvUserStore implements UserStore {
   constructor(private readonly kv: Deno.Kv) {}
 
-  async findById(id: string): Promise<StoredUser | null> {
+  async findById(id: string, _fields?: string[]): Promise<StoredUser | null> {
     const result = await this.kv.get<UserData>(["users", id]);
     if (!result.value) return null;
     const parsed = v.safeParse(UserSchema, result.value);

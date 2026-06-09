@@ -5,8 +5,11 @@ export interface StoredUser extends UserData {
 }
 
 export interface UserStore {
-  findById(id: string): Promise<StoredUser | null>;
-  findByUsername(username: string): Promise<StoredUser | null>;
+  findById(id: string, fields?: string[]): Promise<StoredUser | null>;
+  findByUsername(
+    username: string,
+    fields?: string[],
+  ): Promise<StoredUser | null>;
   findAll(): Promise<StoredUser[]>;
   createUser(data: NewUserInput): Promise<StoredUser>;
   updatePasswordHash(id: string, newHash: string): Promise<void>;

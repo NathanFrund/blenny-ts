@@ -8,11 +8,15 @@ export function createInMemoryUserStore() {
 
   const findByUsername = (
     username: string,
+    _fields?: string[],
   ): Promise<StoredUser | null> => {
     return Promise.resolve(byUsername.get(username) ?? null);
   };
 
-  const findById = (id: string): Promise<StoredUser | null> => {
+  const findById = (
+    id: string,
+    _fields?: string[],
+  ): Promise<StoredUser | null> => {
     return Promise.resolve(users.get(id) ?? null);
   };
 

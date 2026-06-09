@@ -3,6 +3,7 @@ import type { DatabaseConnection } from "./db-connection.ts";
 import { NewUserSchema } from "./validation.ts";
 import type { NewUserInput } from "./validation.ts";
 import type { StoredUser, UserStore } from "./store.ts";
+import { unwrapFirst } from "./db-query.ts";
 
 interface SurrealUserRecord {
   uuid: string;
@@ -49,24 +50,38 @@ export class SurrealUserStore implements UserStore {
     }
   }
 
-  async findById(id: string): Promise<StoredUser | null> {
-    const result = await this.db.query<[SurrealUserRecord[]]>(
-      "SELECT * FROM user WHERE uuid = $uuid",
+  async findById(
+    id: string,
+    fields?: string[],
+  ): Promise<StoredUser | null> {
+    const select = fields?.length
+      ? [...new Set([...fields, "uuid"])].join(", ")
+      : "*";
+    const result = await this.db.query<[Record<string, unknown>[]]>(
+      `SELECT ${select} FROM user WHERE uuid = $uuid LIMIT 1`,
       { uuid: id },
     );
-    const [user] = result[0] ?? [];
-    if (!user) return null;
-    return mapUser(user);
+    const record = unwrapFirst(result);
+    if (!record) return null;
+    if (fields) return record as unknown as StoredUser;
+    return mapUser(record as unknown as SurrealUserRecord);
   }
 
-  async findByUsername(username: string): Promise<StoredUser | null> {
-    const result = await this.db.query<[SurrealUserRecord[]]>(
-      "SELECT * FROM user WHERE username = $username",
+  async findByUsername(
+    username: string,
+    fields?: string[],
+  ): Promise<StoredUser | null> {
+    const select = fields?.length
+      ? [...new Set([...fields, "uuid"])].join(", ")
+      : "*";
+    const result = await this.db.query<[Record<string, unknown>[]]>(
+      `SELECT ${select} FROM user WHERE username = $username LIMIT 1`,
       { username },
     );
-    const [user] = result[0] ?? [];
-    if (!user) return null;
-    return mapUser(user);
+    const record = unwrapFirst(result);
+    if (!record) return null;
+    if (fields) return record as unknown as StoredUser;
+    return mapUser(record as unknown as SurrealUserRecord);
   }
 
   async createUser(data: NewUserInput): Promise<StoredUser> {
@@ -114,21 +129,19 @@ export class SurrealUserStore implements UserStore {
   }
 
   async updatePasswordHash(id: string, newHash: string): Promise<void> {
-    const result = await this.db.query(
+    const result = await this.db.query<[SurrealUserRecord[]]>(
       "UPDATE user MERGE { password: $hash } WHERE uuid = $uuid",
       { uuid: id, hash: await this.hashPassword(newHash) },
     );
-    const [[record]] = result as unknown as [[SurrealUserRecord[]]];
-    if (!record) throw new Error(`User ${id} not found`);
+    if (!unwrapFirst(result)) throw new Error(`User ${id} not found`);
   }
 
   async updateAvatarKey(id: string, key: string): Promise<void> {
-    const result = await this.db.query(
+    const result = await this.db.query<[SurrealUserRecord[]]>(
       "UPDATE user MERGE { avatarKey: $key } WHERE uuid = $uuid",
       { uuid: id, key },
     );
-    const [[record]] = result as unknown as [[SurrealUserRecord[]]];
-    if (!record) throw new Error(`User ${id} not found`);
+    if (!unwrapFirst(result)) throw new Error(`User ${id} not found`);
   }
 
   async findAll(): Promise<StoredUser[]> {
@@ -139,12 +152,11 @@ export class SurrealUserStore implements UserStore {
   }
 
   async updateRole(id: string, role: string): Promise<void> {
-    const result = await this.db.query(
+    const result = await this.db.query<[SurrealUserRecord[]]>(
       "UPDATE user MERGE { role: $role } WHERE uuid = $uuid",
       { uuid: id, role },
     );
-    const [[record]] = result as unknown as [[SurrealUserRecord[]]];
-    if (!record) throw new Error(`User ${id} not found`);
+    if (!unwrapFirst(result)) throw new Error(`User ${id} not found`);
   }
 
   async changePassword(
@@ -176,12 +188,11 @@ export class SurrealUserStore implements UserStore {
       }
     }
 
-    const result = await this.db.query(
+    const result = await this.db.query<[SurrealUserRecord[]]>(
       "DELETE user WHERE uuid = $uuid",
       { uuid: id },
     );
-    const [[deleted]] = result as unknown as [[SurrealUserRecord[]]];
-    return !!deleted;
+    return !!unwrapFirst(result);
   }
 
   async verifyPassword(

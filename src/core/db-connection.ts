@@ -13,4 +13,5 @@ export interface DatabaseConnection {
     query: string,
     vars?: Record<string, unknown>,
   ): Promise<T>;
+  native<T>(): T;
 }

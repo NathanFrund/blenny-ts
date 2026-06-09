@@ -140,6 +140,11 @@ export class SurrealConnectionManager implements DatabaseConnection {
     ) as unknown as T;
   }
 
+  native<T>(): T {
+    if (!this.client) throw new Error("Database not connected");
+    return this.client as T;
+  }
+
   close(): Promise<void> {
     this.stopHealthCheck();
     try {
