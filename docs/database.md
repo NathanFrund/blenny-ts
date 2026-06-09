@@ -271,7 +271,8 @@ const surreal = db.native<Surreal>();
 ### Live queries via `liveQuery()`
 
 Use the `liveQuery()` helper to subscribe to real-time changes without touching
-the Surreal SDK directly:
+the Surreal SDK directly. It returns a `LiveSubscription` from the Surreal SDK —
+a managed subscription that auto-restarts after reconnection.
 
 ```ts
 import { liveQuery } from "@blenny/core/db-live.ts";
@@ -300,9 +301,52 @@ const myModule: BlennyModule = {
 };
 ```
 
+**`LiveQueryOptions`:**
+
+| Option     | Type       | Description                                         |
+| ---------- | ---------- | --------------------------------------------------- |
+| `where`    | `string`   | SurrealQL condition (e.g. `"status = 'active'"`)    |
+| `fields`   | `string[]` | Only return these fields on each change             |
+| `diff`     | `boolean`  | Return patches (diffs) instead of full records      |
+
+**`LiveMessage` shape:**
+
+```ts
+type LiveMessage = {
+  queryId: Uuid;         // The live subscription's ID
+  action: "CREATE" | "UPDATE" | "DELETE";
+  recordId: RecordId;    // The SurrealDB record ID
+  value: Record<string, unknown>;  // The changed record data
+};
+```
+
+**Receiving messages — two APIs:**
+
+| API                    | Description                                     |
+| ---------------------- | ----------------------------------------------- |
+| `sub.subscribe(fn)`    | Calls `fn` on every event, **returns an unsubscribe function** |
+| `for await (const msg of sub)` | Async iteration, works with `break` to stop          |
+
+```ts
+// Option A: subscribe / unsubscribe
+const unsub = sub.subscribe((msg) => publish("event", msg));
+// later: unsub(); — stop receiving events (doesn't kill the subscription)
+
+// Option B: for-await
+for await (const msg of sub) {
+  if (msg.action === "DELETE") break; // kills the iterator, not the subscription
+}
+```
+
+**Error note:** `liveQuery()` calls `db.native<Surreal>()` internally and will
+**throw** if the database backend is not SurrealDB. This is intentional — live
+queries are a SurrealDB-specific feature, not available on Kv or in-memory
+backends.
+
 **Lifecycle note:** Managed live subscriptions auto-restart after a
 reconnection, so the subscription survives health-check reconnects without
-re-issuing the query.
+re-issuing the query. Call `sub.kill()` during your module's `stop()` to tear it
+down.
 
 ---
 
@@ -375,9 +419,10 @@ await db.query("UPDATE ... MERGE ... WHERE ...", { vars });
 await db.query("DELETE ... WHERE ...", { vars });
 
 // ── Live queries (real-time subscriptions) ──
-const sub = await liveQuery<Row>(db, "table", { where: "status = 'active'" });
-sub.subscribe((msg) => { /* msg.action, msg.value */ });
-await sub.kill();
+const sub = await liveQuery<Row>(db, "table", { where, fields, diff });
+const unsub = sub.subscribe((msg) => /* { action, value, recordId } */);
+for await (const msg of sub) { /* same shape */ }
+await sub.kill(); // tear down in stop()
 
 // ── SurrealDB-specific (escape hatch) ──
 const surreal = db.native<Surreal>();
