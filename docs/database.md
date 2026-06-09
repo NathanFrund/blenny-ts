@@ -82,8 +82,9 @@ await store.deleteUser(id);
 
 **When to use projection (`fields` param):**
 
-The `fields` parameter on `findById` / `findByUsername` is a hint to the SQL
-backend to SELECT only those columns, reducing data transfer. The Kv and
+The `fields` parameter on `findById` / `findByUsername` is a hint to the
+SurrealQL backend to SELECT only those columns, reducing data transfer. The Kv
+and
 in-memory backends ignore it (they return the full object). Use it when you only
 need a subset of fields:
 
@@ -95,7 +96,7 @@ const user = await store.findById(id, ["password"]);
 **When NOT to use `state.store`:**
 
 - Your data doesn't fit the `UserStore` shape (not a user)
-- You need SurrealQL features like `LIVE SELECT`, `GROUP BY`, or joins
+- You need SurrealQL features like live queries, `GROUP BY`, or joins
 - You're doing DDL (CREATE TABLE, DEFINE INDEX)
 
 For those, use `state.db.query()` directly.
@@ -184,6 +185,23 @@ await db.query(
 await db.query("DELETE event WHERE id = $id", { id: eventId });
 ```
 
+### Graph traversal
+
+SurrealQL can follow relationships across edges in a single query:
+
+```ts
+interface UserWithEvents {
+  id: string;
+  username: string;
+  events: { name: string; status: string }[];
+}
+
+const result = await db.query<[UserWithEvents[]]>(
+  "SELECT *, ->participates_in->event.* AS events FROM user WHERE id = $id",
+  { id: userId },
+);
+```
+
 ### DDL (schema setup)
 
 Run DDL during `initialize()`. It's idempotent when `IF NOT EXISTS` is used:
@@ -228,9 +246,8 @@ directly.
 
 ## Pattern 4: SurrealDB-specific features via `db.native()`
 
-When you need the raw SurrealDB SDK — for features like file buckets, live
-queries, or methods not exposed through `query()` — use the `native()` escape
-hatch.
+When you need the raw SurrealDB SDK — for file buckets or methods not exposed
+through `query()` — use the `native()` escape hatch.
 
 ```ts
 import { Surreal } from "@surrealdb/surrealdb";
@@ -251,35 +268,41 @@ await db.query(`f'avatars:/${userId}'.put($bytes)`, { bytes });
 const surreal = db.native<Surreal>();
 ```
 
-### Live queries (real-time subscriptions)
+### Live queries via `liveQuery()`
+
+Use the `liveQuery()` helper to subscribe to real-time changes without touching
+the Surreal SDK directly:
 
 ```ts
-import { Surreal } from "@surrealdb/surrealdb";
+import { liveQuery } from "@blenny/core/db-live.ts";
+import type { LiveSubscription, LiveMessage } from "@blenny/core/db-live.ts";
 
-// 1. Start the live query — returns a UUID
-const [[liveId]] = await db.native<Surreal>().query("LIVE SELECT * FROM event WHERE status = 'active'");
+let sub: LiveSubscription;
 
-// 2. Subscribe to events
-await surreal.listenLive(liveId as string, (action, result) => {
-  // action: "CREATE" | "UPDATE" | "DELETE"
-  // result: the changed record
-  publish("event:update", { action, data: result });
-});
+const myModule: BlennyModule = {
+  name: "live-events",
 
-// 3. Kill the subscription when done (e.g. in stop())
-async stop() {
-  if (liveId) {
-    await surreal.kill(liveId as string);
-  }
-}
+  async initialize(state_: AppState) {
+    const db = requireDb(state_.db, "live-events");
+
+    sub = await liveQuery<EventRow>(db, "event", {
+      where: "status = 'active'",
+    });
+
+    sub.subscribe((msg: LiveMessage) => {
+      publish("event:update", { action: msg.action, data: msg.value });
+    });
+  },
+
+  async stop() {
+    await sub?.kill();
+  },
+};
 ```
 
-The `liveId` typing is `unknown` because `Surreal.query()` returns
-`Promise<unknown[]>`. The `as string` cast is expected — the SurrealDB SDK
-returns the live query UUID as a string.
-
-**Lifecycle note:** `listenLive` auto-resubscribes after a reconnection, so you
-don't need to re-issue `LIVE SELECT` on reconnect.
+**Lifecycle note:** Managed live subscriptions auto-restart after a
+reconnection, so the subscription survives health-check reconnects without
+re-issuing the query.
 
 ---
 
@@ -351,9 +374,12 @@ await db.query("CREATE ... CONTENT $data", { data });
 await db.query("UPDATE ... MERGE ... WHERE ...", { vars });
 await db.query("DELETE ... WHERE ...", { vars });
 
+// ── Live queries (real-time subscriptions) ──
+const sub = await liveQuery<Row>(db, "table", { where: "status = 'active'" });
+sub.subscribe((msg) => { /* msg.action, msg.value */ });
+await sub.kill();
+
 // ── SurrealDB-specific (escape hatch) ──
 const surreal = db.native<Surreal>();
-const [[liveId]] = await surreal.query("LIVE SELECT * FROM ...");
-await surreal.listenLive(liveId as string, callback);
-await surreal.kill(liveId as string);
+// File buckets, SDK builder APIs not exposed through query()
 ```
