@@ -26,6 +26,7 @@ createNotFoundHandler(app);
 // ─── Modules ───
 const { modules } = await boot.discoverModules(config);
 boot.detectCapabilityConflicts(modules);
+boot.detectMissingDependencies(modules);
 state.moduleCount = modules.length;
 await boot.initializeModules(modules, state);
 

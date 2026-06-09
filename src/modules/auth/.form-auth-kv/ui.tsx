@@ -1,4 +1,5 @@
 import type { FC } from "@hono/hono/jsx";
+import type { NavItem } from "@blenny/core/nav-registry.ts";
 
 interface ProfilePageProps {
   id: string;
@@ -6,6 +7,7 @@ interface ProfilePageProps {
   displayName: string;
   role: string;
   avatarKey?: string | null;
+  nav: NavItem[];
   error?: string;
 }
 
@@ -35,9 +37,13 @@ const ProfilePage: FC<ProfilePageProps> = (props) => (
       <br />
       <button type="submit">Upload</button>
     </form>
-    <p>
-      <a href="/dashboard">Back to Dashboard</a>
-    </p>
+    <nav style="margin:16px 0">
+      {props.nav.map((item) => (
+        <p key={item.href}>
+          <a href={item.href}>{item.label}</a>
+        </p>
+      ))}
+    </nav>
   </div>
 );
 

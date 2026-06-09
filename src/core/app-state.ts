@@ -5,6 +5,7 @@ import type { DatabaseConnection } from "./db-connection.ts";
 import type { AuthConfig } from "./auth.ts";
 import type { BlennyConfig } from "./config.ts";
 import type { TaskSupervisor } from "./task-supervisor.ts";
+import type { NavRegistry } from "./nav-registry.ts";
 import type { UserStore } from "./store.ts";
 
 export interface AuthBundle {
@@ -19,6 +20,7 @@ export interface AppState {
   conduit: Conduit;
   config: BlennyConfig;
   supervisor: TaskSupervisor;
+  nav: NavRegistry;
   store?: UserStore;
   auth?: AuthBundle;
   db?: DatabaseConnection;

@@ -59,6 +59,19 @@ export function detectCapabilityConflicts(modules: BlennyModule[]): void {
   }
 }
 
+export function detectMissingDependencies(modules: BlennyModule[]): void {
+  const provided = new Set(modules.flatMap((m) => m.capabilities ?? []));
+  for (const mod of modules) {
+    for (const req of mod.requires ?? []) {
+      if (!provided.has(req)) {
+        throw new Error(
+          `Module "${mod.name}" requires "${req}" but no loaded module provides it`,
+        );
+      }
+    }
+  }
+}
+
 export async function setupDatabase(
   state: AppState,
   config: BlennyConfig,

@@ -2,11 +2,13 @@ import type { Context } from "@hono/hono";
 import type { Conduit } from "@blenny/core/conduit.ts";
 import type { DatabaseConnection } from "@blenny/core/db-connection.ts";
 import type { AuthConfig } from "@blenny/core/auth.ts";
+import type { NavRegistry } from "@blenny/core/nav-registry.ts";
 import type { UserStore } from "@blenny/core/store.ts";
 import type { AvatarHandlerDeps } from "@blenny/lib/avatar/handlers.ts";
 
 export const state = {
   store: undefined! as unknown as UserStore,
+  navRegistry: undefined! as unknown as NavRegistry,
   db: undefined as DatabaseConnection | undefined,
   conduit: undefined! as unknown as Conduit,
   config: undefined! as unknown as AuthConfig,

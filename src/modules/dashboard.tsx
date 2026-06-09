@@ -1,17 +1,27 @@
 import type { FC } from "@hono/hono/jsx";
+import type { Context } from "@hono/hono";
+import { type NavItem, NavRegistry } from "@blenny/core/nav-registry.ts";
+import type { UserInfo } from "@blenny/core/auth.ts";
 import type { Conduit } from "@blenny/core/conduit.ts";
+import type { AppState } from "@blenny/core/app-state.ts";
 import type { BlennyModule } from "@blenny/types";
 
 let conduit: Conduit;
+let nav: NavRegistry;
 
-const DashboardPage: FC<{ modules: number }> = (props) => (
+const DashboardPage: FC<{ user: UserInfo; nav: NavItem[] }> = (
+  { user, nav },
+) => (
   <div>
     <h1>Dashboard</h1>
-    <p>Blenny-ts platform status.</p>
-    <p>Modules loaded: {props.modules}</p>
-    <p>
-      <a href="/auth/profile">Profile</a>
-    </p>
+    <p>Welcome, {user.role}.</p>
+    <nav style="margin:16px 0">
+      {nav.map((item) => (
+        <p key={item.href}>
+          <a href={item.href}>{item.label}</a>
+        </p>
+      ))}
+    </nav>
     <form method="post" action="/auth/signout" style="margin-top:16px">
       <button type="submit">Sign Out</button>
     </form>
@@ -25,12 +35,19 @@ const dashboardModule: BlennyModule = {
       method: "GET",
       path: "/dashboard",
       auth: true,
-      handler: (c) => conduit.respond(c, <DashboardPage modules={3} />),
+      handler: handleDashboard,
     },
   ],
-  initialize(state) {
+  initialize(state: AppState) {
     conduit = state.conduit;
+    nav = state.nav;
   },
 };
+
+function handleDashboard(c: Context) {
+  const user = c.get("user") as UserInfo;
+  const visible = nav.getVisibleFor(user);
+  return conduit.respond(c, <DashboardPage user={user} nav={visible} />);
+}
 
 export default dashboardModule;

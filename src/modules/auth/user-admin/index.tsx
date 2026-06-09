@@ -82,6 +82,7 @@ async function handleDeleteUser(c: Context): Promise<Response> {
 
 const userAdminModule: BlennyModule = {
   name: "user-admin",
+  requires: ["auth"],
   routes: [
     {
       method: "GET",
@@ -105,6 +106,13 @@ const userAdminModule: BlennyModule = {
   initialize(state_: AppState) {
     conduit = state_.conduit;
     store = state_.store!;
+    state_.nav.register({
+      label: "User Administration",
+      href: "/admin/users",
+      group: "admin",
+      roles: ["admin"],
+      order: 10,
+    });
   },
 };
 

@@ -18,6 +18,7 @@ export interface BlennyModule {
   routes: Route[];
   layout?: LayoutComponent;
   capabilities?: string[];
+  requires?: string[];
   subscriptions?: {
     topic: string;
     handler: (payload: unknown) => void;

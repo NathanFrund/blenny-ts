@@ -105,7 +105,7 @@ export class SurrealUserStore implements UserStore {
     return {
       id: uuid,
       username: parsed.username,
-      passwordHash: parsed.passwordHash,
+      passwordHash: "",
       salt: "",
       displayName: parsed.displayName,
       role: parsed.role,
@@ -164,6 +164,18 @@ export class SurrealUserStore implements UserStore {
   }
 
   async deleteUser(id: string): Promise<boolean> {
+    const user = await this.findById(id);
+    if (!user) return false;
+
+    if (user.avatarKey) {
+      try {
+        await this.db.query("DELETE avatar_meta WHERE id = $id", { id });
+        await this.db.query(`f'avatars:/${id}'.delete()`);
+      } catch {
+        // best-effort cleanup
+      }
+    }
+
     const result = await this.db.query(
       "DELETE user WHERE uuid = $uuid",
       { uuid: id },
