@@ -290,6 +290,182 @@ stop() {
 }
 ```
 
+## Navigation Registry
+
+Modules can register navigation items that appear in the dashboard, profile
+page, and any other page that renders nav. Items are filtered by the user's role
+at render time.
+
+### NavItem
+
+| Field   | Type       | Default | Purpose                                             |
+| ------- | ---------- | ------- | --------------------------------------------------- |
+| `label` | `string`   | —       | Display text                                        |
+| `href`  | `string`   | —       | Link target                                         |
+| `roles` | `string[]` | —       | Required user roles; omit or empty → visible to all |
+| `group` | `string`   | —       | Section grouping (`"main"`, `"account"`, `"admin"`) |
+| `order` | `number`   | `100`   | Sort position within the list (lower sorts first)   |
+
+### Registering from a module
+
+Call `state.nav.register()` during `initialize()`. The registry is shared —
+items from any module are visible to all:
+
+```ts
+import type { AppState } from "../core/app-state.ts";
+import type { BlennyModule } from "../types.ts";
+
+const myModule: BlennyModule = {
+  name: "my-module",
+  routes: [
+    { method: "GET", path: "/reports", handler: handleReports, auth: true },
+  ],
+
+  initialize(state: AppState) {
+    state.nav.register({
+      label: "Reports",
+      href: "/reports",
+      group: "main",
+      order: 20,
+    });
+  },
+};
+```
+
+### Role-gating nav items
+
+Set `roles` to restrict visibility. A module author can use any role name — the
+platform does not define a fixed set:
+
+```ts
+// Admin-only
+state.nav.register({
+  label: "User Administration",
+  href: "/admin/users",
+  group: "admin",
+  roles: ["admin"],
+  order: 10,
+});
+
+// Visible to either admins or commanders
+state.nav.register({
+  label: "Event Dashboard",
+  href: "/events/dashboard",
+  group: "main",
+  roles: ["admin", "commander"],
+  order: 30,
+});
+```
+
+A user sees the item if their role matches _any_ entry in the array. Omitting
+`roles` (or passing an empty array) makes the item visible to everyone.
+
+### Rendering nav in your own pages
+
+Capture `state.nav` during `initialize()`, then call `getVisibleFor(user)` in
+your handler and pass the filtered items to your page component:
+
+```ts
+import type { AppState, NavRegistry } from "../core/app-state.ts";
+import type { UserInfo } from "../core/auth.ts";
+import type { Child, FC } from "@hono/hono/jsx";
+import type { Conduit } from "../core/conduit.ts";
+import type { NavItem } from "../core/nav-registry.ts";
+
+let conduit: Conduit;
+let navRegistry: NavRegistry;
+
+const MyPage: FC<{ user: UserInfo; nav: NavItem[] }> = ({ user, nav }) => (
+  <div>
+    <nav>{nav.map((n) => <a href={n.href}>{n.label}</a>)}</nav>
+    <h1>Welcome {user.id}</h1>
+  </div>
+);
+
+function handleMyPage(c: Context): Response | Promise<Response> {
+  const user = c.get("user") as UserInfo;
+  const visible = navRegistry.getVisibleFor(user);
+  return conduit.respond(c, <MyPage user={user} nav={visible} />);
+}
+
+const myModule: BlennyModule = {
+  name: "my-module",
+  routes: [
+    { method: "GET", path: "/my-page", handler: handleMyPage, auth: true },
+  ],
+
+  initialize(state: AppState) {
+    conduit = state.conduit;
+    navRegistry = state.nav;
+  },
+};
+```
+
+### Contextual roles with effectiveRoles
+
+Some applications need roles that depend on request context (e.g., "commander"
+for a specific game event). These live outside the JWT and are injected by a
+middleware that runs after auth:
+
+```ts
+// Application middleware (e.g., OpsCenter)
+app.use("/events/*", async (c, next) => {
+  const user = c.get("user") as UserInfo | undefined;
+  if (!user) return next();
+
+  const slug = c.req.param("slug");
+  const isCommander = await db.query(
+    "SELECT 1 FROM event_participants WHERE event_slug = $1 AND user_id = $2 AND role = 'commander'",
+    slug,
+    user.id,
+  );
+
+  if (isCommander) {
+    c.set("user", { ...user, effectiveRoles: ["commander"] });
+  }
+
+  await next();
+});
+```
+
+The middleware **must** verify the user's relationship to the context (event,
+organization, etc.) — the URL slug alone is not authorization. Once
+`effectiveRoles` is set, `nav.getVisibleFor(user)` automatically includes those
+roles in its visibility check:
+
+| User's state                                       | Item `roles: ["commander"]` | Item `roles: ["admin"]` | Item (no `roles`) |
+| -------------------------------------------------- | --------------------------- | ----------------------- | ----------------- |
+| `{ role: "user" }`                                 | hidden                      | hidden                  | visible           |
+| `{ role: "admin" }`                                | hidden                      | visible                 | visible           |
+| `{ role: "user", effectiveRoles: ["commander"] }`  | visible                     | hidden                  | visible           |
+| `{ role: "admin", effectiveRoles: ["commander"] }` | visible                     | visible (via role)      | visible           |
+
+`effectiveRoles` is checked first, falling back to `[user.role]` when absent.
+This keeps the JWT as the single source of truth for the user's global role
+without requiring re-issuance for context-dependent roles.
+
+### Low-level API
+
+```ts
+import { type NavItem, NavRegistry } from "../core/nav-registry.ts";
+
+const nav = new NavRegistry();
+
+// Register items
+nav.register({ label: "Home", href: "/" });
+nav.register({ label: "Admin", href: "/admin", roles: ["admin"], order: 10 });
+
+// Get items visible to a user
+nav.getVisibleFor({ role: "user" }); // [Home]
+nav.getVisibleFor({ role: "admin" }); // [Home, Admin]
+nav.getVisibleFor({ role: "user", effectiveRoles: ["admin"] }); // [Home, Admin]
+nav.getVisibleFor(undefined); // [Home]
+```
+
+`NavRegistry` is a shared instance available on `AppState.nav`. Modules should
+use `state.nav` — creating a separate instance would produce items invisible to
+the rest of the application.
+
 ## Types & TypeScript Patterns
 
 A module relies on types from two layers: **framework types** (always available,
@@ -323,8 +499,9 @@ interface AppState {
   hub: TransportHub; // Broadcast to SSE/WS connections
   conduit: Conduit; // Render JSX with layout support
   config: BlennyConfig; // All configuration values
-  logger: BlennyLogger; // Structured logger
+  nav: NavRegistry; // Navigation item registry
   auth?: AuthBundle; // Set by the auth module if loaded
+  store?: UserStore; // User persistence store
   db?: Surreal; // SurrealDB instance if connected
 }
 ```

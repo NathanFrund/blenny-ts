@@ -21,6 +21,7 @@ export interface AuthConfig {
 export interface UserInfo {
   id: string;
   role: string;
+  effectiveRoles?: string[];
 }
 
 // ── Token helpers ─────────────────────────────────────────────

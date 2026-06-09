@@ -13,15 +13,19 @@ export class NavRegistry {
     this.items.set(item.href, { order: 100, ...item });
   }
 
-  getVisibleFor(user?: { role: string }): NavItem[] {
+  getVisibleFor(user?: { role: string; effectiveRoles?: string[] }): NavItem[] {
     return Array.from(this.items.values())
       .filter((n) => isVisible(n, user))
       .sort((a, b) => (a.order ?? 100) - (b.order ?? 100));
   }
 }
 
-function isVisible(item: NavItem, user?: { role: string }): boolean {
+function isVisible(
+  item: NavItem,
+  user?: { role: string; effectiveRoles?: string[] },
+): boolean {
   if (!item.roles || item.roles.length === 0) return true;
   if (!user) return false;
-  return item.roles.includes(user.role);
+  const userRoles = user.effectiveRoles ?? [user.role];
+  return item.roles.some((r) => userRoles.includes(r));
 }

@@ -140,7 +140,7 @@ export class SurrealConnectionManager implements DatabaseConnection {
     ) as unknown as T;
   }
 
-  async close(): Promise<void> {
+  close(): Promise<void> {
     this.stopHealthCheck();
     try {
       this.client?.close();
@@ -149,5 +149,6 @@ export class SurrealConnectionManager implements DatabaseConnection {
     }
     this.client = null;
     this._connected = false;
+    return Promise.resolve();
   }
 }

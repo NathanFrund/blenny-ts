@@ -1,7 +1,7 @@
 import type { Context } from "@hono/hono";
 import Dashboard from "./ui.tsx";
 
-export async function handleDashboard(c: Context): Promise<Response> {
+export function handleDashboard(c: Context): Response {
   return c.html(
     <html>
       <head>
