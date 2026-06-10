@@ -1,5 +1,6 @@
 import type { FC } from "@hono/hono/jsx";
-import type { UIComponent } from "@blenny/core/component-catalog.ts";
+import type { UserInfo } from "@blenny/core/auth.ts";
+import { NavLink } from "@blenny/core/nav.tsx";
 
 interface ProfilePageProps {
   id: string;
@@ -7,7 +8,7 @@ interface ProfilePageProps {
   displayName: string;
   role: string;
   avatarKey?: string | null;
-  nav: UIComponent[];
+  userInfo: UserInfo;
   error?: string;
 }
 
@@ -38,11 +39,20 @@ const ProfilePage: FC<ProfilePageProps> = (props) => (
       <button type="submit">Upload</button>
     </form>
     <nav style="margin:16px 0">
-      {props.nav.map((item) => (
-        <p key={item.href}>
-          <a href={item.href}>{item.label}</a>
-        </p>
-      ))}
+      <NavLink href="/dashboard" label="Dashboard" user={props.userInfo} />
+      <NavLink href="/auth/profile" label="Profile" user={props.userInfo} />
+      <NavLink
+        href="/auth/change-password"
+        label="Change Password"
+        user={props.userInfo}
+        requiredRoles="user"
+      />
+      <NavLink
+        href="/admin/users"
+        label="User Administration"
+        user={props.userInfo}
+        requiredRoles="admin"
+      />
     </nav>
   </div>
 );

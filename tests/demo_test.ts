@@ -1,6 +1,5 @@
 import { assertEquals } from "@std/assert";
 import demoModule from "../src/modules/demo/transport.ts";
-import { createComponentCatalog } from "@blenny/core/component-catalog.ts";
 import { TransportHub } from "@blenny/core/hub.ts";
 import { Conduit } from "@blenny/core/conduit.ts";
 import { BlennyConfig } from "@blenny/core/config.ts";
@@ -19,7 +18,6 @@ Deno.test("demo module", async (t) => {
     conduit,
     config,
     supervisor: new TaskSupervisor(),
-    components: createComponentCatalog(),
     startTime: Date.now(),
     version: "0.2.0",
   });

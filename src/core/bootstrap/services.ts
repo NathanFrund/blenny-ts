@@ -1,5 +1,4 @@
 import { Hono } from "@hono/hono";
-import { createComponentCatalog } from "../component-catalog.ts";
 import { BlennyConfig } from "../config.ts";
 import { TransportHub } from "../hub.ts";
 import { Conduit } from "../conduit.ts";
@@ -22,7 +21,6 @@ export async function createServices(config: BlennyConfig) {
     conduit,
     config,
     supervisor,
-    components: createComponentCatalog(),
     startTime: Date.now(),
     version: "0.2.0",
   };

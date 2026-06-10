@@ -1,7 +1,7 @@
 import { Context } from "@hono/hono";
 import type { FC } from "@hono/hono/jsx";
 import * as v from "@valibot/valibot";
-import { hasRole } from "@blenny/core/component-catalog.ts";
+import { hasRole } from "@blenny/core/nav.tsx";
 import { PasswordSchema } from "@blenny/core/validation.ts";
 import type { UserInfo } from "@blenny/core/auth.ts";
 import type { AppState } from "@blenny/core/app-state.ts";
@@ -103,15 +103,6 @@ const passwordChangeModule: BlennyModule = {
   initialize(state_: AppState) {
     conduit = state_.conduit;
     store = state_.store!;
-    state_.components.register({
-      id: "nav.change-password",
-      type: "nav",
-      label: "Change Password",
-      href: "/auth/change-password",
-      group: "account",
-      order: 20,
-      visible: hasRole("user"),
-    });
   },
 };
 

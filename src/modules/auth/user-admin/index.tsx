@@ -1,6 +1,6 @@
 import { Context } from "@hono/hono";
 import type { FC } from "@hono/hono/jsx";
-import { hasRole } from "@blenny/core/component-catalog.ts";
+import { hasRole } from "@blenny/core/nav.tsx";
 import type { AppState } from "@blenny/core/app-state.ts";
 import type { Conduit } from "@blenny/core/conduit.ts";
 import type { StoredUser } from "@blenny/core/store.ts";
@@ -107,15 +107,6 @@ const userAdminModule: BlennyModule = {
   initialize(state_: AppState) {
     conduit = state_.conduit;
     store = state_.store!;
-    state_.components.register({
-      id: "nav.user-admin",
-      type: "nav",
-      label: "User Administration",
-      href: "/admin/users",
-      group: "admin",
-      order: 10,
-      visible: hasRole("admin"),
-    });
   },
 };
 

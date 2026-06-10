@@ -290,142 +290,117 @@ stop() {
 }
 ```
 
-## Component Registry
+## Navigation & Visibility
 
-Modules can register components — nav items, widgets, action buttons, panels —
-that appear in the dashboard, profile page, or any other page that renders them.
-Components are filtered by the user's roles at render time.
+Nav items and other role-gated UI elements are rendered directly in JSX using
+the `NavLink` component and `hasRole` helper from `src/core/nav.tsx`. There is
+no global registry — each page explicitly lists the nav items it needs.
 
-### UIComponent
+### hasRole
 
-| Field     | Type                                          | Default | Purpose                                                        |
-| --------- | --------------------------------------------- | ------- | -------------------------------------------------------------- |
-| `id`      | `string`                                      | —       | Unique identifier (use namespacing: `"nav.dashboard"`)         |
-| `type`    | `"nav" \| "widget" \| "action" \| "panel" \| string` | — | Component category                                             |
-| `label`   | `string`                                      | —       | Display text                                                   |
-| `href`    | `string`                                      | —       | Link target (nav items)                                        |
-| `icon`    | `string`                                      | —       | Icon name (e.g. `"lucide-layout-dashboard"`)                   |
-| `group`   | `string`                                      | —       | Section grouping (`"main"`, `"account"`, `"admin"`)            |
-| `order`   | `number`                                      | `100`   | Sort position within the list (lower sorts first)              |
-| `meta`    | `Record<string, unknown>`                     | —       | Extra data for the specific component                          |
-| `visible` | `(user?: UserInfo) => boolean`                | —       | Visibility predicate; absent → always visible                  |
-
-### Registering from a module
-
-Call `state.components.register()` during `initialize()`. The registry is
-shared — items from any module are visible to all:
-
-```ts
-import type { AppState } from "../core/app-state.ts";
-import type { BlennyModule } from "../types.ts";
-
-const myModule: BlennyModule = {
-  name: "my-module",
-  routes: [
-    { method: "GET", path: "/reports", handler: handleReports, auth: true },
-  ],
-
-  initialize(state: AppState) {
-    state.components.register({
-      id: "nav.reports",
-      type: "nav",
-      label: "Reports",
-      href: "/reports",
-      group: "main",
-      order: 20,
-    });
-  },
-};
-```
-
-### Role-gating components
-
-Use the `hasRole` factory to restrict visibility. A module author can use any
-role name — the platform does not define a fixed set:
-
-```ts
-import { hasRole } from "../core/component-catalog.ts";
-
-// Admin-only
-state.components.register({
-  id: "nav.admin-users",
-  type: "nav",
-  label: "User Administration",
-  href: "/admin/users",
-  group: "admin",
-  order: 10,
-  visible: hasRole("admin"),
-});
-
-// Visible to either admins or commanders
-state.components.register({
-  id: "nav.event-dashboard",
-  type: "nav",
-  label: "Event Dashboard",
-  href: "/events/dashboard",
-  group: "main",
-  order: 30,
-  visible: hasRole("admin", "commander"),
-});
-```
-
-Omitting `visible` makes the component visible to everyone. `hasRole` supports
-three sources for the user's roles, checked in order:
+A factory that returns a predicate function. Checks the user's roles in this
+order:
 1. `user.roles` — explicit multi-role array (from JWT or computed)
 2. `user.effectiveRoles` — contextual roles set by middleware
 3. `user.role` — singular role (backward compat fallback)
 
-### Rendering components in your own pages
-
-Capture `state.components` during `initialize()`, then call
-`.getNavItems(user)` in your handler and pass the filtered items to your page
-component. The JWT payload only guarantees `id`, `role`, and `roles` — if you
-need additional user data (like `displayName`), look it up from the store:
-
 ```ts
-import type { AppState } from "../core/app-state.ts";
-import type { UserInfo } from "../core/auth.ts";
-import type { FC } from "@hono/hono/jsx";
-import type { Context } from "@hono/hono";
-import type { Conduit } from "../core/conduit.ts";
-import type { ComponentCatalog, UIComponent } from "../core/component-catalog.ts";
-import type { UserStore } from "../core/store.ts";
+import { hasRole } from "../core/nav.tsx";
 
-let conduit: Conduit;
-let components: ComponentCatalog;
-let store: UserStore;
+// Predicates for use with NavLink or inline
+hasRole("admin");              // single role
+hasRole("admin", "commander"); // any of these roles
+```
 
-const MyPage: FC<{ user: UserInfo; nav: UIComponent[]; displayName: string }> = (
-  { user, nav, displayName },
+### NavLink
+
+A JSX component that renders a navigation link, gated by role or custom
+condition:
+
+```tsx
+import { NavLink } from "@blenny/core/nav.tsx";
+
+// Always visible
+<NavLink href="/dashboard" label="Dashboard" user={userInfo} />
+
+// Role-gated
+<NavLink
+  href="/admin/users"
+  label="User Administration"
+  user={userInfo}
+  requiredRoles="admin"
+/>
+
+// Multiple roles (any match)
+<NavLink
+  href="/events/command"
+  label="Command Center"
+  user={userInfo}
+  requiredRoles={["admin", "commander"]}
+/>
+
+// Custom condition (feature flags, metadata checks, etc.)
+<NavLink
+  href="/beta"
+  label="Beta Feature"
+  user={userInfo}
+  condition={(u) => u?.meta?.features?.includes("beta")}
+/>
+```
+
+| Prop            | Type                              | Purpose                                     |
+| --------------- | --------------------------------- | ------------------------------------------- |
+| `href`          | `string`                          | Link target                                 |
+| `label`         | `string`                          | Display text                                |
+| `icon`          | `string` (optional)               | Icon CSS class                              |
+| `user`          | `UserInfo` (optional)             | Current user for role checks                |
+| `requiredRoles` | `string \| string[]` (optional)   | Role(s) required to see the link            |
+| `condition`     | `(user?) => boolean` (optional)   | Custom predicate — must return true to show |
+
+`NavLink` returns `null` (renders nothing) when the user doesn't satisfy the
+role or condition requirements.
+
+### Rendering nav items in a page
+
+Pass the `userInfo` from your handler to the page component, then render
+`NavLink` items directly:
+
+```tsx
+import { NavLink } from "@blenny/core/nav.tsx";
+import type { UserInfo } from "@blenny/core/auth.ts";
+
+const MyPage: FC<{ userInfo: UserInfo; displayName: string }> = (
+  { userInfo, displayName },
 ) => (
   <div>
-    <nav>{nav.map((n) => <a href={n.href}>{n.label}</a>)}</nav>
+    <nav>
+      <NavLink href="/dashboard" label="Dashboard" user={userInfo} />
+      <NavLink href="/profile" label="Profile" user={userInfo} />
+    </nav>
     <h1>Welcome {displayName}</h1>
   </div>
 );
+```
 
-async function handleMyPage(c: Context) {
-  const user = c.get("user") as UserInfo;
-  const full = await store.findById(user.id);
-  const visible = components.getNavItems(user);
-  return conduit.respond(
-    c,
-    <MyPage user={user} nav={visible} displayName={full?.displayName ?? user.id} />,
+Compose nav sections as shared components when the same links appear on
+multiple pages:
+
+```tsx
+// src/modules/core-nav.tsx
+export function CoreNav({ user }: { user?: UserInfo }) {
+  return (
+    <>
+      <NavLink href="/dashboard" label="Dashboard" user={user} />
+      <NavLink href="/profile" label="Profile" user={user} />
+    </>
   );
 }
 
-const myModule: BlennyModule = {
-  name: "my-module",
-  routes: [
-    { method: "GET", path: "/my-page", handler: handleMyPage, auth: true },
-  ],
-
-  initialize(state: AppState) {
-    conduit = state.conduit;
-    components = state.components;
-    store = state.store!;
-  },
-};
+// Usage in any page
+<nav>
+  <CoreNav user={userInfo} />
+  <NavLink href="/admin" label="Admin Panel" user={userInfo} requiredRoles="admin" />
+</nav>
 ```
 
 ### Contextual roles with effectiveRoles
@@ -460,49 +435,12 @@ organization, etc.) — the URL slug alone is not authorization. Once
 `effectiveRoles` is set, `hasRole` automatically includes those roles in its
 visibility check:
 
-| User's state                                       | `visible: hasRole("commander")` | `visible: hasRole("admin")` | `visible` omitted |
-| -------------------------------------------------- | ------------------------------- | --------------------------- | ----------------- |
-| `{ role: "user" }`                                 | hidden                          | hidden                      | visible           |
-| `{ role: "admin" }`                                | hidden                          | visible                     | visible           |
-| `{ role: "user", effectiveRoles: ["commander"] }`  | visible                         | hidden                      | visible           |
-| `{ role: "admin", effectiveRoles: ["commander"] }` | visible                         | visible (via role)          | visible           |
-
-### Low-level API
-
-```ts
-import { ComponentCatalog, hasRole } from "../core/component-catalog.ts";
-
-const components = new ComponentCatalog();
-
-// Register items
-components.register({ id: "nav.home", type: "nav", label: "Home", href: "/" });
-components.register({
-  id: "nav.admin",
-  type: "nav",
-  label: "Admin",
-  href: "/admin",
-  visible: hasRole("admin"),
-  order: 10,
-});
-
-// Get nav items visible to a user
-components.getNavItems({ role: "user" }); // [Home]
-components.getNavItems({ role: "admin" }); // [Home, Admin]
-components.getNavItems({ id: "1", role: "user", roles: ["admin"] }); // [Home, Admin]
-components.getNavItems(undefined); // [Home]
-
-// Check individual component visibility
-components.isVisible("nav.admin", { role: "admin" }); // true
-
-// Get other component types
-components.getWidgets(user);
-```
-
-`ComponentCatalog` is a shared instance available on `AppState.components`.
-Modules should use `state.components` — creating a separate instance would
-produce items invisible to the rest of the application. The registry also
-supports `unregister(id)`, `getById(id)`, and `clear()` for testing and
-hot-reload scenarios.
+| User's state                                       | `requiredRoles="commander"` | `requiredRoles="admin"` | no gate |
+| -------------------------------------------------- | --------------------------- | ----------------------- | ------- |
+| `{ role: "user" }`                                 | hidden                      | hidden                  | visible |
+| `{ role: "admin" }`                                | hidden                      | visible                 | visible |
+| `{ role: "user", effectiveRoles: ["commander"] }`  | visible                     | hidden                  | visible |
+| `{ role: "admin", effectiveRoles: ["commander"] }` | visible                     | visible (via role)      | visible |
 
 ## Types & TypeScript Patterns
 
@@ -526,8 +464,9 @@ them regardless of which other modules are loaded.
 | `AuthConfig`        | `../core/auth.ts`               | Auth module configuration (secret, cookie name, etc.)     |
 | `Conduit`           | `../core/conduit.ts`            | Layout-aware response renderer                            |
 | `TransportHub`      | `../core/hub.ts`                | Low-level connection broadcast                            |
-| `ComponentCatalog` | `../core/component-catalog.ts` | Component registry (nav, widgets, panels, etc.)           |
-| `UIComponent`       | `../core/component-catalog.ts` | A registered component with type and visibility predicate |
+| `NavLink`          | `../core/nav.tsx`              | Role-gated navigation link component                      |
+| `hasRole`          | `../core/nav.tsx`              | Role-check predicate factory (supports `effectiveRoles`)  |
+
 
 #### AppState reference
 
@@ -540,7 +479,7 @@ interface AppState {
   conduit: Conduit; // Render JSX with layout support
   config: BlennyConfig; // All configuration values
   supervisor: TaskSupervisor; // Background task manager
-  components: ComponentCatalog; // Component registry (nav, widgets, etc.)
+
   auth?: AuthBundle; // Set by the auth module if loaded
   store?: UserStore; // User persistence store
   db?: DatabaseConnection; // SurrealDB instance if connected
