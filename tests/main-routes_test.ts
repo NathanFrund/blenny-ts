@@ -1,6 +1,6 @@
 import { assertEquals, assertExists } from "@std/assert";
 import { Hono } from "@hono/hono";
-import { NavRegistry } from "@blenny/core/nav-registry.ts";
+import { ComponentRegistry } from "@blenny/core/component-registry.ts";
 import { TransportHub } from "@blenny/core/hub.ts";
 import { Conduit } from "@blenny/core/conduit.ts";
 import { BlennyConfig } from "@blenny/core/config.ts";
@@ -24,7 +24,7 @@ Deno.test("main routes", async (t) => {
     conduit,
     config,
     supervisor: new TaskSupervisor(),
-    nav: new NavRegistry(),
+    components: new ComponentRegistry(),
     startTime: Date.now(),
     version: "0.2.0",
   };

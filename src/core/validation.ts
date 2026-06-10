@@ -28,6 +28,7 @@ export const UserInfoSchema = v.object({
   id: v.string(),
   role: v.string(),
   exp: v.optional(v.number()),
+  roles: v.optional(v.array(v.string())),
 });
 
 export type UserInfoData = v.InferOutput<typeof UserInfoSchema>;

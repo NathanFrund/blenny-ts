@@ -1,5 +1,5 @@
 import { Hono } from "@hono/hono";
-import { NavRegistry } from "../nav-registry.ts";
+import { ComponentRegistry } from "../component-registry.ts";
 import { BlennyConfig } from "../config.ts";
 import { TransportHub } from "../hub.ts";
 import { Conduit } from "../conduit.ts";
@@ -22,7 +22,7 @@ export async function createServices(config: BlennyConfig) {
     conduit,
     config,
     supervisor,
-    nav: new NavRegistry(),
+    components: new ComponentRegistry(),
     startTime: Date.now(),
     version: "0.2.0",
   };

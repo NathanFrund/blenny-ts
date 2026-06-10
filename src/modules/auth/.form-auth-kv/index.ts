@@ -65,7 +65,7 @@ const authModule: BlennyModule = {
   ],
   async initialize(state_: AppState) {
     state.conduit = state_.conduit;
-    state.navRegistry = state_.nav;
+    state.components = state_.components;
     state.config = {
       jwtSecret: state_.config.jwtSecret,
       cookieName: state_.config.cookieName,
@@ -96,7 +96,9 @@ const authModule: BlennyModule = {
     state.handleAvatarServe = createHandleAvatarServe(state.deps);
 
     state_.store = state.store;
-    state_.nav.register({
+    state_.components.register({
+      id: "nav.profile",
+      type: "nav",
       label: "Profile",
       href: "/auth/profile",
       group: "account",

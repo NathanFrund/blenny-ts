@@ -21,6 +21,7 @@ export interface AuthConfig {
 export interface UserInfo {
   id: string;
   role: string;
+  roles?: string[];
   effectiveRoles?: string[];
 }
 
@@ -62,7 +63,11 @@ export function getUser(
         });
         return null;
       }
-      return { id: result.output.id, role: result.output.role };
+      return {
+        id: result.output.id,
+        role: result.output.role,
+        roles: (payload as any).roles ?? [result.output.role],
+      };
     } catch {
       return null;
     }

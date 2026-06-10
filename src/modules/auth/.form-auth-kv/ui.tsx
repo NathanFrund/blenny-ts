@@ -1,5 +1,5 @@
 import type { FC } from "@hono/hono/jsx";
-import type { NavItem } from "@blenny/core/nav-registry.ts";
+import type { UIComponent } from "@blenny/core/component-registry.ts";
 
 interface ProfilePageProps {
   id: string;
@@ -7,7 +7,7 @@ interface ProfilePageProps {
   displayName: string;
   role: string;
   avatarKey?: string | null;
-  nav: NavItem[];
+  nav: UIComponent[];
   error?: string;
 }
 

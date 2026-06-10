@@ -290,26 +290,30 @@ stop() {
 }
 ```
 
-## Navigation Registry
+## Component Registry
 
-Modules can register navigation items that appear in the dashboard, profile
-page, and any other page that renders nav. Items are filtered by the user's role
-at render time.
+Modules can register components — nav items, widgets, action buttons, panels —
+that appear in the dashboard, profile page, or any other page that renders them.
+Components are filtered by the user's roles at render time.
 
-### NavItem
+### UIComponent
 
-| Field   | Type       | Default | Purpose                                             |
-| ------- | ---------- | ------- | --------------------------------------------------- |
-| `label` | `string`   | —       | Display text                                        |
-| `href`  | `string`   | —       | Link target                                         |
-| `roles` | `string[]` | —       | Required user roles; omit or empty → visible to all |
-| `group` | `string`   | —       | Section grouping (`"main"`, `"account"`, `"admin"`) |
-| `order` | `number`   | `100`   | Sort position within the list (lower sorts first)   |
+| Field     | Type                                          | Default | Purpose                                                        |
+| --------- | --------------------------------------------- | ------- | -------------------------------------------------------------- |
+| `id`      | `string`                                      | —       | Unique identifier (use namespacing: `"nav.dashboard"`)         |
+| `type`    | `"nav" \| "widget" \| "action" \| "panel" \| string` | — | Component category                                             |
+| `label`   | `string`                                      | —       | Display text                                                   |
+| `href`    | `string`                                      | —       | Link target (nav items)                                        |
+| `icon`    | `string`                                      | —       | Icon name (e.g. `"lucide-layout-dashboard"`)                   |
+| `group`   | `string`                                      | —       | Section grouping (`"main"`, `"account"`, `"admin"`)            |
+| `order`   | `number`                                      | `100`   | Sort position within the list (lower sorts first)              |
+| `meta`    | `Record<string, unknown>`                     | —       | Extra data for the specific component                          |
+| `visible` | `(user?: UserInfo) => boolean`                | —       | Visibility predicate; absent → always visible                  |
 
 ### Registering from a module
 
-Call `state.nav.register()` during `initialize()`. The registry is shared —
-items from any module are visible to all:
+Call `state.components.register()` during `initialize()`. The registry is
+shared — items from any module are visible to all:
 
 ```ts
 import type { AppState } from "../core/app-state.ts";
@@ -322,7 +326,9 @@ const myModule: BlennyModule = {
   ],
 
   initialize(state: AppState) {
-    state.nav.register({
+    state.components.register({
+      id: "nav.reports",
+      type: "nav",
       label: "Reports",
       href: "/reports",
       group: "main",
@@ -332,60 +338,80 @@ const myModule: BlennyModule = {
 };
 ```
 
-### Role-gating nav items
+### Role-gating components
 
-Set `roles` to restrict visibility. A module author can use any role name — the
-platform does not define a fixed set:
+Use the `hasRole` factory to restrict visibility. A module author can use any
+role name — the platform does not define a fixed set:
 
 ```ts
+import { hasRole } from "../core/component-registry.ts";
+
 // Admin-only
-state.nav.register({
+state.components.register({
+  id: "nav.admin-users",
+  type: "nav",
   label: "User Administration",
   href: "/admin/users",
   group: "admin",
-  roles: ["admin"],
   order: 10,
+  visible: hasRole("admin"),
 });
 
 // Visible to either admins or commanders
-state.nav.register({
+state.components.register({
+  id: "nav.event-dashboard",
+  type: "nav",
   label: "Event Dashboard",
   href: "/events/dashboard",
   group: "main",
-  roles: ["admin", "commander"],
   order: 30,
+  visible: hasRole("admin", "commander"),
 });
 ```
 
-A user sees the item if their role matches _any_ entry in the array. Omitting
-`roles` (or passing an empty array) makes the item visible to everyone.
+Omitting `visible` makes the component visible to everyone. `hasRole` supports
+three sources for the user's roles, checked in order:
+1. `user.roles` — explicit multi-role array (from JWT or computed)
+2. `user.effectiveRoles` — contextual roles set by middleware
+3. `user.role` — singular role (backward compat fallback)
 
-### Rendering nav in your own pages
+### Rendering components in your own pages
 
-Capture `state.nav` during `initialize()`, then call `getVisibleFor(user)` in
-your handler and pass the filtered items to your page component:
+Capture `state.components` during `initialize()`, then call
+`.getNavItems(user)` in your handler and pass the filtered items to your page
+component. The JWT payload only guarantees `id`, `role`, and `roles` — if you
+need additional user data (like `displayName`), look it up from the store:
 
 ```ts
-import type { AppState, NavRegistry } from "../core/app-state.ts";
+import type { AppState } from "../core/app-state.ts";
 import type { UserInfo } from "../core/auth.ts";
-import type { Child, FC } from "@hono/hono/jsx";
+import type { FC } from "@hono/hono/jsx";
+import type { Context } from "@hono/hono";
 import type { Conduit } from "../core/conduit.ts";
-import type { NavItem } from "../core/nav-registry.ts";
+import type { ComponentRegistry, UIComponent } from "../core/component-registry.ts";
+import type { UserStore } from "../core/store.ts";
 
 let conduit: Conduit;
-let navRegistry: NavRegistry;
+let components: ComponentRegistry;
+let store: UserStore;
 
-const MyPage: FC<{ user: UserInfo; nav: NavItem[] }> = ({ user, nav }) => (
+const MyPage: FC<{ user: UserInfo; nav: UIComponent[]; displayName: string }> = (
+  { user, nav, displayName },
+) => (
   <div>
     <nav>{nav.map((n) => <a href={n.href}>{n.label}</a>)}</nav>
-    <h1>Welcome {user.id}</h1>
+    <h1>Welcome {displayName}</h1>
   </div>
 );
 
-function handleMyPage(c: Context): Response | Promise<Response> {
+async function handleMyPage(c: Context) {
   const user = c.get("user") as UserInfo;
-  const visible = navRegistry.getVisibleFor(user);
-  return conduit.respond(c, <MyPage user={user} nav={visible} />);
+  const full = await store.findById(user.id);
+  const visible = components.getNavItems(user);
+  return conduit.respond(
+    c,
+    <MyPage user={user} nav={visible} displayName={full?.displayName ?? user.id} />,
+  );
 }
 
 const myModule: BlennyModule = {
@@ -396,7 +422,8 @@ const myModule: BlennyModule = {
 
   initialize(state: AppState) {
     conduit = state.conduit;
-    navRegistry = state.nav;
+    components = state.components;
+    store = state.store!;
   },
 };
 ```
@@ -430,41 +457,52 @@ app.use("/events/*", async (c, next) => {
 
 The middleware **must** verify the user's relationship to the context (event,
 organization, etc.) — the URL slug alone is not authorization. Once
-`effectiveRoles` is set, `nav.getVisibleFor(user)` automatically includes those
-roles in its visibility check:
+`effectiveRoles` is set, `hasRole` automatically includes those roles in its
+visibility check:
 
-| User's state                                       | Item `roles: ["commander"]` | Item `roles: ["admin"]` | Item (no `roles`) |
-| -------------------------------------------------- | --------------------------- | ----------------------- | ----------------- |
-| `{ role: "user" }`                                 | hidden                      | hidden                  | visible           |
-| `{ role: "admin" }`                                | hidden                      | visible                 | visible           |
-| `{ role: "user", effectiveRoles: ["commander"] }`  | visible                     | hidden                  | visible           |
-| `{ role: "admin", effectiveRoles: ["commander"] }` | visible                     | visible (via role)      | visible           |
-
-`effectiveRoles` is checked first, falling back to `[user.role]` when absent.
-This keeps the JWT as the single source of truth for the user's global role
-without requiring re-issuance for context-dependent roles.
+| User's state                                       | `visible: hasRole("commander")` | `visible: hasRole("admin")` | `visible` omitted |
+| -------------------------------------------------- | ------------------------------- | --------------------------- | ----------------- |
+| `{ role: "user" }`                                 | hidden                          | hidden                      | visible           |
+| `{ role: "admin" }`                                | hidden                          | visible                     | visible           |
+| `{ role: "user", effectiveRoles: ["commander"] }`  | visible                         | hidden                      | visible           |
+| `{ role: "admin", effectiveRoles: ["commander"] }` | visible                         | visible (via role)          | visible           |
 
 ### Low-level API
 
 ```ts
-import { type NavItem, NavRegistry } from "../core/nav-registry.ts";
+import { ComponentRegistry, hasRole } from "../core/component-registry.ts";
 
-const nav = new NavRegistry();
+const components = new ComponentRegistry();
 
 // Register items
-nav.register({ label: "Home", href: "/" });
-nav.register({ label: "Admin", href: "/admin", roles: ["admin"], order: 10 });
+components.register({ id: "nav.home", type: "nav", label: "Home", href: "/" });
+components.register({
+  id: "nav.admin",
+  type: "nav",
+  label: "Admin",
+  href: "/admin",
+  visible: hasRole("admin"),
+  order: 10,
+});
 
-// Get items visible to a user
-nav.getVisibleFor({ role: "user" }); // [Home]
-nav.getVisibleFor({ role: "admin" }); // [Home, Admin]
-nav.getVisibleFor({ role: "user", effectiveRoles: ["admin"] }); // [Home, Admin]
-nav.getVisibleFor(undefined); // [Home]
+// Get nav items visible to a user
+components.getNavItems({ role: "user" }); // [Home]
+components.getNavItems({ role: "admin" }); // [Home, Admin]
+components.getNavItems({ id: "1", role: "user", roles: ["admin"] }); // [Home, Admin]
+components.getNavItems(undefined); // [Home]
+
+// Check individual component visibility
+components.isVisible("nav.admin", { role: "admin" }); // true
+
+// Get other component types
+components.getWidgets(user);
 ```
 
-`NavRegistry` is a shared instance available on `AppState.nav`. Modules should
-use `state.nav` — creating a separate instance would produce items invisible to
-the rest of the application.
+`ComponentRegistry` is a shared instance available on `AppState.components`.
+Modules should use `state.components` — creating a separate instance would
+produce items invisible to the rest of the application. The registry also
+supports `unregister(id)`, `getById(id)`, and `clear()` for testing and
+hot-reload scenarios.
 
 ## Types & TypeScript Patterns
 
@@ -482,12 +520,14 @@ them regardless of which other modules are loaded.
 | `BlennyModule` | `../types.ts`          | Shape of a module (routes, lifecycle hooks, capabilities) |
 | `Route`        | `../types.ts`          | A single route entry (method, path, handler, auth)        |
 | `BlennyEvents` | `../types.ts`          | Typed event bus topics (extended by modules)              |
-| `AppState`     | `../core/app-state.ts` | Everything injected into `initialize()`                   |
-| `AuthBundle`   | `../core/app-state.ts` | Auth middleware bundle set on `state.auth`                |
-| `UserInfo`     | `../core/auth.ts`      | Decoded JWT payload: `{ id, role, exp }`                  |
-| `AuthConfig`   | `../core/auth.ts`      | Auth module configuration (secret, cookie name, etc.)     |
-| `Conduit`      | `../core/conduit.ts`   | Layout-aware response renderer                            |
-| `TransportHub` | `../core/hub.ts`       | Low-level connection broadcast                            |
+| `AppState`          | `../core/app-state.ts`          | Everything injected into `initialize()`                   |
+| `AuthBundle`        | `../core/app-state.ts`          | Auth middleware bundle set on `state.auth`                |
+| `UserInfo`          | `../core/auth.ts`               | Decoded JWT payload: `{ id, role, roles?, exp }`          |
+| `AuthConfig`        | `../core/auth.ts`               | Auth module configuration (secret, cookie name, etc.)     |
+| `Conduit`           | `../core/conduit.ts`            | Layout-aware response renderer                            |
+| `TransportHub`      | `../core/hub.ts`                | Low-level connection broadcast                            |
+| `ComponentRegistry` | `../core/component-registry.ts` | Component registry (nav, widgets, panels, etc.)           |
+| `UIComponent`       | `../core/component-registry.ts` | A registered component with type and visibility predicate |
 
 #### AppState reference
 
@@ -499,10 +539,14 @@ interface AppState {
   hub: TransportHub; // Broadcast to SSE/WS connections
   conduit: Conduit; // Render JSX with layout support
   config: BlennyConfig; // All configuration values
-  nav: NavRegistry; // Navigation item registry
+  supervisor: TaskSupervisor; // Background task manager
+  components: ComponentRegistry; // Component registry (nav, widgets, etc.)
   auth?: AuthBundle; // Set by the auth module if loaded
   store?: UserStore; // User persistence store
-  db?: Surreal; // SurrealDB instance if connected
+  db?: DatabaseConnection; // SurrealDB instance if connected
+  moduleCount?: number; // Number of loaded modules
+  startTime: number; // Server start timestamp
+  version: string; // Framework version
 }
 ```
 

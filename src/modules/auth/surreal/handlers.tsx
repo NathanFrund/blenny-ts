@@ -124,7 +124,7 @@ async function handleProfile(c: Context): Promise<Response> {
   const user = await state.store.findById(userInfo.id);
   if (!user) return c.redirect("/auth/signin");
 
-  const navItems = state.navRegistry.getVisibleFor(userInfo);
+  const navItems = state.components.getNavItems(userInfo);
 
   const error = c.req.query("error");
   return state.conduit.respond(
