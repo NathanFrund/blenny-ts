@@ -1,5 +1,5 @@
 import type { FC } from "@hono/hono/jsx";
-import type { UIComponent } from "@blenny/core/component-registry.ts";
+import type { UIComponent } from "@blenny/core/component-catalog.ts";
 
 interface ProfilePageProps {
   id: string;

@@ -66,7 +66,7 @@ export function getUser(
       return {
         id: result.output.id,
         role: result.output.role,
-        roles: (payload as any).roles ?? [result.output.role],
+        roles: result.output.roles ?? [result.output.role],
       };
     } catch {
       return null;

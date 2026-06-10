@@ -1,7 +1,7 @@
 import { assertEquals } from "@std/assert";
 import { Hono } from "@hono/hono";
 import type { MiddlewareHandler } from "@hono/hono";
-import { ComponentRegistry } from "@blenny/core/component-registry.ts";
+import { createComponentCatalog } from "@blenny/core/component-catalog.ts";
 import { TransportHub } from "@blenny/core/hub.ts";
 import { Conduit } from "@blenny/core/conduit.ts";
 import { BlennyConfig } from "@blenny/core/config.ts";
@@ -44,7 +44,7 @@ async function buildApp(): Promise<{ app: Hono; state: AppState }> {
     conduit,
     config,
     supervisor: new TaskSupervisor(),
-    components: new ComponentRegistry(),
+    components: createComponentCatalog(),
     startTime: Date.now(),
     version: "0.2.0",
   };

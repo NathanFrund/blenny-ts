@@ -1,7 +1,7 @@
 import { Context } from "@hono/hono";
 import type { FC } from "@hono/hono/jsx";
 import * as v from "@valibot/valibot";
-import { hasRole } from "@blenny/core/component-registry.ts";
+import { hasRole } from "@blenny/core/component-catalog.ts";
 import { PasswordSchema } from "@blenny/core/validation.ts";
 import type { UserInfo } from "@blenny/core/auth.ts";
 import type { AppState } from "@blenny/core/app-state.ts";

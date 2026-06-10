@@ -1,6 +1,6 @@
 import { Context } from "@hono/hono";
 import type { FC } from "@hono/hono/jsx";
-import { hasRole } from "@blenny/core/component-registry.ts";
+import { hasRole } from "@blenny/core/component-catalog.ts";
 import type { AppState } from "@blenny/core/app-state.ts";
 import type { Conduit } from "@blenny/core/conduit.ts";
 import type { StoredUser } from "@blenny/core/store.ts";

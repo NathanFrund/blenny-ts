@@ -344,7 +344,7 @@ Use the `hasRole` factory to restrict visibility. A module author can use any
 role name — the platform does not define a fixed set:
 
 ```ts
-import { hasRole } from "../core/component-registry.ts";
+import { hasRole } from "../core/component-catalog.ts";
 
 // Admin-only
 state.components.register({
@@ -388,11 +388,11 @@ import type { UserInfo } from "../core/auth.ts";
 import type { FC } from "@hono/hono/jsx";
 import type { Context } from "@hono/hono";
 import type { Conduit } from "../core/conduit.ts";
-import type { ComponentRegistry, UIComponent } from "../core/component-registry.ts";
+import type { ComponentCatalog, UIComponent } from "../core/component-catalog.ts";
 import type { UserStore } from "../core/store.ts";
 
 let conduit: Conduit;
-let components: ComponentRegistry;
+let components: ComponentCatalog;
 let store: UserStore;
 
 const MyPage: FC<{ user: UserInfo; nav: UIComponent[]; displayName: string }> = (
@@ -470,9 +470,9 @@ visibility check:
 ### Low-level API
 
 ```ts
-import { ComponentRegistry, hasRole } from "../core/component-registry.ts";
+import { ComponentCatalog, hasRole } from "../core/component-catalog.ts";
 
-const components = new ComponentRegistry();
+const components = new ComponentCatalog();
 
 // Register items
 components.register({ id: "nav.home", type: "nav", label: "Home", href: "/" });
@@ -498,7 +498,7 @@ components.isVisible("nav.admin", { role: "admin" }); // true
 components.getWidgets(user);
 ```
 
-`ComponentRegistry` is a shared instance available on `AppState.components`.
+`ComponentCatalog` is a shared instance available on `AppState.components`.
 Modules should use `state.components` — creating a separate instance would
 produce items invisible to the rest of the application. The registry also
 supports `unregister(id)`, `getById(id)`, and `clear()` for testing and
@@ -526,8 +526,8 @@ them regardless of which other modules are loaded.
 | `AuthConfig`        | `../core/auth.ts`               | Auth module configuration (secret, cookie name, etc.)     |
 | `Conduit`           | `../core/conduit.ts`            | Layout-aware response renderer                            |
 | `TransportHub`      | `../core/hub.ts`                | Low-level connection broadcast                            |
-| `ComponentRegistry` | `../core/component-registry.ts` | Component registry (nav, widgets, panels, etc.)           |
-| `UIComponent`       | `../core/component-registry.ts` | A registered component with type and visibility predicate |
+| `ComponentCatalog` | `../core/component-catalog.ts` | Component registry (nav, widgets, panels, etc.)           |
+| `UIComponent`       | `../core/component-catalog.ts` | A registered component with type and visibility predicate |
 
 #### AppState reference
 
@@ -540,7 +540,7 @@ interface AppState {
   conduit: Conduit; // Render JSX with layout support
   config: BlennyConfig; // All configuration values
   supervisor: TaskSupervisor; // Background task manager
-  components: ComponentRegistry; // Component registry (nav, widgets, etc.)
+  components: ComponentCatalog; // Component registry (nav, widgets, etc.)
   auth?: AuthBundle; // Set by the auth module if loaded
   store?: UserStore; // User persistence store
   db?: DatabaseConnection; // SurrealDB instance if connected
