@@ -1,8 +1,8 @@
-import { assertEquals, assertRejects } from "@std/assert";
+import { assertEquals, assertThrows } from "@std/assert";
 import type { DatabaseConnection } from "@blenny/core/db-connection.ts";
 import { liveQuery } from "@blenny/core/db-live.ts";
-import type { LiveSubscription, LiveMessage } from "@blenny/core/db-live.ts";
-import type { Uuid, Table } from "@surrealdb/surrealdb";
+import type { LiveMessage, LiveSubscription } from "@blenny/core/db-live.ts";
+import type { Uuid } from "@surrealdb/surrealdb";
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -21,32 +21,61 @@ function mockSub(): LiveSubscription {
     kill: () => Promise.resolve(),
     subscribe: () => () => {},
     [Symbol.asyncIterator](): AsyncIterator<LiveMessage> {
-      return { next: () => Promise.resolve({ done: true, value: undefined as unknown as LiveMessage }) };
+      return {
+        next: () =>
+          Promise.resolve({
+            done: true,
+            value: undefined as unknown as LiveMessage,
+          }),
+      };
     },
-    get id() { return "mock-id" as unknown as Uuid; },
-    get isManaged() { return true; },
-    get resource() { return undefined; },
-    get isAlive() { return true; },
+    get id() {
+      return "mock-id" as unknown as Uuid;
+    },
+    get isManaged() {
+      return true;
+    },
+    get resource() {
+      return undefined;
+    },
+    get isAlive() {
+      return true;
+    },
   };
 }
 
 /** Create a thenable chain that records calls and resolves to mockSub. */
-function mockChain(calls: string[], record: (args: Record<string, unknown>) => void) {
+function mockChain(
+  calls: string[],
+  record: (args: Record<string, unknown>) => void,
+) {
   const sub = mockSub();
-  const chain = Promise.resolve(sub) as Promise<LiveSubscription> & Record<string, unknown>;
-  chain.where = (cond: string) => { calls.push("where"); record({ where: cond }); return chain; };
-  chain.fields = (...fs: string[]) => { calls.push("fields"); record({ fields: fs }); return chain; };
-  chain.diff = () => { calls.push("diff"); record({ diff: true }); return chain; };
+  const chain = Promise.resolve(sub) as
+    & Promise<LiveSubscription>
+    & Record<string, unknown>;
+  chain.where = (cond: string) => {
+    calls.push("where");
+    record({ where: cond });
+    return chain;
+  };
+  chain.fields = (...fs: string[]) => {
+    calls.push("fields");
+    record({ fields: fs });
+    return chain;
+  };
+  chain.diff = () => {
+    calls.push("diff");
+    record({ diff: true });
+    return chain;
+  };
   return chain;
 }
 
 // ─── Unit tests (always run, mock-based) ────────────────────────────────────
 
-Deno.test("liveQuery throws when backend is not SurrealDB", async () => {
+Deno.test("liveQuery throws when backend is not SurrealDB", () => {
   const db = makeDb(() => ({})); // no .live() method
-  await assertRejects(
-    () => liveQuery(db, "event"),
-  );
+  assertThrows(() => liveQuery(db, "event"));
 });
 
 Deno.test("liveQuery passes options to Surreal builder chain", async () => {
@@ -89,14 +118,33 @@ Deno.test("liveQuery subscribe returns an unsubscribe function", async () => {
   let unsubscribed = false;
   const customSub: LiveSubscription = {
     kill: () => Promise.resolve(),
-    subscribe: () => { unsubscribed = true; return () => { unsubscribed = false; }; },
-    [Symbol.asyncIterator](): AsyncIterator<LiveMessage> {
-      return { next: () => Promise.resolve({ done: true, value: undefined as unknown as LiveMessage }) };
+    subscribe: () => {
+      unsubscribed = true;
+      return () => {
+        unsubscribed = false;
+      };
     },
-    get id() { return "mock-id" as unknown as Uuid; },
-    get isManaged() { return true; },
-    get resource() { return undefined; },
-    get isAlive() { return true; },
+    [Symbol.asyncIterator](): AsyncIterator<LiveMessage> {
+      return {
+        next: () =>
+          Promise.resolve({
+            done: true,
+            value: undefined as unknown as LiveMessage,
+          }),
+      };
+    },
+    get id() {
+      return "mock-id" as unknown as Uuid;
+    },
+    get isManaged() {
+      return true;
+    },
+    get resource() {
+      return undefined;
+    },
+    get isAlive() {
+      return true;
+    },
   };
   const mockSurreal = { live: () => Promise.resolve(customSub) };
   const db = makeDb(<T>() => mockSurreal as T);
@@ -110,14 +158,18 @@ Deno.test("liveQuery subscribe returns an unsubscribe function", async () => {
 // ─── Integration test (gated: requires BLENNY_SURREAL_URL + --allow-env) ───
 
 function surrealdbUrl(): string | null {
-  try { return Deno.env.get("BLENNY_SURREAL_URL") ?? null; }
-  catch { return null; }
+  try {
+    return Deno.env.get("BLENNY_SURREAL_URL") ?? null;
+  } catch {
+    return null;
+  }
 }
 
 const runIntegration = surrealdbUrl() !== null;
 
 Deno.test({
-  name: "liveQuery integration — insert fires subscription [requires SurrealDB]",
+  name:
+    "liveQuery integration — insert fires subscription [requires SurrealDB]",
   ignore: !runIntegration,
   async fn() {
     const { Surreal } = await import("@surrealdb/surrealdb");
@@ -134,8 +186,12 @@ Deno.test({
 
     const table = `live_test_${Date.now()}`;
     await direct.query(`DEFINE TABLE IF NOT EXISTS ${table} SCHEMAFULL`);
-    await direct.query(`DEFINE FIELD IF NOT EXISTS name ON ${table} TYPE string`);
-    await direct.query(`DEFINE FIELD IF NOT EXISTS status ON ${table} TYPE string`);
+    await direct.query(
+      `DEFINE FIELD IF NOT EXISTS name ON ${table} TYPE string`,
+    );
+    await direct.query(
+      `DEFINE FIELD IF NOT EXISTS status ON ${table} TYPE string`,
+    );
 
     // Mock DatabaseConnection that delegates native() to the real Surreal
     const db = makeDb(<T>() => direct as T);
@@ -150,7 +206,10 @@ Deno.test({
     });
 
     const timeout = new Promise<never>((_, reject) =>
-      setTimeout(() => reject(new Error("timed out waiting for live event")), 5000)
+      setTimeout(
+        () => reject(new Error("timed out waiting for live event")),
+        5000,
+      )
     );
     const msg = await Promise.race([event, timeout]);
 

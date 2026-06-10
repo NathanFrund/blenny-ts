@@ -84,9 +84,8 @@ await store.deleteUser(id);
 
 The `fields` parameter on `findById` / `findByUsername` is a hint to the
 SurrealQL backend to SELECT only those columns, reducing data transfer. The Kv
-and
-in-memory backends ignore it (they return the full object). Use it when you only
-need a subset of fields:
+and in-memory backends ignore it (they return the full object). Use it when you
+only need a subset of fields:
 
 ```ts
 // changePassword only needs the password hash to verify
@@ -276,7 +275,7 @@ a managed subscription that auto-restarts after reconnection.
 
 ```ts
 import { liveQuery } from "@blenny/core/db-live.ts";
-import type { LiveSubscription, LiveMessage } from "@blenny/core/db-live.ts";
+import type { LiveMessage, LiveSubscription } from "@blenny/core/db-live.ts";
 
 let sub: LiveSubscription;
 
@@ -303,29 +302,29 @@ const myModule: BlennyModule = {
 
 **`LiveQueryOptions`:**
 
-| Option     | Type       | Description                                         |
-| ---------- | ---------- | --------------------------------------------------- |
-| `where`    | `string`   | SurrealQL condition (e.g. `"status = 'active'"`)    |
-| `fields`   | `string[]` | Only return these fields on each change             |
-| `diff`     | `boolean`  | Return patches (diffs) instead of full records      |
+| Option   | Type       | Description                                      |
+| -------- | ---------- | ------------------------------------------------ |
+| `where`  | `string`   | SurrealQL condition (e.g. `"status = 'active'"`) |
+| `fields` | `string[]` | Only return these fields on each change          |
+| `diff`   | `boolean`  | Return patches (diffs) instead of full records   |
 
 **`LiveMessage` shape:**
 
 ```ts
 type LiveMessage = {
-  queryId: Uuid;         // The live subscription's ID
+  queryId: Uuid; // The live subscription's ID
   action: "CREATE" | "UPDATE" | "DELETE";
-  recordId: RecordId;    // The SurrealDB record ID
-  value: Record<string, unknown>;  // The changed record data
+  recordId: RecordId; // The SurrealDB record ID
+  value: Record<string, unknown>; // The changed record data
 };
 ```
 
 **Receiving messages — two APIs:**
 
-| API                    | Description                                     |
-| ---------------------- | ----------------------------------------------- |
-| `sub.subscribe(fn)`    | Calls `fn` on every event, **returns an unsubscribe function** |
-| `for await (const msg of sub)` | Async iteration, works with `break` to stop          |
+| API                            | Description                                                    |
+| ------------------------------ | -------------------------------------------------------------- |
+| `sub.subscribe(fn)`            | Calls `fn` on every event, **returns an unsubscribe function** |
+| `for await (const msg of sub)` | Async iteration, works with `break` to stop                    |
 
 ```ts
 // Option A: subscribe / unsubscribe
@@ -350,13 +349,13 @@ down.
 
 ### Testing liveQuery
 
-Unit tests in `tests/db-live_test.ts` cover the builder chain wiring,
-error behavior, and unsubscribe semantics using mock Surreal objects — these
-run on every `deno test` with no special flags.
+Unit tests in `tests/db-live_test.ts` cover the builder chain wiring, error
+behavior, and unsubscribe semantics using mock Surreal objects — these run on
+every `deno test` with no special flags.
 
-An integration test is gated behind `BLENNY_SURREAL_URL`:
-it connects to a real SurrealDB instance, subscribes, inserts a matching row,
-and asserts the event fires. Run it with:
+An integration test is gated behind `BLENNY_SURREAL_URL`: it connects to a real
+SurrealDB instance, subscribes, inserts a matching row, and asserts the event
+fires. Run it with:
 
 ```sh
 BLENNY_SURREAL_URL=ws://127.0.0.1:8000/rpc deno test --allow-env --filter="integration"
