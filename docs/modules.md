@@ -498,6 +498,82 @@ A module that provides auth sets `state.auth` during its `initialize()` — othe
 modules don't need to know which module did it, they just check
 `if (state.auth)` at boot.
 
+### Practical Example: Background Health Monitor
+
+`TaskSupervisor` manages named recurring tasks with automatic exponential
+backoff on failure — a pattern borrowed from Erlang/OTP supervision trees.
+Without it, you'd hand-write `setInterval`, track consecutive failures yourself,
+and probably miss cleanup on shutdown.
+
+Here a module pings an external service every 30 seconds and pushes status to
+connected clients. If the upstream goes down, the supervisor backs off (up to 2
+minutes between retries) and the `onError` callback immediately updates the UI
+with the error:
+
+```ts
+import type { TransportHub } from "@blenny/core/hub.ts";
+import type { TaskSupervisor } from "@blenny/core/task-supervisor.ts";
+import type { BlennyModule } from "@blenny/types";
+
+async function pingUpstream(): Promise<boolean> {
+  const resp = await fetch("https://status.example.com/health");
+  return resp.ok;
+}
+
+let hub: TransportHub;
+let displayedOnce = false;
+
+const healthMonitorModule: BlennyModule = {
+  name: "health-monitor",
+  routes: [],
+  initialize(state) {
+    hub = state.hub;
+  },
+  start() {
+    state.supervisor.add(
+      "upstream-health",
+      async () => {
+        const ok = await pingUpstream();
+        hub.mergeSignals({ upstreamOk: ok });
+        displayedOnce = true;
+      },
+      30_000, // check every 30s
+      120_000, // cap exponential backoff at 2 minutes
+      {
+        onError(err) {
+          if (displayedOnce) {
+            hub.mergeSignals({
+              upstreamOk: false,
+              upstreamError: String(err),
+            });
+          }
+        },
+      },
+    );
+  },
+  stop() {
+    state.supervisor.remove("upstream-health");
+  },
+};
+```
+
+Key points:
+
+- **`start()` / `stop()` lifecycle** — the task is registered when the module
+  starts and removed on shutdown. No dangling timers.
+- **Exponential backoff** — after the first failure the delay doubles (30s → 60s
+  → 120s → capped at 120s), preventing a thundering herd against a struggling
+  upstream.
+- **Jitter** — each delay is randomized ±25% to spread retry spikes across
+  multiple instances.
+- **`onError`** — a per-task callback for custom recovery or alerting without
+  needing a global error handler.
+- **Introspection** — `supervisor.getTask("upstream-health")` returns the
+  current failure count and running state; `supervisor.listTasks()` enumerates
+  every registered task.
+- **`replace()`** — atomically swap a task's function or interval without
+  stopping other tasks: `supervisor.replace("upstream-health", newFn, 60_000)`.
+
 ### Module Types (Declaration Merging)
 
 Each module declares its **own event topics** using TypeScript's declaration
