@@ -164,7 +164,7 @@ export class SurrealUserStore implements UserStore {
     currentPassword: string,
     newPassword: string,
   ): Promise<void> {
-    const user = await this.findById(id, ["password"]);
+    const user = await this.findById(id);
     if (!user) throw new Error(`User ${id} not found`);
     const valid = await this.verifyPassword(currentPassword, user.passwordHash);
     if (!valid) throw new Error("Current password is incorrect");

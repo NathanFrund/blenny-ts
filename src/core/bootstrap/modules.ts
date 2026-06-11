@@ -72,6 +72,67 @@ export function detectMissingDependencies(modules: BlennyModule[]): void {
   }
 }
 
+export function sortByDependencies(modules: BlennyModule[]): BlennyModule[] {
+  if (modules.length === 0) return [];
+
+  const providerToModule = new Map<string, BlennyModule>();
+  for (const mod of modules) {
+    for (const cap of mod.capabilities ?? []) {
+      providerToModule.set(cap, mod);
+    }
+  }
+
+  const adj = new Map<BlennyModule, BlennyModule[]>();
+  const inDegree = new Map<BlennyModule, number>();
+
+  for (const mod of modules) {
+    adj.set(mod, []);
+    inDegree.set(mod, 0);
+  }
+
+  for (const mod of modules) {
+    for (const req of mod.requires ?? []) {
+      const provider = providerToModule.get(req);
+      if (provider) {
+        if (provider === mod) {
+          throw new Error(
+            `Module "${mod.name}" requires its own capability "${req}"`,
+          );
+        }
+        adj.get(provider)!.push(mod);
+        inDegree.set(mod, (inDegree.get(mod) ?? 0) + 1);
+      }
+    }
+  }
+
+  const queue = modules.filter((m) => (inDegree.get(m) ?? 0) === 0);
+  const sorted: BlennyModule[] = [];
+
+  while (queue.length > 0) {
+    const mod = queue.shift()!;
+    sorted.push(mod);
+
+    for (const consumer of adj.get(mod) ?? []) {
+      const newDegree = (inDegree.get(consumer) ?? 1) - 1;
+      inDegree.set(consumer, newDegree);
+      if (newDegree === 0) {
+        queue.push(consumer);
+      }
+    }
+  }
+
+  if (sorted.length !== modules.length) {
+    const remaining = modules.filter((m) => (inDegree.get(m) ?? 0) > 0);
+    throw new Error(
+      `Circular dependency detected among modules: ${
+        remaining.map((m) => m.name).join(", ")
+      }`,
+    );
+  }
+
+  return sorted;
+}
+
 export async function setupDatabase(
   state: AppState,
   config: BlennyConfig,
@@ -83,7 +144,8 @@ export async function initializeModules(
   modules: BlennyModule[],
   state: AppState,
 ): Promise<void> {
-  for (const mod of modules) {
+  const sorted = sortByDependencies(modules);
+  for (const mod of sorted) {
     await mod.initialize?.(state);
     publish("log", {
       level: "info",

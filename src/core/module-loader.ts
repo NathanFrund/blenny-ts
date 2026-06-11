@@ -99,6 +99,16 @@ function validateModule(
       }));
   }
 
+  if (obj.requires !== undefined) {
+    if (
+      !Array.isArray(obj.requires) ||
+      !obj.requires.every((c: unknown) => typeof c === "string")
+    ) {
+      return { err: "requires must be an array of strings" };
+    }
+    mod.requires = obj.requires as string[];
+  }
+
   if (obj.capabilities !== undefined) {
     if (
       !Array.isArray(obj.capabilities) ||
