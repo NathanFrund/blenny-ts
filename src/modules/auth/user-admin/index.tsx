@@ -2,6 +2,8 @@ import { Context } from "@hono/hono";
 import type { FC } from "@hono/hono/jsx";
 import * as v from "@valibot/valibot";
 import { PasswordSchema } from "@blenny/core/validation.ts";
+import type { UserInfo } from "@blenny/core/auth.ts";
+import { NavLink } from "@blenny/core/nav.tsx";
 import type { AppState } from "@blenny/core/app-state.ts";
 import type { Conduit } from "@blenny/core/conduit.ts";
 import type { StoredUser } from "@blenny/core/store.ts";
@@ -67,7 +69,9 @@ const UserRow: FC<{ user: StoredUser }> = ({ user }) => (
   </tr>
 );
 
-const UsersPage: FC<{ users: StoredUser[] }> = ({ users }) => (
+const UsersPage: FC<{ users: StoredUser[]; userInfo?: UserInfo }> = (
+  { users, userInfo },
+) => (
   <div>
     <h1>User Administration</h1>
     <table>
@@ -84,15 +88,17 @@ const UsersPage: FC<{ users: StoredUser[] }> = ({ users }) => (
         {users.map((u) => <UserRow key={u.id} user={u} />)}
       </tbody>
     </table>
-    <p>
-      <a href="/dashboard">Dashboard</a>
-    </p>
+    <nav>
+      <NavLink href="/dashboard" label="Dashboard" user={userInfo} />
+      <NavLink href="/auth/profile" label="Profile" user={userInfo} />
+    </nav>
   </div>
 );
 
 async function handleListUsers(c: Context): Promise<Response> {
   const users = await store.findAll();
-  return conduit.respond(c, <UsersPage users={users} />);
+  const user = c.get("user") as UserInfo | undefined;
+  return conduit.respond(c, <UsersPage users={users} userInfo={user} />);
 }
 
 async function handleUpdateRole(c: Context): Promise<Response> {

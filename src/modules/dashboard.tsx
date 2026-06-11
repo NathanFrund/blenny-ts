@@ -16,7 +16,7 @@ const DashboardPage: FC<{ userInfo: UserInfo; displayName: string }> = (
   <div>
     <h1>Dashboard</h1>
     <p>Welcome, {displayName}.</p>
-    <nav style="margin:16px 0">
+    <nav>
       <NavLink href="/dashboard" label="Dashboard" user={userInfo} />
       <NavLink
         href="/auth/profile"

@@ -38,7 +38,7 @@ const ProfilePage: FC<ProfilePageProps> = (props) => (
       <br />
       <button type="submit">Upload</button>
     </form>
-    <nav style="margin:16px 0">
+    <nav>
       <NavLink href="/dashboard" label="Dashboard" user={props.userInfo} />
       <NavLink href="/auth/profile" label="Profile" user={props.userInfo} />
       <NavLink

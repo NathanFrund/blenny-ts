@@ -1,0 +1,7 @@
+nav {
+  margin-block: 16px;
+}
+
+nav a + a {
+  margin-inline-start: 12px;
+}

@@ -3,6 +3,7 @@ import type { FC } from "@hono/hono/jsx";
 import * as v from "@valibot/valibot";
 import { PasswordSchema } from "@blenny/core/validation.ts";
 import type { UserInfo } from "@blenny/core/auth.ts";
+import { NavLink } from "@blenny/core/nav.tsx";
 import type { AppState } from "@blenny/core/app-state.ts";
 import type { Conduit } from "@blenny/core/conduit.ts";
 import type { BlennyModule } from "@blenny/types";
@@ -10,8 +11,10 @@ import type { BlennyModule } from "@blenny/types";
 let conduit: Conduit;
 let store: NonNullable<AppState["store"]>;
 
-const ChangePasswordPage: FC<{ error?: string; success?: boolean }> = (
-  { error, success },
+const ChangePasswordPage: FC<
+  { error?: string; success?: boolean; userInfo?: UserInfo }
+> = (
+  { error, success, userInfo },
 ) => (
   <div>
     <h1>Change Password</h1>
@@ -35,9 +38,10 @@ const ChangePasswordPage: FC<{ error?: string; success?: boolean }> = (
       <br />
       <button type="submit">Change Password</button>
     </form>
-    <p>
-      <a href="/dashboard">Back to Dashboard</a>
-    </p>
+    <nav>
+      <NavLink href="/dashboard" label="Dashboard" user={userInfo} />
+      <NavLink href="/auth/profile" label="Profile" user={userInfo} />
+    </nav>
   </div>
 );
 
@@ -46,9 +50,14 @@ function renderChangePassword(
   error?: string,
   success?: boolean,
 ) {
+  const user = c.get("user") as UserInfo | undefined;
   return conduit.respond(
     c,
-    <ChangePasswordPage error={error} success={success} />,
+    <ChangePasswordPage
+      error={error}
+      success={success}
+      userInfo={user}
+    />,
   );
 }
 

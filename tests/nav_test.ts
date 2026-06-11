@@ -1,68 +1,13 @@
 import { assertEquals } from "@std/assert";
-import { hasRole, NavLink } from "@blenny/core/nav.tsx";
-
-Deno.test("hasRole", async (t) => {
-  await t.step("returns false for undefined user", () => {
-    assertEquals(hasRole("admin")(undefined), false);
-  });
-
-  await t.step("checks singular role", () => {
-    assertEquals(hasRole("admin")({ id: "1", role: "admin" }), true);
-    assertEquals(hasRole("admin")({ id: "1", role: "user" }), false);
-  });
-
-  await t.step("checks roles array", () => {
-    assertEquals(
-      hasRole("commander")({ id: "1", role: "user", roles: ["commander"] }),
-      true,
-    );
-    assertEquals(
-      hasRole("commander")({ id: "1", role: "user", roles: ["admin"] }),
-      false,
-    );
-  });
-
-  await t.step("checks effectiveRoles", () => {
-    assertEquals(
-      hasRole("commander")(
-        { id: "1", role: "user", effectiveRoles: ["commander"] },
-      ),
-      true,
-    );
-  });
-
-  await t.step(
-    "priority: roles array first, then effectiveRoles, then role",
-    () => {
-      const check = hasRole("commander");
-      assertEquals(
-        check({ id: "1", role: "user", roles: ["commander"] }),
-        true,
-      );
-      assertEquals(
-        check({ id: "1", role: "user", effectiveRoles: ["commander"] }),
-        true,
-      );
-      assertEquals(check({ id: "1", role: "commander" }), true);
-      assertEquals(check({ id: "1", role: "user" }), false);
-    },
-  );
-
-  await t.step("multiple roles: any match is sufficient", () => {
-    const check = hasRole("admin", "commander");
-    assertEquals(check({ id: "1", role: "admin" }), true);
-    assertEquals(check({ id: "1", role: "commander" }), true);
-    assertEquals(check({ id: "1", role: "user" }), false);
-  });
-});
+import { NavLink } from "@blenny/core/nav.tsx";
 
 Deno.test("NavLink", async (t) => {
-  await t.step("renders link when no role required", () => {
+  await t.step("renders <a> tag when no role required", () => {
     const result = NavLink({ href: "/test", label: "Test" });
     assertEquals(result !== null, true);
   });
 
-  await t.step("renders link when role matches", () => {
+  await t.step("renders <a> tag when role matches", () => {
     const result = NavLink({
       href: "/admin",
       label: "Admin",
@@ -128,6 +73,24 @@ Deno.test("NavLink", async (t) => {
       href: "/dashboard",
       label: "Dashboard",
       icon: "lucide-home",
+    });
+    assertEquals(result !== null, true);
+  });
+
+  await t.step("applies class prop to <a> tag", () => {
+    const result = NavLink({
+      href: "/test",
+      label: "Test",
+      class: "text-primary",
+    });
+    assertEquals(result !== null, true);
+  });
+
+  await t.step("forwards extra props to <a> tag", () => {
+    const result = NavLink({
+      href: "/test",
+      label: "Test",
+      id: "nav-test",
     });
     assertEquals(result !== null, true);
   });

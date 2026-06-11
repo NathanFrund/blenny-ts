@@ -25,6 +25,18 @@ export interface UserInfo {
   effectiveRoles?: string[];
 }
 
+export const hasRole = (...roles: string[]) => (user?: UserInfo): boolean => {
+  if (!user) return false;
+
+  const userRoles = [
+    ...(user.roles ?? []),
+    ...(user.effectiveRoles ?? []),
+    ...(user.role ? [user.role] : []),
+  ];
+
+  return roles.some((r) => userRoles.includes(r));
+};
+
 // ── Token helpers ─────────────────────────────────────────────
 
 export function createToken(

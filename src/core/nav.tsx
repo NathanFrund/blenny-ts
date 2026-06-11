@@ -1,17 +1,6 @@
+import { hasRole } from "./auth.ts";
 import type { UserInfo } from "./auth.ts";
 import type { FC } from "@hono/hono/jsx";
-
-export const hasRole = (...roles: string[]) => (user?: UserInfo): boolean => {
-  if (!user) return false;
-
-  const userRoles = [
-    ...(user.roles ?? []),
-    ...(user.effectiveRoles ?? []),
-    ...(user.role ? [user.role] : []),
-  ];
-
-  return roles.some((r) => userRoles.includes(r));
-};
 
 export interface NavLinkProps {
   href: string;
@@ -20,11 +9,22 @@ export interface NavLinkProps {
   user?: UserInfo;
   requiredRoles?: string | string[];
   condition?: (user?: UserInfo) => boolean;
+  class?: string;
+  [key: string]: unknown;
 }
 
-export const NavLink: FC<NavLinkProps> = (
-  { href, label, icon, user, requiredRoles, condition },
-) => {
+export const NavLink: FC<NavLinkProps> = (props) => {
+  const {
+    href,
+    label,
+    icon,
+    user,
+    requiredRoles,
+    condition,
+    class: className,
+    ...rest
+  } = props;
+
   if (requiredRoles) {
     const r = Array.isArray(requiredRoles) ? requiredRoles : [requiredRoles];
     if (!hasRole(...r)(user)) return null;
@@ -33,11 +33,9 @@ export const NavLink: FC<NavLinkProps> = (
   if (condition && !condition(user)) return null;
 
   return (
-    <p>
-      <a href={href}>
-        {icon && <span class={icon} />}
-        {label}
-      </a>
-    </p>
+    <a href={href} class={className ?? ""} {...rest}>
+      {icon && <span class={icon} />}
+      {label}
+    </a>
   );
 };

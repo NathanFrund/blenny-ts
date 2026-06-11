@@ -73,10 +73,20 @@ export function registerPlatformEndpoints(
     return wsHandler(c);
   });
 
-  app.use("/static/*", async (c, next) => {
-    await next();
-    if (c.res.status === 200 && !c.res.headers.has("Cache-Control")) {
-      c.res.headers.set("Cache-Control", "public, max-age=31536000, immutable");
-    }
-  }, serveStatic({ root: "./static" }));
+  app.use(
+    "/static/*",
+    async (c, next) => {
+      await next();
+      if (c.res.status === 200 && !c.res.headers.has("Cache-Control")) {
+        c.res.headers.set(
+          "Cache-Control",
+          "public, max-age=31536000, immutable",
+        );
+      }
+    },
+    serveStatic({
+      root: "./static",
+      rewriteRequestPath: (path) => path.replace(/^\/static\//, "/"),
+    }),
+  );
 }
