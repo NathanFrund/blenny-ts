@@ -293,8 +293,8 @@ stop() {
 ## Navigation & Visibility
 
 Nav items and other role-gated UI elements are rendered directly in JSX using
-the `NavLink` component and `hasRole` helper from `src/core/nav-link.tsx`. There is
-no global registry — each page explicitly lists the nav items it needs.
+the `NavLink` component and `hasRole` helper from `src/core/nav-link.tsx`. There
+is no global registry — each page explicitly lists the nav items it needs.
 
 ### hasRole
 
@@ -483,7 +483,7 @@ interface AppState {
   hub: TransportHub; // Broadcast to SSE/WS connections
   conduit: Conduit; // Render JSX with layout support
   config: BlennyConfig; // All configuration values
-  supervisor: TaskSupervisor; // Background task manager
+  supervisor: TaskSupervisor; // Background task manager (add, replace, remove, getTask, listTasks, start, stop)
 
   auth?: AuthBundle; // Set by the auth module if loaded
   store?: UserStore; // User persistence store

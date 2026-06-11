@@ -11,7 +11,10 @@ Deno.test("stopModules calls all cleanup", async (t) => {
   const stopReaperCalls: string[] = [];
 
   hub.closeAllConnections = () => closeAllCalls.push("closeAllConnections");
-  hub.stopReaper = () => stopReaperCalls.push("stopReaper");
+  hub.stopReaper = () => {
+    stopReaperCalls.push("stopReaper");
+    return Promise.resolve();
+  };
 
   const stopCalls: string[] = [];
   const moduleA: BlennyModule = {
@@ -61,7 +64,7 @@ Deno.test("stopModules calls all cleanup", async (t) => {
 Deno.test("stopModules is safe with no db", async () => {
   const hub = new TransportHub();
   hub.closeAllConnections = () => {};
-  hub.stopReaper = () => {};
+  hub.stopReaper = () => { return Promise.resolve(); };
 
   const state = {
     hub,
@@ -73,7 +76,7 @@ Deno.test("stopModules is safe with no db", async () => {
 Deno.test("stopModules is safe with no module stop hooks", async () => {
   const hub = new TransportHub();
   hub.closeAllConnections = () => {};
-  hub.stopReaper = () => {};
+  hub.stopReaper = () => { return Promise.resolve(); };
 
   const mod: BlennyModule = { name: "noop", routes: [] };
   const state = {

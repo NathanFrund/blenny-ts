@@ -108,16 +108,26 @@ export class TransportHub {
     }
   }
 
-  stopReaper(): void {
-    this.reaperSupervisor.stop();
+  async stopReaper(): Promise<void> {
+    await this.reaperSupervisor.stop();
   }
 
-  drain(timeoutMs = 30_000): Promise<void> {
+  async drain(timeoutMs = 30_000): Promise<void> {
     if (this.draining) return this.drainPromise ?? Promise.resolve();
     this.draining = true;
-    this.stopReaper();
 
-    if (this.conns.size === 0) return Promise.resolve();
+    // Send reconnect scripts synchronously before the first await
+    for (const conn of this.conns.values()) {
+      const delay = randomInt(1_000, 6_000);
+      conn.send({
+        intent: "command",
+        script: `setTimeout(()=>location.reload(),${delay})`,
+      });
+    }
+
+    await this.stopReaper();
+
+    if (this.conns.size === 0) return;
 
     this.drainPromise = new Promise<void>((resolve) => {
       this.drainResolve = resolve;
@@ -128,15 +138,6 @@ export class TransportHub {
       this.drainResolve?.();
       this.drainResolve = null;
     }, timeoutMs);
-
-    // Send staggered reconnect script to every connection, bypassing intent filtering
-    for (const conn of this.conns.values()) {
-      const delay = randomInt(1_000, 6_000);
-      conn.send({
-        intent: "command",
-        script: `setTimeout(()=>location.reload(),${delay})`,
-      });
-    }
 
     return this.drainPromise;
   }
