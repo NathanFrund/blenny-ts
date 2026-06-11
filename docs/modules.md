@@ -293,7 +293,7 @@ stop() {
 ## Navigation & Visibility
 
 Nav items and other role-gated UI elements are rendered directly in JSX using
-the `NavLink` component and `hasRole` helper from `src/core/nav.tsx`. There is
+the `NavLink` component and `hasRole` helper from `src/core/nav-link.tsx`. There is
 no global registry — each page explicitly lists the nav items it needs.
 
 ### hasRole
@@ -306,7 +306,7 @@ order:
 3. `user.role` — singular role (backward compat fallback)
 
 ```ts
-import { hasRole } from "../core/nav.tsx";
+import { hasRole } from "../core/nav-link.tsx";
 
 // Predicates for use with NavLink or inline
 hasRole("admin"); // single role
@@ -319,7 +319,7 @@ A JSX component that renders a navigation link, gated by role or custom
 condition:
 
 ```tsx
-import { NavLink } from "@blenny/core/nav.tsx";
+import { NavLink } from "@blenny/core/nav-link.tsx";
 
 // Always visible
 <NavLink href="/dashboard" label="Dashboard" user={userInfo} />
@@ -367,7 +367,7 @@ Pass the `userInfo` from your handler to the page component, then render
 `NavLink` items directly:
 
 ```tsx
-import { NavLink } from "@blenny/core/nav.tsx";
+import { NavLink } from "@blenny/core/nav-link.tsx";
 import type { UserInfo } from "@blenny/core/auth.ts";
 
 const MyPage: FC<{ userInfo: UserInfo; displayName: string }> = (
@@ -470,8 +470,8 @@ them regardless of which other modules are loaded.
 | `AuthConfig`   | `../core/auth.ts`      | Auth module configuration (secret, cookie name, etc.)     |
 | `Conduit`      | `../core/conduit.ts`   | Layout-aware response renderer                            |
 | `TransportHub` | `../core/hub.ts`       | Low-level connection broadcast                            |
-| `NavLink`      | `../core/nav.tsx`      | Role-gated navigation link component                      |
-| `hasRole`      | `../core/nav.tsx`      | Role-check predicate factory (supports `effectiveRoles`)  |
+| `NavLink`      | `../core/nav-link.tsx` | Role-gated navigation link component                      |
+| `hasRole`      | `../core/auth.ts`      | Role-check predicate factory (supports `effectiveRoles`)  |
 
 #### AppState reference
 
