@@ -38,7 +38,13 @@ export async function publish<K extends keyof BlennyEvents>(
     try {
       results.push((handler as Handler<BlennyEvents[K]>)(payload));
     } catch (err) {
-      console.error(`[hub] Error in handler for "${String(topic)}":`, err);
+      publish("log", {
+        level: "error",
+        template: 'Error in handler for "{topic}": {error}',
+        args: { topic: String(topic), error: String(err) },
+      }).catch(() =>
+        console.error(`[hub] Error in handler for "${String(topic)}":`, err)
+      );
     }
   }
   await Promise.allSettled(results);
@@ -238,9 +244,15 @@ export class TransportHub {
         "conn.type": conn.connType,
       });
     } catch (err) {
-      console.warn(
-        `[hub] Send failed for ${conn.id}, removing connection`,
-        err,
+      publish("log", {
+        level: "warn",
+        template: "Send failed for {connId}, removing connection: {error}",
+        args: { connId: conn.id, error: String(err) },
+      }).catch(() =>
+        console.warn(
+          `[hub] Send failed for ${conn.id}, removing connection`,
+          err,
+        )
       );
       this.removeConnection(conn.id);
       throw err;

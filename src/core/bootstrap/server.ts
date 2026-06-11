@@ -14,7 +14,13 @@ export function startServer(
     port: config.port,
     signal,
     onListen: ({ port: p }) => {
-      publish("platform:ready", { timestamp: Date.now() }).catch(() => {});
+      publish("platform:ready", { timestamp: Date.now() }).catch((err) => {
+        publish("log", {
+          level: "error",
+          template: "Failed to publish platform:ready: {error}",
+          args: { error: String(err) },
+        }).catch(() => {});
+      });
       hub.startReaper(config.idleTimeoutMs);
       publish("log", {
         level: "info",

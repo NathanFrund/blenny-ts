@@ -6,6 +6,7 @@ import type { Conduit } from "@blenny/core/conduit.ts";
 import type { AppState } from "@blenny/core/app-state.ts";
 import type { UserStore } from "@blenny/core/store.ts";
 import type { BlennyModule } from "@blenny/types";
+import { BlennyError } from "@blenny/core/error.ts";
 
 let conduit: Conduit;
 let store: UserStore;
@@ -54,7 +55,14 @@ const dashboardModule: BlennyModule = {
   ],
   initialize(state: AppState) {
     conduit = state.conduit;
-    store = state.store!;
+    if (!state.store) {
+      throw new BlennyError(
+        "missing_dependency",
+        "Dashboard module requires a UserStore",
+        500,
+      );
+    }
+    store = state.store;
   },
 };
 
