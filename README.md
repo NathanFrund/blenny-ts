@@ -31,7 +31,7 @@ hypermedia-driven, real-time, single-binary web platform.
 ## Quick Start
 
 ```bash
-git clone <repo> && cd blenny-ts
+git clone git@github.com:NathanFrund/blenny-ts.git && cd blenny-ts
 deno task dev
 ```
 
