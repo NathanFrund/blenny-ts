@@ -1,5 +1,5 @@
 import { assertEquals } from "@std/assert";
-import { NavLink } from "@blenny/core/nav.tsx";
+import { NavLink } from "@blenny/core/nav-link.tsx";
 
 Deno.test("NavLink", async (t) => {
   await t.step("renders <a> tag when no role required", () => {

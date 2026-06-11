@@ -1,6 +1,6 @@
 import type { FC } from "@hono/hono/jsx";
 import type { UserInfo } from "@blenny/core/auth.ts";
-import { NavLink } from "@blenny/core/nav.tsx";
+import { NavLink } from "@blenny/core/nav-link.tsx";
 
 interface ProfilePageProps {
   id: string;
