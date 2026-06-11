@@ -1,6 +1,7 @@
 import type { BlennyConfig } from "./config.ts";
 import type { DatabaseConnection } from "./db-connection.ts";
 import { DbError } from "./db-connection.ts";
+import { publish } from "./hub.ts";
 
 const DRIVERS: Record<
   string,
@@ -31,7 +32,11 @@ export async function connectDatabase(
   try {
     return await instantiate(config);
   } catch (err) {
-    console.error(`[database] Failed to connect to "${type}":`, err);
+    publish("log", {
+      level: "error",
+      template: `[database] Failed to connect to "{type}": {error}`,
+      args: { type, error: String(err) },
+    });
     return null;
   }
 }

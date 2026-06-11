@@ -256,4 +256,94 @@ Deno.test("avatar-handlers", async (t) => {
     assertEquals(res.status, 404);
     assertEquals(await res.json(), { error: "No avatar found" });
   });
+
+  await t.step(
+    "POST upload without previous avatar skips blob removal",
+    async () => {
+      const m = createMockHandlers();
+      const app = new Hono();
+      app.use(
+        "/auth/*",
+        ((c, next) => {
+          c.set("user", { id: m.adminId, role: "admin" });
+          return next();
+        }) as MiddlewareHandler,
+      );
+      app.post("/auth/avatar", m.upload);
+
+      const form = new FormData();
+      form.append(
+        "avatar",
+        new File([new Uint8Array([1, 2, 3])], "test.png", {
+          type: "image/png",
+        }),
+      );
+      const res = await app.request("http://localhost/auth/avatar", {
+        method: "POST",
+        body: form,
+      });
+      assertEquals(res.status, 302);
+      assertEquals(m.getPutCall()?.userId, m.adminId);
+      assertEquals(
+        m.getRemoved(),
+        null,
+        "should not remove blob for new avatar",
+      );
+    },
+  );
+
+  await t.step(
+    "POST upload without blobStore skips removal gracefully",
+    async () => {
+      const store: UserStore = {
+        findById: () =>
+          Promise.resolve({
+            id: "u1",
+            username: "u",
+            displayName: "U",
+            role: "user",
+            passwordHash: "",
+            salt: "",
+            createdAt: Date.now(),
+            avatarKey: "avatars:old.png",
+          }),
+        findByUsername: () => Promise.resolve(null),
+        findAll: () => Promise.resolve([]),
+        createUser: () => Promise.reject(new Error("not implemented")),
+        setPassword: () => Promise.resolve(),
+        updateAvatarKey: () => Promise.resolve(),
+        updateRole: () => Promise.resolve(),
+        changePassword: () => Promise.resolve(),
+        deleteUser: () => Promise.resolve(true),
+      };
+      const avatarService: AvatarService = {
+        put: (userId: string, _file: File) =>
+          Promise.resolve({ key: `avatars:${userId}:${Date.now()}` }),
+        get: () => Promise.resolve(null),
+      };
+      const upload = createHandleAvatarUpload({ store, avatarService });
+      const app = new Hono();
+      app.use(
+        "/auth/*",
+        ((c, next) => {
+          c.set("user", { id: "u1", role: "user" });
+          return next();
+        }) as MiddlewareHandler,
+      );
+      app.post("/auth/avatar", upload);
+
+      const form = new FormData();
+      form.append(
+        "avatar",
+        new File([new Uint8Array([1, 2, 3])], "test.png", {
+          type: "image/png",
+        }),
+      );
+      const res = await app.request("http://localhost/auth/avatar", {
+        method: "POST",
+        body: form,
+      });
+      assertEquals(res.status, 302);
+    },
+  );
 });

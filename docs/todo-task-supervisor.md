@@ -1,27 +1,6 @@
 # Follow-ups: TaskSupervisor enhancements
 
-## 1. OTel instrumentation
-
-Each task run creates a `task.{name}` span with duration, plus a failure-count
-up/down counter. Follows the existing pattern in `hub.ts`, `auth.ts`,
-`crypto.ts`.
-
-```ts
-// inside TaskSupervisor.run():
-withSpan(`task.${name}`, async (span) => {
-  span.setAttribute("task.interval", task.intervalMs);
-  await task.fn();
-  task.failures = 0;
-}, { attributes: { "task.max_backoff": task.maxBackoff } });
-```
-
-On failure: `span.setStatus({ code: SpanStatusCode.ERROR })` +
-`recordException`.
-
-Also add `task.active` gauge (up on `start()`, down on `stop()`) and `task.runs`
-counter.
-
-## 2. Status endpoint
+## 1. Status endpoint
 
 A `GET /system/tasks` endpoint exposing the supervisor's task registry:
 
@@ -37,7 +16,7 @@ A `GET /system/tasks` endpoint exposing the supervisor's task registry:
 The supervisor is already on `AppState`, so wiring this into
 `registerPlatformEndpoints` is a few lines.
 
-## 3. Pause/resume individual tasks
+## 2. Pause/resume individual tasks
 
 Currently only global `start()`/`stop()`. Some modules may want to throttle
 specific tasks without killing all of them.

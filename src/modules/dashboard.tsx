@@ -1,6 +1,6 @@
 import type { FC } from "@hono/hono/jsx";
 import type { Context } from "@hono/hono";
-import { NavLink, hasRole } from "@blenny/core/nav.tsx";
+import { NavLink } from "@blenny/core/nav.tsx";
 import type { UserInfo } from "@blenny/core/auth.ts";
 import type { Conduit } from "@blenny/core/conduit.ts";
 import type { AppState } from "@blenny/core/app-state.ts";

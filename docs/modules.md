@@ -300,6 +300,7 @@ no global registry — each page explicitly lists the nav items it needs.
 
 A factory that returns a predicate function. Checks the user's roles in this
 order:
+
 1. `user.roles` — explicit multi-role array (from JWT or computed)
 2. `user.effectiveRoles` — contextual roles set by middleware
 3. `user.role` — singular role (backward compat fallback)
@@ -308,7 +309,7 @@ order:
 import { hasRole } from "../core/nav.tsx";
 
 // Predicates for use with NavLink or inline
-hasRole("admin");              // single role
+hasRole("admin"); // single role
 hasRole("admin", "commander"); // any of these roles
 ```
 
@@ -348,14 +349,14 @@ import { NavLink } from "@blenny/core/nav.tsx";
 />
 ```
 
-| Prop            | Type                              | Purpose                                     |
-| --------------- | --------------------------------- | ------------------------------------------- |
-| `href`          | `string`                          | Link target                                 |
-| `label`         | `string`                          | Display text                                |
-| `icon`          | `string` (optional)               | Icon CSS class                              |
-| `user`          | `UserInfo` (optional)             | Current user for role checks                |
-| `requiredRoles` | `string \| string[]` (optional)   | Role(s) required to see the link            |
-| `condition`     | `(user?) => boolean` (optional)   | Custom predicate — must return true to show |
+| Prop            | Type                            | Purpose                                     |
+| --------------- | ------------------------------- | ------------------------------------------- |
+| `href`          | `string`                        | Link target                                 |
+| `label`         | `string`                        | Display text                                |
+| `icon`          | `string` (optional)             | Icon CSS class                              |
+| `user`          | `UserInfo` (optional)           | Current user for role checks                |
+| `requiredRoles` | `string \| string[]` (optional) | Role(s) required to see the link            |
+| `condition`     | `(user?) => boolean` (optional) | Custom predicate — must return true to show |
 
 `NavLink` returns `null` (renders nothing) when the user doesn't satisfy the
 role or condition requirements.
@@ -382,8 +383,8 @@ const MyPage: FC<{ userInfo: UserInfo; displayName: string }> = (
 );
 ```
 
-Compose nav sections as shared components when the same links appear on
-multiple pages:
+Compose nav sections as shared components when the same links appear on multiple
+pages:
 
 ```tsx
 // src/modules/core-nav.tsx
@@ -399,8 +400,13 @@ export function CoreNav({ user }: { user?: UserInfo }) {
 // Usage in any page
 <nav>
   <CoreNav user={userInfo} />
-  <NavLink href="/admin" label="Admin Panel" user={userInfo} requiredRoles="admin" />
-</nav>
+  <NavLink
+    href="/admin"
+    label="Admin Panel"
+    user={userInfo}
+    requiredRoles="admin"
+  />
+</nav>;
 ```
 
 ### Contextual roles with effectiveRoles
@@ -458,15 +464,14 @@ them regardless of which other modules are loaded.
 | `BlennyModule` | `../types.ts`          | Shape of a module (routes, lifecycle hooks, capabilities) |
 | `Route`        | `../types.ts`          | A single route entry (method, path, handler, auth)        |
 | `BlennyEvents` | `../types.ts`          | Typed event bus topics (extended by modules)              |
-| `AppState`          | `../core/app-state.ts`          | Everything injected into `initialize()`                   |
-| `AuthBundle`        | `../core/app-state.ts`          | Auth middleware bundle set on `state.auth`                |
-| `UserInfo`          | `../core/auth.ts`               | Decoded JWT payload: `{ id, role, roles?, exp }`          |
-| `AuthConfig`        | `../core/auth.ts`               | Auth module configuration (secret, cookie name, etc.)     |
-| `Conduit`           | `../core/conduit.ts`            | Layout-aware response renderer                            |
-| `TransportHub`      | `../core/hub.ts`                | Low-level connection broadcast                            |
-| `NavLink`          | `../core/nav.tsx`              | Role-gated navigation link component                      |
-| `hasRole`          | `../core/nav.tsx`              | Role-check predicate factory (supports `effectiveRoles`)  |
-
+| `AppState`     | `../core/app-state.ts` | Everything injected into `initialize()`                   |
+| `AuthBundle`   | `../core/app-state.ts` | Auth middleware bundle set on `state.auth`                |
+| `UserInfo`     | `../core/auth.ts`      | Decoded JWT payload: `{ id, role, roles?, exp }`          |
+| `AuthConfig`   | `../core/auth.ts`      | Auth module configuration (secret, cookie name, etc.)     |
+| `Conduit`      | `../core/conduit.ts`   | Layout-aware response renderer                            |
+| `TransportHub` | `../core/hub.ts`       | Low-level connection broadcast                            |
+| `NavLink`      | `../core/nav.tsx`      | Role-gated navigation link component                      |
+| `hasRole`      | `../core/nav.tsx`      | Role-check predicate factory (supports `effectiveRoles`)  |
 
 #### AppState reference
 
