@@ -17,8 +17,8 @@ export function startServer(
       publish("platform:ready", { timestamp: Date.now() }).catch((err) => {
         publish("log", {
           level: "error",
-          template: "Failed to publish platform:ready: {error}",
-          args: { error: String(err) },
+          template: "Failed to publish platform:ready",
+          error: err,
         }).catch(() => {});
       });
       hub.startReaper(config.idleTimeoutMs);
@@ -31,8 +31,8 @@ export function startServer(
     onError: (err) => {
       publish("log", {
         level: "error",
-        template: "Server error: {error}",
-        args: { error: String(err) },
+        template: "Server error",
+        error: err,
       });
       return new Response("Internal Server Error", { status: 500 });
     },

@@ -27,8 +27,10 @@ export async function discoverModules(
     for (const f of failures) {
       publish("log", {
         level: "error",
-        template: "Module load failure: {file} — {error}",
-        args: { file: f.file, error: f.error, stack: f.stack },
+        template: "Module load failure: {file}",
+        args: { file: f.file },
+        error: new Error(f.error),
+        errorProps: { stack: f.stack },
       });
     }
   } else {

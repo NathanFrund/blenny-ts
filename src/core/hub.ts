@@ -40,8 +40,9 @@ export async function publish<K extends keyof BlennyEvents>(
     } catch (err) {
       publish("log", {
         level: "error",
-        template: 'Error in handler for "{topic}": {error}',
-        args: { topic: String(topic), error: String(err) },
+        template: 'Error in handler for "{topic}"',
+        error: err,
+        errorProps: { topic: String(topic) },
       }).catch(() =>
         console.error(`[hub] Error in handler for "${String(topic)}":`, err)
       );
@@ -247,8 +248,9 @@ export class TransportHub {
     } catch (err) {
       publish("log", {
         level: "warn",
-        template: "Send failed for {connId}, removing connection: {error}",
-        args: { connId: conn.id, error: String(err) },
+        template: "Send failed for {connId}, removing connection",
+        error: err,
+        errorProps: { connId: conn.id },
       }).catch(() =>
         console.warn(
           `[hub] Send failed for ${conn.id}, removing connection`,

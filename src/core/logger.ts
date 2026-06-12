@@ -3,7 +3,9 @@ import {
   getAnsiColorFormatter,
   getConsoleSink,
   getJsonLinesFormatter,
+  getLogfmtFormatter,
   getLogger,
+  getThrottlingFilter,
   type Logger,
   reset as logtapeReset,
 } from "@logtape/logtape";
@@ -18,6 +20,7 @@ export interface BlennyLogger {
   info(template: string, ...args: unknown[]): void;
   warn(template: string, ...args: unknown[]): void;
   error(template: string, ...args: unknown[]): void;
+  error(error: unknown, props?: Record<string, unknown>): void;
   child(context: Record<string, unknown>): BlennyLogger;
 }
 
@@ -47,11 +50,31 @@ class LogTapeBlennyLogger implements BlennyLogger {
     );
   }
 
-  error(template: string, ...args: unknown[]): void {
-    (this.logger.error as (msg: string, ...args: unknown[]) => void)(
-      template,
-      ...args,
-    );
+  error(template: string, ...args: unknown[]): void;
+  error(error: unknown, props?: Record<string, unknown>): void;
+  error(
+    templateOrError: string | unknown,
+    ...args: unknown[]
+  ): void {
+    if (typeof templateOrError === "string") {
+      (this.logger.error as (msg: string, ...args: unknown[]) => void)(
+        templateOrError,
+        ...args,
+      );
+    } else {
+      const props = args[0] as Record<string, unknown> | undefined;
+      if (props) {
+        (this.logger.error as (
+          err: unknown,
+          props: Record<string, unknown>,
+        ) => void)(
+          templateOrError,
+          props,
+        );
+      } else {
+        (this.logger.error as (err: unknown) => void)(templateOrError);
+      }
+    }
   }
 
   child(context: Record<string, unknown>): BlennyLogger {
@@ -66,19 +89,41 @@ export async function createLogger(
 ): Promise<BlennyLogger> {
   const level = config.logLevel;
   const format = config.logFormat;
+  const timezone = config.logTimezone;
+  const throttleLimit = config.logThrottleLimit;
+  const throttleWindowMs = config.logThrottleWindowMs;
+
+  const formatterOptions = timezone ? { timeZone: timezone } : undefined;
 
   const formatter = format === "json"
     ? getJsonLinesFormatter()
-    : getAnsiColorFormatter();
+    : format === "logfmt"
+    ? getLogfmtFormatter(formatterOptions)
+    : getAnsiColorFormatter(formatterOptions);
+
   const { parseLogLevel } = await import("@logtape/logtape");
 
+  const throttleFilter = throttleLimit > 0
+    ? getThrottlingFilter({
+      limit: throttleLimit,
+      windowMs: throttleWindowMs,
+      summary: {
+        logger: getLogger(["blenny", "log-throttle"]),
+        level: "warning",
+        message: "Log message suppressed {suppressed} times.",
+      },
+    })
+    : undefined;
+
   await configure({
+    ...(throttleFilter ? { filters: { throttle: throttleFilter } } : {}),
     sinks: {
       console: getConsoleSink({ formatter }),
     },
     loggers: [{
       category: ["blenny"],
       sinks: ["console"],
+      filters: throttleFilter ? ["throttle"] : undefined,
       lowestLevel: parseLogLevel(level),
     }, {
       category: ["logtape", "meta"],
@@ -89,8 +134,13 @@ export async function createLogger(
 
   const logger = new LogTapeBlennyLogger(getLogger(["blenny"]));
 
-  subscribe("log", ({ level, template, args }) => {
-    logger[level](template, args ?? {});
+  subscribe("log", (payload) => {
+    const { level: lvl, template, args } = payload;
+    if (payload.error) {
+      logger.error(payload.error, payload.errorProps);
+    } else {
+      logger[lvl](template, args ?? {});
+    }
   });
 
   return logger;
@@ -106,7 +156,7 @@ export const NULL_LOGGER: BlennyLogger = {
   debug: () => {},
   info: () => {},
   warn: () => {},
-  error: () => {},
+  error: (_templateOrError: string | unknown, ..._args: unknown[]) => {},
   child: () => NULL_LOGGER,
 };
 

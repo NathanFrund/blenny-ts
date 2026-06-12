@@ -34,8 +34,9 @@ export async function connectDatabase(
   } catch (err) {
     publish("log", {
       level: "error",
-      template: `[database] Failed to connect to "{type}": {error}`,
-      args: { type, error: String(err) },
+      template: `[database] Failed to connect to "{type}"`,
+      args: { type },
+      error: err,
     });
     return null;
   }

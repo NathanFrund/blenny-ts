@@ -27,8 +27,8 @@ export async function withDb<T>(
     if (err instanceof DbError) throw err;
     publish("log", {
       level: "warn",
-      template: "Unexpected error in withDb: {error}",
-      args: { error: String(err) },
+      template: "Unexpected error in withDb",
+      error: err,
     });
     return fallback;
   }

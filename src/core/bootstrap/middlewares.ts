@@ -54,8 +54,8 @@ export function createErrorHandler(app: Hono): void {
     }
     publish("log", {
       level: "error",
-      template: "Uncaught error: {error}",
-      args: { error: err.message, stack: err.stack },
+      template: "Uncaught error",
+      error: err,
     });
     return errorResponse(
       { error: { type: "internal", message: "Internal Server Error" } },

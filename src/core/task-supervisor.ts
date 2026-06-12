@@ -141,7 +141,8 @@ export class TaskSupervisor {
         publish("log", {
           level: "warn",
           template: `Task "${name}" failed ({failures}x)`,
-          args: { failures: task.failures, error: String(err) },
+          args: { failures: task.failures },
+          error: err,
         });
       }
       if (!this.isRunning || !this.tasks.has(name)) {

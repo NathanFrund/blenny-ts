@@ -48,5 +48,7 @@ export interface BlennyEvents {
     level: "debug" | "info" | "warn" | "error";
     template: string;
     args?: Record<string, unknown>;
+    error?: unknown;
+    errorProps?: Record<string, unknown>;
   };
 }

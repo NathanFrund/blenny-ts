@@ -17,6 +17,9 @@ const DEFAULTS: Record<string, string> = {
   "surreal.pass": "root",
   "log.level": "",
   "log.format": "",
+  "log.timezone": "",
+  "log.throttle_limit": "0",
+  "log.throttle_window_ms": "10000",
   "transport.max_connections": "10000",
   "transport.max_per_user": "100",
   "transport.idle_timeout_ms": "300000",
@@ -117,6 +120,18 @@ export class BlennyConfig {
 
   get logFormat(): string {
     return this.data.get("log.format") || (this.devMode ? "text" : "json");
+  }
+
+  get logTimezone(): string {
+    return this.data.get("log.timezone") ?? "";
+  }
+
+  get logThrottleLimit(): number {
+    return this.getNumeric("log.throttle_limit", 0, 1_000_000);
+  }
+
+  get logThrottleWindowMs(): number {
+    return this.getNumeric("log.throttle_window_ms", 100, 86_400_000);
   }
 
   get maxConnections(): number {
