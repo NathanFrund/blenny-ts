@@ -2,6 +2,7 @@
   "version": "0.3.0",
   "tasks": {
     "dev": "deno run --allow-net --allow-read --allow-write=./data --allow-sys --allow-env --allow-ffi --unstable-ffi --unstable-kv --watch main.ts",
+    "serve": "BLENNY_RUN_MODE=serve deno serve --parallel --allow-net --allow-read --allow-write=./data --allow-sys --allow-env --allow-ffi --unstable-ffi --unstable-kv main.ts",
     "generate-manifest": "deno run --allow-read --allow-write tools/generate-manifest.ts",
     "compile": "deno task generate-manifest && deno compile --allow-net --allow-read --allow-write=./data --allow-sys --allow-env --allow-ffi --unstable-kv main.ts",
     "test": "deno test --allow-read --allow-write --allow-sys --allow-env --unstable-kv"

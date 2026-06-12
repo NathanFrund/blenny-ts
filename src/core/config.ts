@@ -30,6 +30,8 @@ const DEFAULTS: Record<string, string> = {
   "ratelimit.auth_window_ms": "300000",
   "ratelimit.auth_max_requests": "20",
   "server.trust_proxy": "false",
+  "server.parallel": "false",
+  "parallel.tasks": "false",
 };
 
 export interface ConfigOverrides {
@@ -172,6 +174,14 @@ export class BlennyConfig {
 
   get trustProxy(): boolean {
     return this.data.get("server.trust_proxy") === "true";
+  }
+
+  get parallel(): boolean {
+    return this.data.get("server.parallel") === "true";
+  }
+
+  get parallelTasks(): boolean {
+    return this.data.get("parallel.tasks") === "true";
   }
 
   // ── Logging helper ───────────────────────────────────────────────

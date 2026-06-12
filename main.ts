@@ -8,68 +8,84 @@ import {
 import * as boot from "./src/core/bootstrap/modules.ts";
 import { registerPlatformEndpoints } from "./src/core/bootstrap/endpoints.ts";
 import { startServer } from "./src/core/bootstrap/server.ts";
+import { isServeMode } from "./src/core/worker-id.ts";
+import { WorkerMailbox } from "./src/core/worker-mailbox.ts";
+import { WorkerTransport } from "./src/core/worker-transport.ts";
+import { LeaderElector } from "./src/core/leader-elector.ts";
 import { publish } from "./src/core/hub.ts";
 
-// ─── Config ───
 const config = loadConfig();
 checkJwtSecret(config);
 
-// ─── Services ───
-const { hub, state, app } = await createServices(config);
+const { hub, state, app, supervisor } = await createServices(config);
 await boot.setupDatabase(state, config);
 
-// ─── Middleware ───
 configureMiddleware(app, config);
 createErrorHandler(app);
 createNotFoundHandler(app);
 
-// ─── Modules ───
 const { modules } = await boot.discoverModules(config);
 boot.detectCapabilityConflicts(modules);
 boot.detectMissingDependencies(modules);
 state.moduleCount = modules.length;
 await boot.initializeModules(modules, state);
 
-// ─── Routing ───
 boot.applyAuthMiddleware(app, state);
 boot.registerModuleRoutes(app, modules, state);
 boot.subscribeModuleEvents(modules);
 
-// ─── Lifecycle ───
 await boot.startModules(modules, state);
 
-// ─── Platform ───
 registerPlatformEndpoints(app, state, config);
 
-// ─── Server ───
-const abortController = new AbortController();
-let shuttingDown = false;
+if (isServeMode()) {
+  if (config.parallel) {
+    const mailbox = new WorkerMailbox((item) => hub.handleMailboxMessage(item));
+    const transport = new WorkerTransport(mailbox);
+    hub.enableParallel(mailbox, transport);
+    transport.onDrain = () => { hub.drain(); };
+    if (config.parallelTasks) {
+      const elector = new LeaderElector(transport);
+      supervisor.setLeaderElector(elector);
+      elector.start();
+    }
+  }
 
-Deno.addSignalListener("SIGINT", () => {
-  if (shuttingDown) Deno.exit(1);
-  shuttingDown = true;
-  abortController.abort();
-});
-Deno.addSignalListener("SIGTERM", () => {
-  if (shuttingDown) Deno.exit(1);
-  shuttingDown = true;
-  abortController.abort();
-});
+  hub.startReaper(config.idleTimeoutMs);
+  supervisor.start();
+  publish("platform:ready", { timestamp: Date.now() });
+} else {
+  const abortController = new AbortController();
+  let shuttingDown = false;
 
-try {
-  const { finished } = startServer(app, config, hub, abortController.signal);
-  await finished;
-} catch (err) {
-  publish("log", {
-    level: "error",
-    template: "Server error: {error}",
-    args: { error: String(err) },
+  Deno.addSignalListener("SIGINT", () => {
+    if (shuttingDown) Deno.exit(1);
+    shuttingDown = true;
+    abortController.abort();
   });
-} finally {
-  shuttingDown = true;
-  publish("log", { level: "info", template: "Shutting down…" });
-  await hub.drain(30_000);
-  publish("log", { level: "info", template: "Drain complete" });
-  await boot.stopModules(modules, state);
-  publish("log", { level: "info", template: "Modules stopped" });
+  Deno.addSignalListener("SIGTERM", () => {
+    if (shuttingDown) Deno.exit(1);
+    shuttingDown = true;
+    abortController.abort();
+  });
+
+  try {
+    const { finished } = startServer(app, config, hub, abortController.signal);
+    await finished;
+  } catch (err) {
+    publish("log", {
+      level: "error",
+      template: "Server error: {error}",
+      args: { error: String(err) },
+    });
+  } finally {
+    shuttingDown = true;
+    publish("log", { level: "info", template: "Shutting down…" });
+    await hub.drain(30_000);
+    publish("log", { level: "info", template: "Drain complete" });
+    await boot.stopModules(modules, state);
+    publish("log", { level: "info", template: "Modules stopped" });
+  }
 }
+
+export default app.fetch;

@@ -1,4 +1,5 @@
 import { publish } from "./hub.ts";
+import type { LeaderElector } from "./leader-elector.ts";
 
 export type TaskFn = () => void | Promise<void>;
 
@@ -41,10 +42,51 @@ export class TaskSupervisor {
   private timers = new Map<string, ReturnType<typeof setTimeout>>();
   private running = new Map<string, Promise<void>>();
   private isRunning = false;
+  private elector: LeaderElector | null = null;
+  private isLeader = true;
 
   constructor(
     private defaultMaxBackoff = 60_000,
   ) {}
+
+  setLeaderElector(elector: LeaderElector): void {
+    this.elector = elector;
+    const nowLeader = elector.isLeader();
+    if (!nowLeader && this.isLeader) {
+      this.isLeader = false;
+      if (this.isRunning) {
+        this.stopAllTasks();
+      }
+    } else {
+      this.isLeader = nowLeader;
+    }
+    elector.onElect = () => {
+      const nowLeader = elector.isLeader();
+      if (nowLeader && !this.isLeader) {
+        this.isLeader = true;
+        if (this.isRunning) {
+          for (const [name] of this.tasks) {
+            this.startTask(name);
+          }
+        }
+      } else if (!nowLeader && this.isLeader) {
+        this.isLeader = false;
+        this.stopAllTasks();
+      }
+    };
+  }
+
+  start(): void {
+    if (this.isRunning) return;
+    this.isRunning = true;
+    if (!this.isLeader) return;
+    for (const entry of this.tasks.values()) {
+      entry.failures = 0;
+    }
+    for (const [name] of this.tasks) {
+      this.startTask(name);
+    }
+  }
 
   add(
     name: string,
@@ -77,7 +119,7 @@ export class TaskSupervisor {
       failures: 0,
       onError: options?.onError,
     });
-    if (this.isRunning) {
+    if (this.isRunning && this.isLeader) {
       this.startTask(name);
     }
   }
@@ -101,17 +143,6 @@ export class TaskSupervisor {
 
   listTasks(): TaskInfo[] {
     return Array.from(this.tasks.keys()).map((name) => this.getTask(name)!);
-  }
-
-  start(): void {
-    if (this.isRunning) return;
-    this.isRunning = true;
-    for (const entry of this.tasks.values()) {
-      entry.failures = 0;
-    }
-    for (const [name] of this.tasks) {
-      this.startTask(name);
-    }
   }
 
   async stop(): Promise<void> {
@@ -168,6 +199,12 @@ export class TaskSupervisor {
     if (timer) {
       clearTimeout(timer);
       this.timers.delete(name);
+    }
+  }
+
+  private stopAllTasks(): void {
+    for (const name of this.timers.keys()) {
+      this.stopTask(name);
     }
   }
 }

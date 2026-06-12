@@ -2,6 +2,8 @@ import type { Intent, ServerMessage } from "./envelope.ts";
 import type { BlennyEvents } from "../types.ts";
 import { BlennyError } from "./error.ts";
 import { TaskSupervisor } from "./task-supervisor.ts";
+import type { WorkerMailbox, MailboxMessage } from "./worker-mailbox.ts";
+import type { WorkerTransport } from "./worker-transport.ts";
 import {
   activeConnections,
   messageDuration,
@@ -79,12 +81,29 @@ export class TransportHub {
   private drainPromise: Promise<void> | null = null;
   private drainResolve: (() => void) | null = null;
   private drainTimer: ReturnType<typeof setTimeout> | null = null;
+  private mailbox?: WorkerMailbox;
+  private transport?: WorkerTransport;
   maxConns: number;
   maxConnsPerUser: number;
 
   constructor(opts?: { maxConns?: number; maxConnsPerUser?: number }) {
     this.maxConns = opts?.maxConns ?? 10_000;
     this.maxConnsPerUser = opts?.maxConnsPerUser ?? 100;
+  }
+
+  // ── Parallel mode support ──────────────────────────────────
+
+  enableParallel(mailbox: WorkerMailbox, transport: WorkerTransport): void {
+    this.mailbox = mailbox;
+    this.transport = transport;
+  }
+
+  handleMailboxMessage(item: MailboxMessage): void {
+    if (item.targetUserId) {
+      this.deliverToUser(item.msg, item.targetUserId);
+    } else {
+      this.deliverLocal(item.msg);
+    }
   }
 
   // ── SSE connection reaper ────────────────────────────────────
@@ -116,6 +135,9 @@ export class TransportHub {
   async drain(timeoutMs = 30_000): Promise<void> {
     if (this.draining) return this.drainPromise ?? Promise.resolve();
     this.draining = true;
+
+    // Tell other workers to drain
+    this.transport?.sendDrain();
 
     // Send reconnect scripts synchronously before the first await
     for (const conn of this.conns.values()) {
@@ -323,29 +345,54 @@ export class TransportHub {
 
   // ── Low-level broadcast ──────────────────────────────────────
 
+  private async deliverLocal(
+    msg: ServerMessage,
+  ): Promise<{ connCount: number; errorCount: number }> {
+    if (this.conns.size === 0) return { connCount: 0, errorCount: 0 };
+    const writes: Promise<void>[] = [];
+    const group = this.intentGroups.get(msg.intent);
+    if (group) {
+      for (const id of group) {
+        const conn = this.conns.get(id);
+        if (conn) writes.push(this.write(msg, conn));
+      }
+    }
+    for (const id of this.noIntentConns) {
+      const conn = this.conns.get(id);
+      if (conn) writes.push(this.write(msg, conn));
+    }
+    const results = await Promise.allSettled(writes);
+    const errorCount = results.filter((r) => r.status === "rejected").length;
+    return { connCount: writes.length, errorCount };
+  }
+
+  private async deliverToUser(
+    msg: ServerMessage,
+    userId: string,
+  ): Promise<{ connCount: number; errorCount: number }> {
+    const userSet = this.userConns.get(userId);
+    if (!userSet || userSet.size === 0) return { connCount: 0, errorCount: 0 };
+    const writes: Promise<void>[] = [];
+    for (const id of userSet) {
+      const conn = this.conns.get(id);
+      if (conn) writes.push(this.write(msg, conn));
+    }
+    const results = await Promise.allSettled(writes);
+    const errorCount = results.filter((r) => r.status === "rejected").length;
+    return { connCount: writes.length, errorCount };
+  }
+
   private async broadcastToAll(msg: ServerMessage): Promise<void> {
     if (this.conns.size === 0) return;
     await withSpan("hub.broadcast", async (span) => {
       span.setAttribute("msg.intent", msg.intent);
-      const writes: Promise<void>[] = [];
-      const group = this.intentGroups.get(msg.intent);
-      if (group) {
-        for (const id of group) {
-          const conn = this.conns.get(id);
-          if (conn) writes.push(this.write(msg, conn));
-        }
-      }
-      for (const id of this.noIntentConns) {
-        const conn = this.conns.get(id);
-        if (conn) writes.push(this.write(msg, conn));
-      }
-      const results = await Promise.allSettled(writes);
-      const failed = results.filter((r) => r.status === "rejected");
+      const { errorCount } = await this.deliverLocal(msg);
       span.setAttribute("conn.count", this.conns.size);
-      if (failed.length > 0) {
-        span.setAttribute("write.errors", failed.length);
+      if (errorCount > 0) {
+        span.setAttribute("write.errors", errorCount);
         span.setStatus({ code: SpanStatusCode.ERROR });
       }
+      this.transport?.sendMessage(msg);
     });
   }
 
@@ -357,18 +404,13 @@ export class TransportHub {
     if (!userSet || userSet.size === 0) return;
     await withSpan("hub.direct", async (span) => {
       span.setAttribute("user.id", userId);
-      const writes: Promise<void>[] = [];
-      for (const id of userSet) {
-        const conn = this.conns.get(id);
-        if (conn) writes.push(this.write(msg, conn));
-      }
-      const results = await Promise.allSettled(writes);
-      const failed = results.filter((r) => r.status === "rejected");
-      span.setAttribute("conn.count", writes.length);
-      if (failed.length > 0) {
-        span.setAttribute("write.errors", failed.length);
+      const { connCount, errorCount } = await this.deliverToUser(msg, userId);
+      span.setAttribute("conn.count", connCount);
+      if (errorCount > 0) {
+        span.setAttribute("write.errors", errorCount);
         span.setStatus({ code: SpanStatusCode.ERROR });
       }
+      this.transport?.sendMessage(msg, userId);
     });
   }
 }
