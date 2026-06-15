@@ -1,6 +1,7 @@
 {
   "version": "0.3.0",
   "tasks": {
+    "init": "deno run --allow-read --allow-write tools/init.ts",
     "dev": "deno run --allow-net --allow-read --allow-write=./data --allow-sys --allow-env --allow-ffi --unstable-ffi --unstable-kv --watch main.ts",
     "generate-manifest": "deno run --allow-read --allow-write tools/generate-manifest.ts",
     "compile": "deno task generate-manifest && deno compile --allow-net --allow-read --allow-write=./data --allow-sys --allow-env --allow-ffi --unstable-kv main.ts",

@@ -8,8 +8,8 @@ real-time is default, and deployment is a single binary.
 
 ## Core Design Principles
 
-1. **Self-assembling modules** — drop a `.ts` file into `src/modules/`, it
-   auto-registers routes and subscriptions
+1. **Self-assembling modules** — drop a `.ts` file into your project's `modules/`
+   directory, it auto-registers routes and subscriptions
 2. **Real-time by default** — SSE is a first-class framework primitive, not an
    afterthought
 3. **Datastar SDK** — modules write action-based code, the framework serializes

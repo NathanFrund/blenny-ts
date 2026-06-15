@@ -1,7 +1,28 @@
-import { fromFileUrl, join } from "@std/path";
+import { join, resolve } from "@std/path";
 
-const modulesDir = fromFileUrl(new URL("../src/modules", import.meta.url));
-const manifestPath = join(modulesDir, "manifest.ts");
+function parseArgs(): { modulesPath: string; out: string } {
+  let modulesPath = "./src/modules";
+  let out = "./src/modules/manifest.ts";
+
+  for (let i = 0; i < Deno.args.length; i++) {
+    const arg = Deno.args[i];
+    if (arg.startsWith("--modules-path=")) {
+      modulesPath = arg.slice("--modules-path=".length);
+    } else if (arg.startsWith("--out=")) {
+      out = arg.slice("--out=".length);
+    } else if (arg === "--modules-path" && i + 1 < Deno.args.length) {
+      modulesPath = Deno.args[++i];
+    } else if (arg === "--out" && i + 1 < Deno.args.length) {
+      out = Deno.args[++i];
+    }
+  }
+
+  return { modulesPath, out };
+}
+
+const args = parseArgs();
+const modulesDir = resolve(Deno.cwd(), args.modulesPath);
+const manifestPath = resolve(Deno.cwd(), args.out);
 
 function toIdentifier(name: string): string {
   let id = name.replace(/[^a-zA-Z0-9_]/g, "_").replace(/^(\d)/, "_$1");
@@ -97,7 +118,7 @@ async function generateManifest(): Promise<void> {
     "// Directories are either modules or categories:",
   );
   lines.push(
-    "//   - A directory with an index.ts/index.tsx is a module (e.g., auth/surreal/)",
+    "//   - A directory with an index.ts/index.tsx is a module (e.g., auth/form-auth-surreal/)",
   );
   lines.push(
     "//   - A directory without an index is a category (e.g., auth/, demo/) —",

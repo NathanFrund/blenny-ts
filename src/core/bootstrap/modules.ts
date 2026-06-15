@@ -1,3 +1,4 @@
+import { isAbsolute, join } from "@std/path";
 import type { Hono, MiddlewareHandler } from "@hono/hono";
 import { connectDatabase } from "../database.ts";
 import { loadModules } from "../module-loader.ts";
@@ -15,7 +16,10 @@ export interface ModuleLoadResult {
 export async function discoverModules(
   config: BlennyConfig,
 ): Promise<ModuleLoadResult> {
-  const { modules, failures } = await loadModules();
+  const modulesDir = isAbsolute(config.modulesPath)
+    ? config.modulesPath
+    : join(Deno.cwd(), config.modulesPath);
+  const { modules, failures } = await loadModules(modulesDir);
   for (const mod of modules) {
     publish("log", {
       level: "info",

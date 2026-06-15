@@ -174,6 +174,10 @@ export class BlennyConfig {
     return this.data.get("server.trust_proxy") === "true";
   }
 
+  get modulesPath(): string {
+    return this.at("modules.path") ?? "./src/modules";
+  }
+
   // ── Logging helper ───────────────────────────────────────────────
 
   logSources(): void {

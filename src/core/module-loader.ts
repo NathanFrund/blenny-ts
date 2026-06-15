@@ -1,8 +1,7 @@
-import { fromFileUrl, join, toFileUrl } from "@std/path";
+import { join, toFileUrl } from "@std/path";
 import { HTTP_METHODS } from "../types.ts";
 import type { BlennyModule, Route } from "../types.ts";
 
-const modulesDir = fromFileUrl(new URL("../modules", import.meta.url));
 const VALID_METHODS = new Set<string>(HTTP_METHODS);
 const INDEX_CANDIDATES = ["index.ts", "index.tsx"];
 
@@ -145,7 +144,7 @@ async function findIndexFile(dirPath: string): Promise<string | null> {
   return null;
 }
 
-export async function loadModules(): Promise<ModuleLoadResult> {
+export async function loadModules(modulesDir: string): Promise<ModuleLoadResult> {
   const modules: BlennyModule[] = [];
   const failures: ModuleLoadFailure[] = [];
 

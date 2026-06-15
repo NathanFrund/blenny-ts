@@ -1,13 +1,13 @@
 # Module directories
 
 When a module outgrows a single file, it becomes a directory under
-`src/modules/`. The directory _is_ the module — the same way a directory with
+`modules/`. The directory _is_ the module — the same way a directory with
 `index.ts` is a Deno/JS/TS module.
 
 ## Convention
 
 ```
-src/modules/
+modules/
   index.ts              ← single-file (unchanged)
   form-auth-surreal/    ← directory module
   forum/                ← multi-file module
@@ -25,19 +25,20 @@ src/modules/
   export.
 - Single-file modules continue working unchanged.
 
-## Loader change
+## Loader
 
-`src/core/module-loader.ts` currently scans `src/modules/` for `.ts`/`.tsx`
-files. It is extended to also scan directories:
+The framework's module loader scans your `modules/` directory for
+`.ts`/`.tsx` files and directories:
 
 ```
 for each entry in modules/:
-  if file ending in .ts/.tsx  → import it directly (current path)
+  if file ending in .ts/.tsx  → import it directly
   if directory               → look for index.ts or index.tsx inside
   derive name:              filename (file) or directory name (dir)
 ```
 
-The change is ~10 lines. Backward-compatible — no existing module needs changes.
+The modules path is configurable in `blenny.json` via `modules.path` (default:
+`"./src/modules"` for backward compatibility).
 
 ## Why
 
