@@ -144,7 +144,9 @@ async function findIndexFile(dirPath: string): Promise<string | null> {
   return null;
 }
 
-export async function loadModules(modulesDir: string): Promise<ModuleLoadResult> {
+export async function loadModules(
+  modulesDir: string,
+): Promise<ModuleLoadResult> {
   const modules: BlennyModule[] = [];
   const failures: ModuleLoadFailure[] = [];
 

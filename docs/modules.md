@@ -14,8 +14,8 @@ cd .. && deno task dev
 ```
 
 The init script creates `modules/`, `data/`, `blenny.json`, and `deno.json`,
-then copies all framework modules (auth, dashboard, demo) into your project.
-You own these files — edit them, delete what you don't need, add your own.
+then copies all framework modules (auth, dashboard, demo) into your project. You
+own these files — edit them, delete what you don't need, add your own.
 
 The dev task uses `--import-map=blenny-ts/deno.json` so modules can import
 framework types via `@blenny/types`, `@blenny/core/`, etc.

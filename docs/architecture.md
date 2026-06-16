@@ -33,7 +33,8 @@ lives in modules that hook into the lifecycle.
 
 ## Module Lifecycle
 
-Modules are loaded from your project's `modules/` directory at startup (configurable via `modules.path` in `blenny.json`) and progress through five
+Modules are loaded from your project's `modules/` directory at startup
+(configurable via `modules.path` in `blenny.json`) and progress through five
 phases:
 
 ```

@@ -1,8 +1,8 @@
 # Module directories
 
-When a module outgrows a single file, it becomes a directory under
-`modules/`. The directory _is_ the module — the same way a directory with
-`index.ts` is a Deno/JS/TS module.
+When a module outgrows a single file, it becomes a directory under `modules/`.
+The directory _is_ the module — the same way a directory with `index.ts` is a
+Deno/JS/TS module.
 
 ## Convention
 
@@ -27,8 +27,8 @@ modules/
 
 ## Loader
 
-The framework's module loader scans your `modules/` directory for
-`.ts`/`.tsx` files and directories:
+The framework's module loader scans your `modules/` directory for `.ts`/`.tsx`
+files and directories:
 
 ```
 for each entry in modules/:

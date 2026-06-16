@@ -2,9 +2,10 @@ import { fromFileUrl, join, resolve } from "@std/path";
 
 const frameworkDir = fromFileUrl(new URL("..", import.meta.url));
 const frameworkName = frameworkDir.split("/").filter(Boolean).pop()!;
-const projectDir = Deno.realPathSync(frameworkDir) === Deno.realPathSync(Deno.cwd())
-  ? resolve(frameworkDir, "..")
-  : Deno.cwd();
+const projectDir =
+  Deno.realPathSync(frameworkDir) === Deno.realPathSync(Deno.cwd())
+    ? resolve(frameworkDir, "..")
+    : Deno.cwd();
 
 const sourceModules = join(frameworkDir, "src", "modules");
 const targetModules = join(projectDir, "modules");
@@ -16,7 +17,10 @@ async function copyDir(src: string, dest: string): Promise<void> {
     if (entry.name === "manifest.ts") continue;
     const srcPath = join(src, entry.name);
     const destPath = join(dest, entry.name);
-    if (entry.isFile && (entry.name.endsWith(".ts") || entry.name.endsWith(".tsx"))) {
+    if (
+      entry.isFile &&
+      (entry.name.endsWith(".ts") || entry.name.endsWith(".tsx"))
+    ) {
       let exists = false;
       try {
         await Deno.stat(destPath);
@@ -74,7 +78,8 @@ const denoJson = {
     "@blenny/core/": `./${frameworkName}/src/core/`,
     "@blenny/lib/": `./${frameworkName}/src/lib/`,
     "@opentelemetry/api": "npm:@opentelemetry/api@^1.9.0",
-    "@opentelemetry/sdk-trace-base": "npm:@opentelemetry/sdk-trace-base@^1.30.0",
+    "@opentelemetry/sdk-trace-base":
+      "npm:@opentelemetry/sdk-trace-base@^1.30.0",
   },
 };
 
