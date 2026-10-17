@@ -1,20 +1,16 @@
-import { assertEquals } from "@std/assert";
-import { Hono } from "@hono/hono";
-import type { MiddlewareHandler } from "@hono/hono";
-import {
-  createHandleAvatarServe,
-  createHandleAvatarUpload,
-} from "@blenny/lib/avatar/handlers.ts";
-import type { AvatarService } from "@blenny/lib/avatar/service.ts";
+import { test } from "bun:test";
 import type { BlobStore, UserStore } from "@blenny/core/store.ts";
+import { createHandleAvatarServe, createHandleAvatarUpload } from "@blenny/lib/avatar/handlers.ts";
+import type { AvatarService } from "@blenny/lib/avatar/service.ts";
+import type { MiddlewareHandler } from "@hono/hono";
+import { Hono } from "@hono/hono";
+import { assertEquals } from "@std/assert";
 
 interface MockHandlers {
   upload: MiddlewareHandler;
   serve: MiddlewareHandler;
   setRemovedKey: (key: string) => void;
-  setGetResult: (
-    result: { bytes: Uint8Array; mimeType: string } | null,
-  ) => void;
+  setGetResult: (result: { bytes: Uint8Array; mimeType: string } | null) => void;
   getPutCall: () => { userId: string; file: File } | null;
   getUpdatedKey: () => string | null;
   getRemoved: () => { prefix: string; id: string } | null;
@@ -36,15 +32,15 @@ function createMockHandlers(): MockHandlers {
       Promise.resolve(
         id === adminId
           ? {
-            id: adminId,
-            username: "admin",
-            displayName: "Admin",
-            role: "admin",
-            passwordHash: "",
-            salt: "",
-            createdAt: Date.now(),
-            avatarKey: removedKey ?? undefined,
-          }
+              id: adminId,
+              username: "admin",
+              displayName: "Admin",
+              role: "admin",
+              passwordHash: "",
+              salt: "",
+              createdAt: Date.now(),
+              avatarKey: removedKey ?? undefined,
+            }
           : null,
       ),
     findByUsername: () => Promise.resolve(null),
@@ -94,8 +90,8 @@ function createMockHandlers(): MockHandlers {
   };
 }
 
-Deno.test("avatar-handlers", async (t) => {
-  await t.step("POST upload without auth redirects to sign-in", async () => {
+test("avatar-handlers", async () => {
+  await step("POST upload without auth redirects to sign-in", async () => {
     const m = createMockHandlers();
     const app = new Hono();
     app.post("/auth/avatar", m.upload);
@@ -115,16 +111,13 @@ Deno.test("avatar-handlers", async (t) => {
     assertEquals(res.headers.get("location"), "/auth/signin");
   });
 
-  await t.step("POST upload valid image succeeds", async () => {
+  await step("POST upload valid image succeeds", async () => {
     const m = createMockHandlers();
     const app = new Hono();
-    app.use(
-      "/auth/*",
-      ((c, next) => {
-        c.set("user", { id: m.adminId, role: "admin" });
-        return next();
-      }) as MiddlewareHandler,
-    );
+    app.use("/auth/*", ((c, next) => {
+      c.set("user", { id: m.adminId, role: "admin" });
+      return next();
+    }) as MiddlewareHandler);
     app.post("/auth/avatar", m.upload);
 
     const form = new FormData();
@@ -143,22 +136,16 @@ Deno.test("avatar-handlers", async (t) => {
     const call = m.getPutCall();
     assertEquals(call?.userId, m.adminId);
     assertEquals(call?.file.name, "test.png");
-    assertEquals(
-      m.getUpdatedKey()?.startsWith("avatars:" + m.adminId + ":"),
-      true,
-    );
+    assertEquals(m.getUpdatedKey()?.startsWith("avatars:" + m.adminId + ":"), true);
   });
 
-  await t.step("POST upload missing file field shows error", async () => {
+  await step("POST upload missing file field shows error", async () => {
     const m = createMockHandlers();
     const app = new Hono();
-    app.use(
-      "/auth/*",
-      ((c, next) => {
-        c.set("user", { id: m.adminId, role: "admin" });
-        return next();
-      }) as MiddlewareHandler,
-    );
+    app.use("/auth/*", ((c, next) => {
+      c.set("user", { id: m.adminId, role: "admin" });
+      return next();
+    }) as MiddlewareHandler);
     app.post("/auth/avatar", m.upload);
 
     const form = new FormData();
@@ -168,22 +155,16 @@ Deno.test("avatar-handlers", async (t) => {
       body: form,
     });
     assertEquals(res.status, 302);
-    assertEquals(
-      res.headers.get("location"),
-      "/auth/profile?error=avatar%20field%20must%20be%20a%20file",
-    );
+    assertEquals(res.headers.get("location"), "/auth/profile?error=avatar%20field%20must%20be%20a%20file");
   });
 
-  await t.step("POST upload non-image file type shows error", async () => {
+  await step("POST upload non-image file type shows error", async () => {
     const m = createMockHandlers();
     const app = new Hono();
-    app.use(
-      "/auth/*",
-      ((c, next) => {
-        c.set("user", { id: m.adminId, role: "admin" });
-        return next();
-      }) as MiddlewareHandler,
-    );
+    app.use("/auth/*", ((c, next) => {
+      c.set("user", { id: m.adminId, role: "admin" });
+      return next();
+    }) as MiddlewareHandler);
     app.post("/auth/avatar", m.upload);
 
     const form = new FormData();
@@ -198,23 +179,17 @@ Deno.test("avatar-handlers", async (t) => {
       body: form,
     });
     assertEquals(res.status, 302);
-    assertEquals(
-      res.headers.get("location"),
-      "/auth/profile?error=Only%20image%20files%20are%20accepted",
-    );
+    assertEquals(res.headers.get("location"), "/auth/profile?error=Only%20image%20files%20are%20accepted");
   });
 
-  await t.step("POST upload replaces old avatar", async () => {
+  await step("POST upload replaces old avatar", async () => {
     const m = createMockHandlers();
     m.setRemovedKey("avatars:old.png");
     const app = new Hono();
-    app.use(
-      "/auth/*",
-      ((c, next) => {
-        c.set("user", { id: m.adminId, role: "admin" });
-        return next();
-      }) as MiddlewareHandler,
-    );
+    app.use("/auth/*", ((c, next) => {
+      c.set("user", { id: m.adminId, role: "admin" });
+      return next();
+    }) as MiddlewareHandler);
     app.post("/auth/avatar", m.upload);
 
     const form = new FormData();
@@ -233,7 +208,7 @@ Deno.test("avatar-handlers", async (t) => {
     assertEquals(m.getRemoved()?.id, "old.png");
   });
 
-  await t.step("GET serve existing avatar returns image", async () => {
+  await step("GET serve existing avatar returns image", async () => {
     const m = createMockHandlers();
     m.setGetResult({ bytes: new Uint8Array([4, 5, 6]), mimeType: "image/png" });
     const app = new Hono();
@@ -246,7 +221,7 @@ Deno.test("avatar-handlers", async (t) => {
     assertEquals(bytes, new Uint8Array([4, 5, 6]));
   });
 
-  await t.step("GET serve user without avatar returns 404", async () => {
+  await step("GET serve user without avatar returns 404", async () => {
     const m = createMockHandlers();
     m.setGetResult(null);
     const app = new Hono();
@@ -257,93 +232,76 @@ Deno.test("avatar-handlers", async (t) => {
     assertEquals(await res.json(), { error: "No avatar found" });
   });
 
-  await t.step(
-    "POST upload without previous avatar skips blob removal",
-    async () => {
-      const m = createMockHandlers();
-      const app = new Hono();
-      app.use(
-        "/auth/*",
-        ((c, next) => {
-          c.set("user", { id: m.adminId, role: "admin" });
-          return next();
-        }) as MiddlewareHandler,
-      );
-      app.post("/auth/avatar", m.upload);
+  await step("POST upload without previous avatar skips blob removal", async () => {
+    const m = createMockHandlers();
+    const app = new Hono();
+    app.use("/auth/*", ((c, next) => {
+      c.set("user", { id: m.adminId, role: "admin" });
+      return next();
+    }) as MiddlewareHandler);
+    app.post("/auth/avatar", m.upload);
 
-      const form = new FormData();
-      form.append(
-        "avatar",
-        new File([new Uint8Array([1, 2, 3])], "test.png", {
-          type: "image/png",
+    const form = new FormData();
+    form.append(
+      "avatar",
+      new File([new Uint8Array([1, 2, 3])], "test.png", {
+        type: "image/png",
+      }),
+    );
+    const res = await app.request("http://localhost/auth/avatar", {
+      method: "POST",
+      body: form,
+    });
+    assertEquals(res.status, 302);
+    assertEquals(m.getPutCall()?.userId, m.adminId);
+    assertEquals(m.getRemoved(), null, "should not remove blob for new avatar");
+  });
+
+  await step("POST upload without blobStore skips removal gracefully", async () => {
+    const store: UserStore = {
+      findById: () =>
+        Promise.resolve({
+          id: "u1",
+          username: "u",
+          displayName: "U",
+          role: "user",
+          passwordHash: "",
+          salt: "",
+          createdAt: Date.now(),
+          avatarKey: "avatars:old.png",
         }),
-      );
-      const res = await app.request("http://localhost/auth/avatar", {
-        method: "POST",
-        body: form,
-      });
-      assertEquals(res.status, 302);
-      assertEquals(m.getPutCall()?.userId, m.adminId);
-      assertEquals(
-        m.getRemoved(),
-        null,
-        "should not remove blob for new avatar",
-      );
-    },
-  );
+      findByUsername: () => Promise.resolve(null),
+      findAll: () => Promise.resolve([]),
+      createUser: () => Promise.reject(new Error("not implemented")),
+      setPassword: () => Promise.resolve(),
+      updateAvatarKey: () => Promise.resolve(),
+      updateRole: () => Promise.resolve(),
+      changePassword: () => Promise.resolve(),
+      deleteUser: () => Promise.resolve(true),
+    };
+    const avatarService: AvatarService = {
+      put: (userId: string, _file: File) => Promise.resolve({ key: `avatars:${userId}:${Date.now()}` }),
+      get: () => Promise.resolve(null),
+    };
+    const upload = createHandleAvatarUpload({ store, avatarService });
+    const app = new Hono();
+    app.use("/auth/*", ((c, next) => {
+      c.set("user", { id: "u1", role: "user" });
+      return next();
+    }) as MiddlewareHandler);
+    app.post("/auth/avatar", upload);
 
-  await t.step(
-    "POST upload without blobStore skips removal gracefully",
-    async () => {
-      const store: UserStore = {
-        findById: () =>
-          Promise.resolve({
-            id: "u1",
-            username: "u",
-            displayName: "U",
-            role: "user",
-            passwordHash: "",
-            salt: "",
-            createdAt: Date.now(),
-            avatarKey: "avatars:old.png",
-          }),
-        findByUsername: () => Promise.resolve(null),
-        findAll: () => Promise.resolve([]),
-        createUser: () => Promise.reject(new Error("not implemented")),
-        setPassword: () => Promise.resolve(),
-        updateAvatarKey: () => Promise.resolve(),
-        updateRole: () => Promise.resolve(),
-        changePassword: () => Promise.resolve(),
-        deleteUser: () => Promise.resolve(true),
-      };
-      const avatarService: AvatarService = {
-        put: (userId: string, _file: File) =>
-          Promise.resolve({ key: `avatars:${userId}:${Date.now()}` }),
-        get: () => Promise.resolve(null),
-      };
-      const upload = createHandleAvatarUpload({ store, avatarService });
-      const app = new Hono();
-      app.use(
-        "/auth/*",
-        ((c, next) => {
-          c.set("user", { id: "u1", role: "user" });
-          return next();
-        }) as MiddlewareHandler,
-      );
-      app.post("/auth/avatar", upload);
-
-      const form = new FormData();
-      form.append(
-        "avatar",
-        new File([new Uint8Array([1, 2, 3])], "test.png", {
-          type: "image/png",
-        }),
-      );
-      const res = await app.request("http://localhost/auth/avatar", {
-        method: "POST",
-        body: form,
-      });
-      assertEquals(res.status, 302);
-    },
-  );
+    const form = new FormData();
+    form.append(
+      "avatar",
+      new File([new Uint8Array([1, 2, 3])], "test.png", {
+        type: "image/png",
+      }),
+    );
+    const res = await app.request("http://localhost/auth/avatar", {
+      method: "POST",
+      body: form,
+    });
+    assertEquals(res.status, 302);
+  });
 });

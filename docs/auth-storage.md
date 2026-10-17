@@ -3,9 +3,9 @@
 ## Overview
 
 Blenny provides a persistent storage layer out of the box — no database server,
-no configuration, no infrastructure. On your laptop it's a SQLite file. On Deno
-Deploy it silently becomes FoundationDB replicated across 35 regions. The same
-code works in both environments.
+no configuration, no infrastructure. On your laptop it's a SQLite file handled by
+Bun's built-in `bun:sqlite` driver, with blobs written to the filesystem. No
+external services required.
 
 Beyond storage, Blenny provides an auth module that handles registration, login,
 JWT sessions, and profile picture upload. Each auth module owns its own storage
@@ -17,18 +17,18 @@ framework core (`main.ts`, `config.ts`, `AppState`) has no storage awareness.
 ```
 ┌──────────────────────────────────────────────────┐  ┌──────────────────────────────────────────────┐
 │              Auth Module 1                       │  │              Auth Module 2                   │
-│  .form-auth/  (KV, zero-infra,                   │  │  form-auth-surreal/ (SurrealDB,              │
-│                Deno Deploy)                      │  │                       bucket avatars)        │
+│  .form-auth-kv/  (SQLite + FsBlobStore,          │  │  form-auth-surreal/ (SurrealDB,              │
+│                   zero-infra)                    │  │                       bucket avatars)        │
 │                                                  │  │                                              │
 │  initialize():                                   │  │  initialize():                               │
 │    1. reads form-auth.store config               │  │    1. connects via SurrealDB SDK             │
-│    2. creates UserStore + BlobStore              │  │    2. defines SCHEMAFULL user table          │
-│    3. seeds admin user                           │  │    3. defines avatars bucket (try/catch)     │
-│    4. sets state.auth                            │  │    4. creates SurrealUserStore               │
-│                                                  │  │    5. seeds admin user                       │
-│  stop():                                         │  │    6. sets state.auth                        │
-│    1. closes Deno.Kv (if KV mode)                │  │                                              │
-│                                                  │  │  stop():                                     │
+│    2. opens SQLite UserStore + FsBlobStore       │  │    2. defines SCHEMAFULL user table          │
+│       (or InMemory + FsBlobStore)                │  │    3. defines avatars bucket (try/catch)     │
+│    3. seeds admin user                           │  │    4. creates SurrealUserStore               │
+│    4. sets state.auth                            │  │    5. seeds admin user                       │
+│                                                  │  │    6. sets state.auth                        │
+│  stop():                                         │  │                                              │
+│    1. closes the SQLite database                 │  │  stop():                                     │
 │                                                  │  │    (core manages SurrealDB connection)       │
 └──────────────────┬───────────────────────────────┘  └──────────────────┬───────────────────────────┘
                    │                                                     │
@@ -44,18 +44,20 @@ framework core (`main.ts`, `config.ts`, `AppState`) has no storage awareness.
               ┌───────┴───────┐      └──────┐
               ▼               ▼             ▼
 ┌──────────────────┐  ┌───────────┐  ┌──────────────────┐
-│ KvUserStore      │  │ InMemUser │  │ SurrealUserStore │
-│ (kv-store.ts)    │  │ Store     │  │ (surreal-        │
-│ Deno KV          │  │ (Map)     │  │  store.ts)       │
-│ durable          │  │ ephemeral │  │ SurrealDB        │
-└──────┬───────────┘  └───────────┘  └────────--─┬──────┘
-       │                                         │
+│ SqliteUserStore  │  │ InMemUser │  │ SurrealUserStore │
+│ (sqlite-user-    │  │ Store     │  │ (surreal-        │
+│  store.ts)       │  │ (Map)     │  │  store.ts)       │
+│ bun:sqlite       │  │ ephemeral │  │ SurrealDB        │
+│ durable          │  └───────────┘  └────────--─┬──────┘
+└──────┬───────────┘                             │
        ▼                                         ▼
 ┌──────────────┐                          ┌──────────────┐
-│  Deno.Kv     │                          │  SurrealDB   │
-│ Deno.openKv()│                          │  (ws://...)  │
-│ SQLite / FDB │                          │              │
+│  SQLite file │                          │  SurrealDB   │
+│ new Database │                          │  (ws://...)  │
+│ ./data/...   │                          │              │
 └──────────────┘                          └──────────────┘
+
+BlobStore: FsBlobStore (fs-blob-store.ts) → files under ./data/blobs/{prefix}/
 ```
 
 ## Interfaces
@@ -66,38 +68,50 @@ Every method is async and returns `Promise`.
 
 ```ts
 interface UserStore {
-  findById(id: string): Promise<StoredUser | null>;
-  findByUsername(username: string): Promise<StoredUser | null>;
+  findById(id: string, fields?: string[]): Promise<StoredUser | null>;
+  findByUsername(
+    username: string,
+    fields?: string[],
+  ): Promise<StoredUser | null>;
+  findAll(): Promise<StoredUser[]>;
   createUser(data: NewUserInput): Promise<StoredUser>;
   setPassword(id: string, newPassword: string): Promise<void>;
   updateAvatarKey(id: string, key: string): Promise<void>;
+  updateRole(id: string, role: string): Promise<void>;
+  changePassword(
+    id: string,
+    currentPassword: string,
+    newPassword: string,
+  ): Promise<void>;
   deleteUser(id: string): Promise<boolean>;
 }
 ```
 
 `StoredUser` shape (defined by `UserSchema` in `validation.ts`):
 
-| Field          | Type      | Notes                                                             |
-| -------------- | --------- | ----------------------------------------------------------------- |
-| `id`           | `string`  | UUID                                                              |
-| `username`     | `string`  | Unique, 1-64 chars                                                |
-| `passwordHash` | `string`  | PBKDF2 hex (KV) or argon2 hash (SurrealDB); `salt` is always `""` |
-| `displayName`  | `string`  | Visible name in UI                                                |
-| `role`         | `string`  | Single role (e.g. "admin", "user", "gm")                          |
-| `avatarKey`    | `string?` | Blob key, present only if avatar uploaded                         |
-| `createdAt`    | `number`  | Unix millis                                                       |
+| Field          | Type      | Notes                                                                     |
+| -------------- | --------- | ------------------------------------------------------------------------- |
+| `id`           | `string`  | UUID                                                                      |
+| `username`     | `string`  | Unique, 1-64 chars                                                        |
+| `passwordHash` | `string`  | PBKDF2 hex (SQLite) or argon2 hash (SurrealDB)                            |
+| `salt`         | `string`  | Per-user PBKDF2 salt (SQLite); always `""` on the SurrealDB path          |
+| `displayName`  | `string`  | Visible name in UI                                                        |
+| `role`         | `string`  | Single role (e.g. "admin", "user", "gm")                                  |
+| `avatarKey`    | `string?` | Blob key, present only if avatar uploaded                                 |
+| `createdAt`    | `number`  | Unix millis                                                               |
 
-In the SurrealDB-backed store, `passwordHash` maps to the `password` field in
-the `user` table (argon2 hash, generated and verified server-side via
+In the SurrealDB-backed store, `passwordHash` maps to the `password` field in the
+`user` table (argon2 hash, generated and verified server-side via
 `crypto::argon2::generate/compare`). The `salt` field is always `""` because
 SurrealDB handles salting internally.
 
-`NewUserInput` shape:
+`NewUserInput` shape (`NewUserSchema` in `validation.ts`):
 
 ```ts
 interface NewUserInput {
   username: string;
   passwordHash: string; // pre-hashed by caller
+  salt: string; // PBKDF2 salt (use "" on the SurrealDB path)
   displayName: string;
   role?: string; // defaults to "user"
 }
@@ -125,58 +139,76 @@ The `prefix` groups related files — use `"avatars"` for profile pictures,
 `"maps"` for campaign maps, `"sheets"` for character sheets, etc. The `id` is
 the owning entity's identifier (a userId, a gameId, etc.).
 
-KV key format: `["blobs", prefix, id]`.
+The returned key is `"{prefix}:{id}"`.
 
-`getAsResponse` returns a streaming HTTP Response with `Content-Type` and `ETag`
-headers set from the original file metadata.
+`getAsResponse` returns an HTTP Response with `Content-Type` set from the
+original file metadata, and a `Content-Length`. Missing blobs return `404`.
 
 ## Implementations
 
-### KvUserStore (default)
+### SqliteUserStore (default, durable)
 
-Location: `src/core/kv-store.ts`
+Location: `src/core/sqlite-user-store.ts` (opened via `src/core/sqlite-store.ts`)
 
-Uses raw Deno KV with two key spaces:
+Backed by `bun:sqlite`. The constructor enables WAL mode and creates the table if
+missing:
 
+```sql
+PRAGMA journal_mode = WAL;
+
+CREATE TABLE IF NOT EXISTS users (
+  id           TEXT PRIMARY KEY,
+  username     TEXT NOT NULL UNIQUE,
+  passwordHash TEXT NOT NULL,
+  salt         TEXT NOT NULL,
+  displayName  TEXT NOT NULL,
+  role         TEXT NOT NULL,
+  avatarKey    TEXT,
+  createdAt    INTEGER NOT NULL
+);
 ```
-["by_username", username]  →  id          (unique, set via atomic CAS)
-["users", id]              →  UserData    (the record, minus id field)
-```
+
+Open a store with `openSqliteStore(dbPath, blobStore)`, which returns
+`{ db, store, blobStore }` (a `Database`, a `SqliteUserStore`, and the blob
+store). Use `":memory:"` for an ephemeral, per-test instance.
 
 **Create flow:**
 
 1. Validate input via `v.parse(NewUserSchema)`
 2. Generate `id = crypto.randomUUID()`
-3. Atomic CAS on `["by_username", username]` (check versionstamp === null)
-4. On CAS commit: set both index entry and user record
-5. On CAS failure: throw duplicate-username error
+3. `INSERT` — the `UNIQUE` constraint on `username` enforces uniqueness
+4. On violation, the error is re-thrown as `"Username is already taken"`
 
 **Lookup flow:**
 
-1. `findByUsername`: read index entry, then read user record
-2. `findById`: read user record directly
-3. Both validate the returned data via `v.safeParse(UserSchema)` — defense
-   against storage corruption
+1. `findByUsername` / `findById` run a `SELECT` and map the row
+2. Rows are validated via `v.safeParse(UserSchema)` — defense against storage
+   corruption
+3. `rowToUserData()` **omits** `avatarKey` when the column is `NULL` because
+   `UserSchema` declares it `v.optional(v.string())`, which rejects `null`
+
+`deleteUser()` also removes the user's avatar blob via `blobStore.remove("avatars", id)`.
 
 ### InMemoryUserStore (developer alias)
 
 Location: `src/core/user-store.ts`
 
-Same interface, backed by two `Map`s. Data is ephemeral — lost on process
-restart. Used by default when `form-auth.store` is not set, or in unit tests
-that don't want `--unstable-kv`.
+Same interface, backed by a `Map`. Data is ephemeral — lost on process restart.
+Used when `form-auth.store` is not set to `"sqlite"`/`"kv"`, and in unit tests
+that don't want a database file.
 
-### KvBlobStore
+### FsBlobStore
 
-Location: `src/core/kv-store.ts`
+Location: `src/core/fs-blob-store.ts`
 
-Wraps `@kitsonk/kv-toolbox/blob`:
+Stores each file on disk under `baseDir` (default `./data/blobs`):
 
-- `set(prefix, id, file)` → `blob.set(kv, ["blobs", prefix, id], file)` —
-  transparently chunks files >64KB, preserves File metadata (name, type)
-- `getAsResponse(prefix, id)` → `blob.getAsResponse(kv, ["blobs", prefix, id])`
-  — streams directly into Response with correct Content-Type and ETag
-- `remove(prefix, id)` → `blob.remove(kv, ["blobs", prefix, id])`
+- `set(prefix, id, file)` → writes `{baseDir}/{prefix}/{id}` and a sidecar
+  `{baseDir}/{prefix}/{id}.type` holding the MIME type (defaulting to
+  `application/octet-stream`). Returns `"{prefix}:{id}"`.
+- `getAsResponse(prefix, id)` → reads both files and returns a `Response` with
+  the stored `Content-Type` and `Content-Length`; missing files return `404`.
+- `remove(prefix, id)` → unlinks both files (safe if missing).
 
 ### SurrealUserStore
 
@@ -197,7 +229,7 @@ DEFINE FIELD IF NOT EXISTS createdAt  ON user TYPE number
 DEFINE INDEX IF NOT EXISTS idx_username ON TABLE user COLUMNS username UNIQUE
 ```
 
-Key differences from `KvUserStore`:
+Key differences from `SqliteUserStore`:
 
 - The `password` field stores the raw argon2 hash from
   `crypto::argon2::generate()` — app-side crypto is absent entirely.
@@ -210,31 +242,32 @@ Key differences from `KvUserStore`:
   `BlobStore` implementation. The bucket is defined in a try/catch — if the
   SurrealDB server lacks `--experimental-files`, a warning is logged and avatar
   endpoints fail at call time.
-- Unique constraint on username is enforced via the SurrealQL index, not via
-  Deno KV atomic CAS. The `createUser` method catches index-violation errors and
-  re-throws as `"Username is already taken"`.
+- Unique constraint on username is enforced via the SurrealQL index, not via a
+  SQLite `UNIQUE` constraint. The `createUser` method catches index-violation
+  errors and re-throws as `"Username is already taken"`.
 
 ## Configuration
 
 Each auth module owns its config namespace.
 
-### form-auth (KV-backed)
+### form-auth (SQLite-backed)
 
-The `.form-auth/` module (dot-prefixed — importable by path, disabled from
+The `.form-auth-kv/` module (dot-prefixed — importable by path, disabled from
 auto-discovery because it shares the `"auth"` capability) reads:
 
-| Config key          | Env var                    | Default             | Values               |
-| ------------------- | -------------------------- | ------------------- | -------------------- |
-| `form-auth.store`   | `BLENNY_FORM_AUTH_STORE`   | `"memory"`          | `"kv"` or `"memory"` |
-| `form-auth.db.path` | `BLENNY_FORM_AUTH_DB_PATH` | _(Deno KV default)_ | SQLite path or `""`  |
+| Config key          | Env var                    | Default                | Values                        |
+| ------------------- | -------------------------- | ---------------------- | ----------------------------- |
+| `form-auth.store`   | `BLENNY_FORM_AUTH_STORE`   | `"memory"`             | `"sqlite"`/`"kv"`, or `"memory"` |
+| `form-auth.db.path` | `BLENNY_FORM_AUTH_DB_PATH` | `"./data/blenny.sqlite"` | SQLite path or `""`         |
 
-**store = "kv"** (recommended for production): Deno KV backed by SQLite (local)
-or FoundationDB (Deploy). Provides persistent disk-backed storage — data
-survives restarts. Requires `--unstable-kv`. Full BlobStore support.
+**store = "sqlite"** (or the legacy alias `"kv"`; recommended for production):
+SQLite backed by a file on disk via `bun:sqlite`. Provides persistent,
+disk-backed storage — data survives restarts. Full `BlobStore` support via
+`FsBlobStore`.
 
-**store = "memory"** (default): In-memory Maps. No unstable flags needed. No
-BlobStore (blob endpoints return clear error). Data lost on restart. Dev-only;
-switch to `"kv"` for any persistent deployment.
+**store = "memory"** (default): In-memory `Map`. Data lost on restart.
+`FsBlobStore` is still used for blobs. Dev-only; switch to `"sqlite"` for any
+persistent deployment.
 
 ### form-auth-surreal (SurrealDB-backed)
 
@@ -271,44 +304,41 @@ Set via `blenny.json`:
 Or env var:
 
 ```sh
-BLENNY_SURREAL_URL=ws://127.0.0.1:8000/rpc deno run main.ts
+BLENNY_SURREAL_URL=ws://127.0.0.1:8000/rpc bun run main.ts
 ```
 
 ## Password Hashing
 
-Passwords are hashed with PBKDF2 using Deno's built-in `crypto.subtle.deriveKey`
-— no WASM, no C bindings, no extra dependencies. 100,000 iterations with a
-per-user salt derived from the username.
+Passwords are hashed with PBKDF2 using Web Crypto (`crypto.subtle`) — available
+in Bun with no WASM, no C bindings, no extra dependencies. 100,000 iterations
+with SHA-256 and a per-user random salt.
 
 ```ts
-async function deriveKey(password: string, salt: string): Promise<string> {
-  const encoder = new TextEncoder();
-  const keyMaterial = await crypto.subtle.importKey(
-    "raw",
-    encoder.encode(password),
-    "PBKDF2",
-    false,
-    ["deriveBits"],
-  );
-  const bits = await crypto.subtle.deriveBits(
-    {
-      name: "PBKDF2",
-      salt: encoder.encode(salt),
-      iterations: 100_000,
-      hash: "SHA-256",
-    },
-    keyMaterial,
-    256,
-  );
-  return Array.from(new Uint8Array(bits))
-    .map((b) => b.toString(16).padStart(2, "0"))
-    .join("");
+function generateSalt(): string {
+  const bytes = new Uint8Array(16);
+  crypto.getRandomValues(bytes);
+  return Array.from(bytes).map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+
+export async function deriveKey(
+  password: string,
+): Promise<{ hash: string; salt: string }> {
+  const salt = generateSalt();
+  const hash = await pbkdf2(password, salt);
+  return { hash, salt };
+}
+
+export async function verifyKey(
+  password: string,
+  salt: string,
+): Promise<string> {
+  return await pbkdf2(password, salt);
 }
 ```
 
 The hash is computed in the auth module handler (not the store), and the result
-is passed to `UserStore.createUser()`. The `setPassword()` method takes a raw
-password and hashes it before storing — the store interface never exposes a
+is passed to `UserStore.createUser()`. The store's `setPassword()` /
+`changePassword()` methods hash before storing — the interface never exposes a
 pre-hashing step. The sign-in handler derives the candidate hash and compares it
 against the stored hash — the store never sees the raw password, and the
 interface has no password-aware method.
@@ -338,50 +368,54 @@ argon2 hash string.
 ## Auth Module Integration
 
 Both modules share the same `"auth"` capability — only one can be active at a
-time. The `.form-auth/` module is dot-prefixed to exclude it from auto-discovery
-when `form-auth-surreal` is in play.
+time. The `.form-auth-kv/` module is dot-prefixed to exclude it from
+auto-discovery when `form-auth-surreal` is in play.
 
-### form-auth (KV-backed)
+### form-auth (SQLite-backed)
 
-`src/modules/.form-auth/` is the zero-infrastructure option. It uses Deno KV
-(SQLite locally, FoundationDB on Deno Deploy), needs no external server, and
-includes full `BlobStore` support for avatars:
+`src/modules/auth/.form-auth-kv/` is the zero-infrastructure option. It uses
+SQLite (plus `FsBlobStore` for avatars), needs no external server, and includes
+full `BlobStore` support:
 
 ```ts
-async initialize(state: AppState) {
-  const driver = state.config.at("form-auth.store") ?? "memory";
+async initialize(state_: AppState) {
+  const driver = state_.config.at("form-auth.store") ?? "memory";
 
-  if (driver === "kv") {
-    const stores = await openKvStore(state.config.at("form-auth.db.path"));
-    store = stores.store;
-    blobStore = stores.blobStore;
-    kv = stores.kv;
+  if (driver === "sqlite" || driver === "kv") {
+    const dbPath = state_.config.at("form-auth.db.path") ||
+      "./data/blenny.sqlite";
+    const stores = openSqliteStore(dbPath, new FsBlobStore());
+    state.store = stores.store;
+    state.blobStore = stores.blobStore;
+    state.db = stores.db;
   } else {
-    store = createInMemoryUserStore();
+    state.store = createInMemoryUserStore();
+    state.blobStore = new FsBlobStore();
   }
 
-  state.auth = {
+  state_.auth = {
     config: { jwtSecret, cookieName, sessionExpiry, … },
-    middleware: createAuthMiddleware(config),
+    middleware: createAuthMiddleware(state.config),
     requireUser: requireUser(),
     requireRole: requireRole,
   };
 
-  const existing = await store.findByUsername("admin");
+  const existing = await state.store.findByUsername("admin");
   if (!existing) {
-    await store.createUser({ … });
+    const { hash, salt } = await deriveKey("admin");
+    await state.store.createUser({ … });
   }
 }
 
 async stop() {
-  await kv?.close();
+  state.db?.close();
 }
 ```
 
 ### form-auth-surreal (SurrealDB-backed)
 
-`src/modules/form-auth-surreal/` requires a running SurrealDB server. It uses
-`requireDb()` to get the SurrealDB connection from `state.db`, creates a
+`src/modules/auth/form-auth-surreal/` requires a running SurrealDB server. It
+uses `requireDb()` to get the SurrealDB connection from `state.db`, creates a
 `SurrealUserStore`, defines the bucket, and seeds the admin user:
 
 ```ts
@@ -445,7 +479,7 @@ async initialize(state_: AppState) {
 | POST   | `/auth/avatar`     | `true` | Upload profile picture               |
 | GET    | `/avatars/:userId` | —      | Serve profile picture                |
 
-### form-auth (KV-backed)
+### form-auth (SQLite-backed)
 
 Avatar upload validates the file is an `image/*` type, stores it via
 `state.blobStore.set("avatars", userId, file)`, and records the returned key via
@@ -466,7 +500,7 @@ the user record store the bucket file key and Content-Type.
 
 The interface design makes swapping storage backends a matter of writing a new
 class implementing `UserStore`. The `form-auth-surreal` module demonstrates this
-— `SurrealUserStore` connects to SurrealDB instead of Deno KV:
+— `SurrealUserStore` connects to SurrealDB instead of SQLite:
 
 ```ts
 class SurrealUserStore implements UserStore {
@@ -510,27 +544,27 @@ class SurrealUserStore implements UserStore {
 ```
 
 The full implementation lives in `src/core/surreal-store.ts`. The module entry
-point at `src/modules/form-auth-surreal/index.ts` wires it together — no changes
-to `main.ts`, `config.ts`, or `app-state.ts`.
+point at `src/modules/auth/form-auth-surreal/index.ts` wires it together — no
+changes to `main.ts`, `config.ts`, or `app-state.ts`.
 
 ## Testing
 
-| Test                  | Store                      | Flag                 | File                          |
-| --------------------- | -------------------------- | -------------------- | ----------------------------- |
-| Auth flow             | InMemoryUserStore          | none                 | `tests/form-auth_test.ts`     |
-| UserStore CRUD        | InMemoryUserStore          | none                 | `tests/user-store_test.ts`    |
-| KvUserStore CRUD      | KvUserStore (in-memory KV) | `--unstable-kv`      | `tests/kv-store_test.ts`      |
-| BlobStore             | KvBlobStore (in-memory KV) | `--unstable-kv`      | `tests/kv-store_test.ts`      |
-| SurrealUserStore CRUD | SurrealUserStore           | `BLENNY_SURREAL_URL` | `tests/surreal-store_test.ts` |
+| Test                  | Store                       | Flag                 | File                               |
+| --------------------- | --------------------------- | -------------------- | ---------------------------------- |
+| Auth flow             | InMemoryUserStore           | none                 | `tests/form-auth_test.ts`          |
+| UserStore CRUD        | InMemoryUserStore           | none                 | `tests/user-store_test.ts`         |
+| SqliteUserStore CRUD  | SqliteUserStore (`:memory:`) | none                | `tests/sqlite-user-store_test.ts`  |
+| BlobStore             | FsBlobStore (temp dir)      | none                 | `tests/fs-blob-store_test.ts`      |
+| SurrealUserStore CRUD | SurrealUserStore            | `BLENNY_SURREAL_URL` | `tests/surreal-store_test.ts`      |
 
-The in-memory store backs all standard tests — no flag changes needed in the
-default `deno test` task. The SurrealUserStore test requires
-`BLENNY_SURREAL_URL` to be set and is silently skipped otherwise.
+The in-memory store backs all standard tests — no special flags needed in the
+default `bun test` task. The SurrealUserStore test requires `BLENNY_SURREAL_URL`
+to be set and is skipped otherwise.
 
-KV store tests use `openKvStore("")` to create an isolated in-memory KV instance
-per test:
+SQLite store tests use `openSqliteStore(":memory:", new FsBlobStore(...))` to
+create an isolated instance per test:
 
 ```ts
-const { store, blobStore } = await openKvStore("");
+const stores = openSqliteStore(":memory:", new FsBlobStore(tmpDir));
 // test with these clean instances
 ```

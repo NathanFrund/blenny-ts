@@ -1,14 +1,15 @@
-import { assertEquals } from "@std/assert";
-import { Hono } from "@hono/hono";
-import type { MiddlewareHandler } from "@hono/hono";
-
-import { TransportHub } from "@blenny/core/hub.ts";
+import { test } from "bun:test";
+import type { AppState } from "@blenny/core/app-state.ts";
 import { Conduit } from "@blenny/core/conduit.ts";
 import { BlennyConfig } from "@blenny/core/config.ts";
+
+import { TransportHub } from "@blenny/core/hub.ts";
 import { TaskSupervisor } from "@blenny/core/task-supervisor.ts";
+import type { MiddlewareHandler } from "@hono/hono";
+import { Hono } from "@hono/hono";
+import { assertEquals } from "@std/assert";
 import authModule from "../src/modules/auth/.form-auth-kv/index.ts";
 import userAdminModule from "../src/modules/auth/user-admin/index.tsx";
-import type { AppState } from "@blenny/core/app-state.ts";
 import type { HttpMethod } from "../src/types.ts";
 
 function buildBody(base: Record<string, string>): URLSearchParams {
@@ -20,11 +21,7 @@ function extractCookieName(setCookie: string): string {
   return match ? match[1] : "";
 }
 
-async function signInAs(
-  app: Hono,
-  username: string,
-  password: string,
-): Promise<string> {
+async function signInAs(app: Hono, username: string, password: string): Promise<string> {
   const body = buildBody({ username, password });
   const res = await app.request("http://localhost/auth/signin", {
     method: "POST",
@@ -65,25 +62,24 @@ async function buildApp(): Promise<{ app: Hono; state: AppState }> {
   for (const route of userAdminModule.routes) {
     const method = route.method as HttpMethod;
     const handler = route.handler as unknown as MiddlewareHandler;
-    const guard: MiddlewareHandler = typeof route.auth === "string"
-      ? state.auth!.requireRole(route.auth)
-      : state.auth!.requireUser;
+    const guard: MiddlewareHandler =
+      typeof route.auth === "string" ? state.auth!.requireRole(route.auth) : state.auth!.requireUser;
     app.on(method, route.path, guard, handler);
   }
 
   return { app, state };
 }
 
-Deno.test("user-admin", async (t) => {
+test("user-admin", async () => {
   const { app, state } = await buildApp();
 
-  await t.step("GET without auth redirects to sign-in", async () => {
+  await step("GET without auth redirects to sign-in", async () => {
     const res = await app.request("http://localhost/admin/users");
     assertEquals(res.status, 302);
     assertEquals(res.headers.get("location"), "/auth/signin");
   });
 
-  await t.step("GET as non-admin user returns 403", async () => {
+  await step("GET as non-admin user returns 403", async () => {
     const regBody = buildBody({
       username: "regular-user",
       display_name: "Regular",
@@ -106,7 +102,7 @@ Deno.test("user-admin", async (t) => {
     });
   });
 
-  await t.step("GET as admin shows user table", async () => {
+  await step("GET as admin shows user table", async () => {
     const cookie = await signInAs(app, "admin", "admin");
     const res = await app.request("http://localhost/admin/users", {
       headers: { Cookie: cookie },
@@ -118,24 +114,21 @@ Deno.test("user-admin", async (t) => {
     assertEquals(html.includes("Administrator"), true);
   });
 
-  await t.step("POST update role changes user role", async () => {
-    const admin = await state.store!.findByUsername("admin") as NonNullable<
+  await step("POST update role changes user role", async () => {
+    const admin = (await state.store!.findByUsername("admin")) as NonNullable<
       Awaited<ReturnType<NonNullable<AppState["store"]>["findByUsername"]>>
     >;
     const cookie = await signInAs(app, "admin", "admin");
 
     const body = buildBody({ role: "user" });
-    const res = await app.request(
-      `http://localhost/admin/users/${admin.id}/role`,
-      {
-        method: "POST",
-        body: body.toString(),
-        headers: {
-          "Content-Type": "application/x-www-form-urlencoded",
-          Cookie: cookie,
-        },
+    const res = await app.request(`http://localhost/admin/users/${admin.id}/role`, {
+      method: "POST",
+      body: body.toString(),
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+        Cookie: cookie,
       },
-    );
+    });
     assertEquals(res.status, 302);
     assertEquals(res.headers.get("location"), "/admin/users");
 
@@ -146,7 +139,7 @@ Deno.test("user-admin", async (t) => {
     await state.store!.updateRole(admin.id, "admin");
   });
 
-  await t.step("POST delete user removes user", async () => {
+  await step("POST delete user removes user", async () => {
     const regBody = buildBody({
       username: "delete-me-user",
       display_name: "Delete Me",
@@ -158,20 +151,15 @@ Deno.test("user-admin", async (t) => {
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
     });
 
-    const target = await state.store!.findByUsername(
-      "delete-me-user",
-    ) as NonNullable<
+    const target = (await state.store!.findByUsername("delete-me-user")) as NonNullable<
       Awaited<ReturnType<NonNullable<AppState["store"]>["findByUsername"]>>
     >;
     const cookie = await signInAs(app, "admin", "admin");
 
-    const res = await app.request(
-      `http://localhost/admin/users/${target.id}/delete`,
-      {
-        method: "POST",
-        headers: { Cookie: cookie },
-      },
-    );
+    const res = await app.request(`http://localhost/admin/users/${target.id}/delete`, {
+      method: "POST",
+      headers: { Cookie: cookie },
+    });
     assertEquals(res.status, 302);
     assertEquals(res.headers.get("location"), "/admin/users");
 
@@ -179,15 +167,12 @@ Deno.test("user-admin", async (t) => {
     assertEquals(gone, null);
   });
 
-  await t.step("POST delete nonexistent user is safe", async () => {
+  await step("POST delete nonexistent user is safe", async () => {
     const cookie = await signInAs(app, "admin", "admin");
-    const res = await app.request(
-      `http://localhost/admin/users/nonexistent-id/delete`,
-      {
-        method: "POST",
-        headers: { Cookie: cookie },
-      },
-    );
+    const res = await app.request(`http://localhost/admin/users/nonexistent-id/delete`, {
+      method: "POST",
+      headers: { Cookie: cookie },
+    });
     assertEquals(res.status, 302);
     assertEquals(res.headers.get("location"), "/admin/users");
   });

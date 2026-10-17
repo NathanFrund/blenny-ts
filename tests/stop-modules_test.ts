@@ -1,11 +1,12 @@
-import { assertEquals } from "@std/assert";
-import { stopModules } from "@blenny/core/bootstrap/modules.ts";
+import { test } from "bun:test";
 import type { AppState } from "@blenny/core/app-state.ts";
-import type { BlennyModule } from "../src/types.ts";
+import { stopModules } from "@blenny/core/bootstrap/modules.ts";
 import { TransportHub } from "@blenny/core/hub.ts";
 import { TaskSupervisor } from "@blenny/core/task-supervisor.ts";
+import { assertEquals } from "@std/assert";
+import type { BlennyModule } from "../src/types.ts";
 
-Deno.test("stopModules calls all cleanup", async (t) => {
+test("stopModules calls all cleanup", async () => {
   const hub = new TransportHub();
   const closeAllCalls: string[] = [];
   const stopReaperCalls: string[] = [];
@@ -43,25 +44,25 @@ Deno.test("stopModules calls all cleanup", async (t) => {
     },
   } as unknown as AppState;
 
-  await t.step("calls closeAllConnections", async () => {
+  await step("calls closeAllConnections", async () => {
     await stopModules([moduleA, moduleB], state);
     assertEquals(closeAllCalls, ["closeAllConnections"]);
   });
 
-  await t.step("calls stopReaper", () => {
+  await step("calls stopReaper", () => {
     assertEquals(stopReaperCalls, ["stopReaper"]);
   });
 
-  await t.step("calls module stop in reverse order", () => {
+  await step("calls module stop in reverse order", () => {
     assertEquals(stopCalls, ["mod-b", "mod-a"]);
   });
 
-  await t.step("calls db.close", () => {
+  await step("calls db.close", () => {
     assertEquals(dbCloseCalls, ["db.close"]);
   });
 });
 
-Deno.test("stopModules is safe with no db", async () => {
+test("stopModules is safe with no db", async () => {
   const hub = new TransportHub();
   hub.closeAllConnections = () => {};
   hub.stopReaper = () => {
@@ -75,7 +76,7 @@ Deno.test("stopModules is safe with no db", async () => {
   await stopModules([], state);
 });
 
-Deno.test("stopModules is safe with no module stop hooks", async () => {
+test("stopModules is safe with no module stop hooks", async () => {
   const hub = new TransportHub();
   hub.closeAllConnections = () => {};
   hub.stopReaper = () => {

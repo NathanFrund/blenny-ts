@@ -1,14 +1,15 @@
-import { assertEquals } from "@std/assert";
-import { Hono } from "@hono/hono";
-import type { MiddlewareHandler } from "@hono/hono";
-
-import { TransportHub } from "@blenny/core/hub.ts";
+import { test } from "bun:test";
+import type { AppState } from "@blenny/core/app-state.ts";
 import { Conduit } from "@blenny/core/conduit.ts";
 import { BlennyConfig } from "@blenny/core/config.ts";
+
+import { TransportHub } from "@blenny/core/hub.ts";
 import { TaskSupervisor } from "@blenny/core/task-supervisor.ts";
+import type { MiddlewareHandler } from "@hono/hono";
+import { Hono } from "@hono/hono";
+import { assertEquals } from "@std/assert";
 import authModule from "../src/modules/auth/.form-auth-kv/index.ts";
 import passwordChangeModule from "../src/modules/auth/password-change.tsx";
-import type { AppState } from "@blenny/core/app-state.ts";
 import type { HttpMethod } from "../src/types.ts";
 
 function buildBody(base: Record<string, string>): URLSearchParams {
@@ -20,11 +21,7 @@ function extractCookieName(setCookie: string): string {
   return match ? match[1] : "";
 }
 
-async function signInAs(
-  app: Hono,
-  username: string,
-  password: string,
-): Promise<string> {
+async function signInAs(app: Hono, username: string, password: string): Promise<string> {
   const body = buildBody({ username, password });
   const res = await app.request("http://localhost/auth/signin", {
     method: "POST",
@@ -35,11 +32,7 @@ async function signInAs(
   return cookie ? extractCookieName(cookie) : "";
 }
 
-function formRequest(
-  path: string,
-  fields: Record<string, string>,
-  cookie?: string,
-): Request {
+function formRequest(path: string, fields: Record<string, string>, cookie?: string): Request {
   const body = buildBody(fields);
   const headers: Record<string, string> = {
     "Content-Type": "application/x-www-form-urlencoded",
@@ -82,25 +75,24 @@ async function buildApp(): Promise<Hono> {
   for (const route of passwordChangeModule.routes) {
     const method = route.method as HttpMethod;
     const handler = route.handler as unknown as MiddlewareHandler;
-    const guard: MiddlewareHandler = typeof route.auth === "string"
-      ? state.auth!.requireRole(route.auth)
-      : state.auth!.requireUser;
+    const guard: MiddlewareHandler =
+      typeof route.auth === "string" ? state.auth!.requireRole(route.auth) : state.auth!.requireUser;
     app.on(method, route.path, guard, handler);
   }
 
   return app;
 }
 
-Deno.test("password-change", async (t) => {
+test("password-change", async () => {
   const app = await buildApp();
 
-  await t.step("GET without auth redirects to sign-in", async () => {
+  await step("GET without auth redirects to sign-in", async () => {
     const res = await app.request("http://localhost/auth/change-password");
     assertEquals(res.status, 302);
     assertEquals(res.headers.get("location"), "/auth/signin");
   });
 
-  await t.step("GET with auth renders form", async () => {
+  await step("GET with auth renders form", async () => {
     const cookie = await signInAs(app, "admin", "admin");
     const res = await app.request("http://localhost/auth/change-password", {
       headers: { Cookie: cookie },
@@ -113,79 +105,86 @@ Deno.test("password-change", async (t) => {
     assertEquals(html.includes('name="confirmPassword"'), true);
   });
 
-  await t.step("POST passwords do not match shows error", async () => {
+  await step("POST passwords do not match shows error", async () => {
     const cookie = await signInAs(app, "admin", "admin");
-    const res = await app.request(formRequest(
-      "/auth/change-password",
-      {
-        currentPassword: "admin",
-        newPassword: "abc12345",
-        confirmPassword: "different",
-      },
-      cookie,
-    ));
+    const res = await app.request(
+      formRequest(
+        "/auth/change-password",
+        {
+          currentPassword: "admin",
+          newPassword: "abc12345",
+          confirmPassword: "different",
+        },
+        cookie,
+      ),
+    );
     assertEquals(res.status, 200);
     const html = await res.text();
     assertEquals(html.includes("Passwords do not match"), true);
   });
 
-  await t.step("POST password too short shows error", async () => {
+  await step("POST password too short shows error", async () => {
     const cookie = await signInAs(app, "admin", "admin");
-    const res = await app.request(formRequest(
-      "/auth/change-password",
-      {
-        currentPassword: "admin",
-        newPassword: "short",
-        confirmPassword: "short",
-      },
-      cookie,
-    ));
+    const res = await app.request(
+      formRequest(
+        "/auth/change-password",
+        {
+          currentPassword: "admin",
+          newPassword: "short",
+          confirmPassword: "short",
+        },
+        cookie,
+      ),
+    );
     assertEquals(res.status, 200);
     const html = await res.text();
     assertEquals(html.includes("Password must be at least 8 characters"), true);
   });
 
-  await t.step("POST wrong current password shows error", async () => {
+  await step("POST wrong current password shows error", async () => {
     const cookie = await signInAs(app, "admin", "admin");
-    const res = await app.request(formRequest(
-      "/auth/change-password",
-      {
-        currentPassword: "wrongpass",
-        newPassword: "abc12345",
-        confirmPassword: "abc12345",
-      },
-      cookie,
-    ));
+    const res = await app.request(
+      formRequest(
+        "/auth/change-password",
+        {
+          currentPassword: "wrongpass",
+          newPassword: "abc12345",
+          confirmPassword: "abc12345",
+        },
+        cookie,
+      ),
+    );
     assertEquals(res.status, 200);
     const html = await res.text();
     assertEquals(html.includes("Current password is incorrect"), true);
   });
 
-  await t.step("POST success changes password", async () => {
+  await step("POST success changes password", async () => {
     const cookie = await signInAs(app, "admin", "admin");
-    const res = await app.request(formRequest(
-      "/auth/change-password",
-      {
-        currentPassword: "admin",
-        newPassword: "newpass123",
-        confirmPassword: "newpass123",
-      },
-      cookie,
-    ));
+    const res = await app.request(
+      formRequest(
+        "/auth/change-password",
+        {
+          currentPassword: "admin",
+          newPassword: "newpass123",
+          confirmPassword: "newpass123",
+        },
+        cookie,
+      ),
+    );
     assertEquals(res.status, 200);
     const html = await res.text();
     assertEquals(html.includes("Password changed successfully"), true);
   });
 
-  await t.step("POST without auth redirects to sign-in", async () => {
-    const res = await app.request(formRequest(
-      "/auth/change-password",
-      {
+  await step("POST without auth redirects to sign-in", async () => {
+    const res = await app.request(
+      formRequest("/auth/change-password", {
         currentPassword: "admin",
         newPassword: "abc12345",
         confirmPassword: "abc12345",
-      },
-    ));
+      }),
+    );
     assertEquals(res.status, 302);
     assertEquals(res.headers.get("location"), "/auth/signin");
   });

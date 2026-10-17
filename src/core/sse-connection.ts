@@ -1,7 +1,6 @@
+import type { ServerSentEventGenerator } from "@starfederation/datastar-sdk/web";
+import type { Intent, ServerMessage } from "./envelope.ts";
 import type { Connection } from "./hub.ts";
-import type { ServerMessage } from "./envelope.ts";
-import { ServerSentEventGenerator } from "@starfederation/datastar-sdk/web";
-import type { Intent } from "./envelope.ts";
 
 export class SseConnection implements Connection {
   id: string;

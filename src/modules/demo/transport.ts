@@ -21,18 +21,12 @@ const demoModule: BlennyModule = {
       method: "POST",
       path: "/demo/trigger",
       handler: async (c) => {
-        const { intent } = await c.req.json() as { intent: string };
+        const { intent } = (await c.req.json()) as { intent: string };
         const time = new Date().toLocaleTimeString();
         switch (intent) {
           case "ui": {
             toastCount++;
-            const colors = [
-              "#3fb950",
-              "#58a6ff",
-              "#f0883e",
-              "#f85149",
-              "#bc8cff",
-            ];
+            const colors = ["#3fb950", "#58a6ff", "#f0883e", "#f85149", "#bc8cff"];
             const color = colors[toastCount % colors.length];
             hub.patchElements(
               `<div id="toast-area">
@@ -56,9 +50,7 @@ const demoModule: BlennyModule = {
             break;
           }
           case "command": {
-            hub.executeScript(
-              `alert("Hello from the server!\\nCommand executed at ${time}")`,
-            );
+            hub.executeScript(`alert("Hello from the server!\\nCommand executed at ${time}")`);
             hub.mergeSignals({
               lastEvent: `Command — executed script alert at ${time}`,
             });
@@ -83,7 +75,7 @@ const demoModule: BlennyModule = {
 };
 
 const PAGE = `<!doctype html>
-<html>
+<html lang="en">
   <head>
     <meta charset="UTF-8" />
     <title>Blenny — Three-Intent Transport Demo</title>

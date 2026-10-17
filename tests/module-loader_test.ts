@@ -1,11 +1,12 @@
-import { assertEquals, assertExists } from "@std/assert";
-import { fromFileUrl } from "@std/path";
+import { test } from "bun:test";
+import { fileURLToPath } from "node:url";
 import { loadModules } from "@blenny/core/module-loader.ts";
+import { assertEquals, assertExists } from "@std/assert";
 
-const modulesDir = fromFileUrl(new URL("../src/modules", import.meta.url));
+const modulesDir = fileURLToPath(new URL("../src/modules", import.meta.url));
 
-Deno.test("module-loader", async (t) => {
-  await t.step("loadModules returns modules and failures arrays", async () => {
+test("module-loader", async () => {
+  await step("loadModules returns modules and failures arrays", async () => {
     const result = await loadModules(modulesDir);
     assertExists(result.modules);
     assertExists(result.failures);
@@ -13,7 +14,7 @@ Deno.test("module-loader", async (t) => {
     assertEquals(Array.isArray(result.failures), true);
   });
 
-  await t.step("loads known modules from the modules directory", async () => {
+  await step("loads known modules from the modules directory", async () => {
     const result = await loadModules(modulesDir);
     const names = result.modules.map((m) => m.name);
     assertEquals(names.includes("index"), true);
@@ -23,7 +24,7 @@ Deno.test("module-loader", async (t) => {
     assertEquals(names.includes("task-demo"), true);
   });
 
-  await t.step("loaded modules have valid routes", async () => {
+  await step("loaded modules have valid routes", async () => {
     const result = await loadModules(modulesDir);
     for (const mod of result.modules) {
       assertEquals(Array.isArray(mod.routes), true);
@@ -35,7 +36,7 @@ Deno.test("module-loader", async (t) => {
     }
   });
 
-  await t.step("modules may have lifecycle hooks", async () => {
+  await step("modules may have lifecycle hooks", async () => {
     const result = await loadModules(modulesDir);
     const demo = result.modules.find((m) => m.name === "demo");
     assertExists(demo);
@@ -43,9 +44,7 @@ Deno.test("module-loader", async (t) => {
     assertEquals(typeof demo.start, "function");
     assertEquals(typeof demo.stop, "function");
 
-    const formAuthSurreal = result.modules.find((m) =>
-      m.name === "form-auth-surreal"
-    );
+    const formAuthSurreal = result.modules.find((m) => m.name === "form-auth-surreal");
     assertExists(formAuthSurreal);
     assertEquals(typeof formAuthSurreal.initialize, "function");
 
@@ -53,7 +52,7 @@ Deno.test("module-loader", async (t) => {
     assertEquals(oldKvAuth, undefined);
   });
 
-  await t.step("form-auth-surreal declares auth capability", async () => {
+  await step("form-auth-surreal declares auth capability", async () => {
     const result = await loadModules(modulesDir);
     const formAuth = result.modules.find((m) => m.name === "form-auth-surreal");
     assertExists(formAuth);

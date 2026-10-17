@@ -3,7 +3,7 @@ import Dashboard from "./ui.tsx";
 
 export function handleDashboard(c: Context): Response {
   return c.html(
-    <html>
+    <html lang="en">
       <head>
         <title>System Dashboard</title>
         <meta charset="utf-8" />
@@ -11,8 +11,7 @@ export function handleDashboard(c: Context): Response {
         <script
           type="module"
           src="https://cdn.jsdelivr.net/gh/starfederation/datastar@v1.0.1/bundles/datastar.js"
-        >
-        </script>
+        ></script>
       </head>
       <body>
         <div

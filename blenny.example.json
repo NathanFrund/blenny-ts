@@ -11,7 +11,7 @@
   "ratelimit.window_ms": "60000",
   "ratelimit.max_requests": "30",
 
-  "form-auth.store": "kv",
+  "form-auth.store": "sqlite",
   "form-auth.db.path": "",
 
   "log.level": "info",

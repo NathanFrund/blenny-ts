@@ -1,4 +1,5 @@
-import { join } from "@std/path";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 
 type ConfigSource = "cli" | "env" | "file" | "default";
 
@@ -9,7 +10,7 @@ const DEFAULTS: Record<string, string> = {
   "auth.jwt_secret": "CHANGE-ME-EMBEDDED-DEFAULT",
   "auth.session_duration_hours": "720",
   "auth.cookie_name": "blenny_session",
-  "dev_mode": "true",
+  dev_mode: "true",
   "surreal.url": "ws://127.0.0.1:8000/rpc",
   "surreal.ns": "blenny",
   "surreal.db": "blenny",
@@ -184,9 +185,7 @@ export class BlennyConfig {
     for (const [key, source] of this.sources) {
       if (source === "default") continue;
       const val = this.data.get(key) ?? "";
-      const masked = key.endsWith("secret") || key.endsWith("pass")
-        ? val.slice(0, 4) + "****"
-        : val;
+      const masked = key.endsWith("secret") || key.endsWith("pass") ? val.slice(0, 4) + "****" : val;
       console.log(`[config] ${key} = ${masked} (from ${source})`);
     }
   }
@@ -208,11 +207,7 @@ export class BlennyConfig {
     const raw = this.data.get(key);
     const num = Number(raw);
     if (isNaN(num) || num < min || num > max) {
-      throw new Error(
-        `[config] ${key}: expected a number between ${min} and ${max}, got "${
-          raw ?? ""
-        }"`,
-      );
+      throw new Error(`[config] ${key}: expected a number between ${min} and ${max}, got "${raw ?? ""}"`);
     }
     return num;
   }
@@ -226,9 +221,9 @@ export class BlennyConfig {
 
   private applyFile(): void {
     try {
-      const cwd = Deno.cwd();
+      const cwd = process.cwd();
       const filePath = join(cwd, "blenny.json");
-      const raw = Deno.readTextFileSync(filePath);
+      const raw = readFileSync(filePath, "utf-8");
       const parsed = JSON.parse(raw) as Record<string, unknown>;
       for (const [key, value] of Object.entries(parsed)) {
         if (typeof value === "string") {
@@ -238,10 +233,11 @@ export class BlennyConfig {
         }
       }
     } catch (err) {
-      if (err instanceof Deno.errors.NotFound) {
+      const code = (err as { code?: string }).code;
+      if (code === "ENOENT") {
         // File not found — silent skip
-      } else if (err instanceof Deno.errors.PermissionDenied) {
-        // No filesystem (Deno Deploy) — silent skip
+      } else if (code === "EACCES" || code === "EPERM") {
+        // No filesystem access — silent skip
       } else {
         console.warn(`[config] blenny.json parse error: ${err}`);
       }
@@ -251,7 +247,7 @@ export class BlennyConfig {
   private applyEnv(): void {
     for (const key of Object.keys(DEFAULTS)) {
       const envName = "BLENNY_" + key.toUpperCase().replace(/\./g, "_");
-      const value = Deno.env.get(envName);
+      const value = process.env[envName];
       if (value !== undefined) {
         this.set(key, value, "env");
       }
@@ -259,7 +255,7 @@ export class BlennyConfig {
   }
 
   private applyCli(): void {
-    this.parseCliArgs(Deno.args, "cli");
+    this.parseCliArgs(process.argv.slice(2), "cli");
   }
 
   // ── Test override providers ──────────────────────────────────────
@@ -280,9 +276,7 @@ export class BlennyConfig {
     }
   }
 
-  private applyEnvOverride(
-    env: Record<string, string | undefined> | undefined,
-  ): void {
+  private applyEnvOverride(env: Record<string, string | undefined> | undefined): void {
     if (!env) return;
     for (const key of Object.keys(DEFAULTS)) {
       const envName = "BLENNY_" + key.toUpperCase().replace(/\./g, "_");
@@ -312,10 +306,7 @@ export class BlennyConfig {
       } else {
         const key = arg.slice(2);
         if (key in DEFAULTS || key.includes(".")) {
-          if (
-            i + 1 < args.length && !args[i + 1].startsWith("--") &&
-            !args[i + 1].startsWith("-")
-          ) {
+          if (i + 1 < args.length && !args[i + 1].startsWith("--") && !args[i + 1].startsWith("-")) {
             this.set(key, args[++i], source);
           } else {
             this.set(key, "true", source);

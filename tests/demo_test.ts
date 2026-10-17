@@ -1,13 +1,14 @@
-import { assertEquals } from "@std/assert";
-import demoModule from "../src/modules/demo/transport.ts";
-import { TransportHub } from "@blenny/core/hub.ts";
+import { test } from "bun:test";
 import { Conduit } from "@blenny/core/conduit.ts";
 import { BlennyConfig } from "@blenny/core/config.ts";
+import { TransportHub } from "@blenny/core/hub.ts";
 import { TaskSupervisor } from "@blenny/core/task-supervisor.ts";
 import { Hono } from "@hono/hono";
+import { assertEquals } from "@std/assert";
+import demoModule from "../src/modules/demo/transport.ts";
 import type { HttpMethod } from "../src/types.ts";
 
-Deno.test("demo module", async (t) => {
+test("demo module", async () => {
   const hub = new TransportHub();
   const conduit = new Conduit();
   const config = new BlennyConfig();
@@ -26,7 +27,7 @@ Deno.test("demo module", async (t) => {
     app.on(route.method as HttpMethod, route.path, route.handler);
   }
 
-  await t.step("GET /demo returns HTML page", async () => {
+  await step("GET /demo returns HTML page", async () => {
     const res = await app.request("http://localhost/demo");
     assertEquals(res.status, 200);
     const html = await res.text();
@@ -34,7 +35,7 @@ Deno.test("demo module", async (t) => {
     assertEquals(html.includes("<!doctype html>"), true);
   });
 
-  await t.step("page includes server clock section", async () => {
+  await step("page includes server clock section", async () => {
     const res = await app.request("http://localhost/demo");
     const html = await res.text();
     assertEquals(html.includes("Server clock"), true);
@@ -44,7 +45,7 @@ Deno.test("demo module", async (t) => {
     assertEquals(html.includes("?intent=ui,data,command"), true);
   });
 
-  await t.step("POST /demo/trigger with ui returns JSON", async () => {
+  await step("POST /demo/trigger with ui returns JSON", async () => {
     const res = await app.request("http://localhost/demo/trigger", {
       method: "POST",
       body: JSON.stringify({ intent: "ui" }),
@@ -56,7 +57,7 @@ Deno.test("demo module", async (t) => {
     assertEquals(body.intent, "ui");
   });
 
-  await t.step("POST /demo/trigger with data returns JSON", async () => {
+  await step("POST /demo/trigger with data returns JSON", async () => {
     const res = await app.request("http://localhost/demo/trigger", {
       method: "POST",
       body: JSON.stringify({ intent: "data" }),
@@ -68,7 +69,7 @@ Deno.test("demo module", async (t) => {
     assertEquals(body.intent, "data");
   });
 
-  await t.step("POST /demo/trigger with command returns JSON", async () => {
+  await step("POST /demo/trigger with command returns JSON", async () => {
     const res = await app.request("http://localhost/demo/trigger", {
       method: "POST",
       body: JSON.stringify({ intent: "command" }),
@@ -80,7 +81,7 @@ Deno.test("demo module", async (t) => {
     assertEquals(body.intent, "command");
   });
 
-  await t.step("start and stop lifecycle are safe", async () => {
+  await step("start and stop lifecycle are safe", async () => {
     demoModule.start?.();
     await new Promise((r) => setTimeout(r, 100));
     demoModule.stop?.();

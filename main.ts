@@ -1,13 +1,9 @@
 import { checkJwtSecret, loadConfig } from "./src/core/bootstrap/config.ts";
-import { createServices } from "./src/core/bootstrap/services.ts";
-import {
-  configureMiddleware,
-  createErrorHandler,
-  createNotFoundHandler,
-} from "./src/core/bootstrap/middlewares.ts";
-import * as boot from "./src/core/bootstrap/modules.ts";
 import { registerPlatformEndpoints } from "./src/core/bootstrap/endpoints.ts";
+import { configureMiddleware, createErrorHandler, createNotFoundHandler } from "./src/core/bootstrap/middlewares.ts";
+import * as boot from "./src/core/bootstrap/modules.ts";
 import { startServer } from "./src/core/bootstrap/server.ts";
+import { createServices } from "./src/core/bootstrap/services.ts";
 import { publish } from "./src/core/hub.ts";
 
 // ─── Config ───
@@ -45,16 +41,13 @@ registerPlatformEndpoints(app, state, config);
 const abortController = new AbortController();
 let shuttingDown = false;
 
-Deno.addSignalListener("SIGINT", () => {
-  if (shuttingDown) Deno.exit(1);
+const handleShutdown = () => {
+  if (shuttingDown) process.exit(1);
   shuttingDown = true;
   abortController.abort();
-});
-Deno.addSignalListener("SIGTERM", () => {
-  if (shuttingDown) Deno.exit(1);
-  shuttingDown = true;
-  abortController.abort();
-});
+};
+process.on("SIGINT", handleShutdown);
+process.on("SIGTERM", handleShutdown);
 
 try {
   const { finished } = startServer(app, config, hub, abortController.signal);

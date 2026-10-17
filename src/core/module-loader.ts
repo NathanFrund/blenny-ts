@@ -1,6 +1,8 @@
-import { join, toFileUrl } from "@std/path";
-import { HTTP_METHODS } from "../types.ts";
+import { readdir, stat } from "node:fs/promises";
+import { join } from "node:path";
+import { pathToFileURL } from "node:url";
 import type { BlennyModule, Route } from "../types.ts";
+import { HTTP_METHODS } from "../types.ts";
 
 const VALID_METHODS = new Set<string>(HTTP_METHODS);
 const INDEX_CANDIDATES = ["index.ts", "index.tsx"];
@@ -16,10 +18,7 @@ export interface ModuleLoadResult {
   failures: ModuleLoadFailure[];
 }
 
-function validateModule(
-  candidate: unknown,
-  fileName: string,
-): { mod?: BlennyModule; err?: string } {
+function validateModule(candidate: unknown, fileName: string): { mod?: BlennyModule; err?: string } {
   if (!candidate || typeof candidate !== "object") {
     return { err: "no default BlennyModule export" };
   }
@@ -45,10 +44,7 @@ function validateModule(
     if (typeof r.handler !== "function") {
       return { err: `routes[${i}].handler must be a function` };
     }
-    if (
-      r.auth !== undefined && typeof r.auth !== "boolean" &&
-      typeof r.auth !== "string"
-    ) {
+    if (r.auth !== undefined && typeof r.auth !== "boolean" && typeof r.auth !== "string") {
       return { err: `routes[${i}].auth must be a boolean or string` };
     }
     validatedRoutes.push({
@@ -77,9 +73,7 @@ function validateModule(
     }
   }
 
-  const name = typeof obj.name === "string" && obj.name.length > 0
-    ? obj.name
-    : fileName.replace(/\.(ts|tsx)$/, "");
+  const name = typeof obj.name === "string" && obj.name.length > 0 ? obj.name : fileName.replace(/\.(ts|tsx)$/, "");
 
   const mod: BlennyModule = { name, routes: validatedRoutes };
 
@@ -91,28 +85,21 @@ function validateModule(
   }
 
   if (obj.subscriptions !== undefined) {
-    mod.subscriptions = (obj.subscriptions as Array<Record<string, unknown>>)
-      .map((s) => ({
-        topic: String(s.topic),
-        handler: s.handler as (payload: unknown) => void,
-      }));
+    mod.subscriptions = (obj.subscriptions as Array<Record<string, unknown>>).map((s) => ({
+      topic: String(s.topic),
+      handler: s.handler as (payload: unknown) => void,
+    }));
   }
 
   if (obj.requires !== undefined) {
-    if (
-      !Array.isArray(obj.requires) ||
-      !obj.requires.every((c: unknown) => typeof c === "string")
-    ) {
+    if (!Array.isArray(obj.requires) || !obj.requires.every((c: unknown) => typeof c === "string")) {
       return { err: "requires must be an array of strings" };
     }
     mod.requires = obj.requires as string[];
   }
 
   if (obj.capabilities !== undefined) {
-    if (
-      !Array.isArray(obj.capabilities) ||
-      !obj.capabilities.every((c: unknown) => typeof c === "string")
-    ) {
+    if (!Array.isArray(obj.capabilities) || !obj.capabilities.every((c: unknown) => typeof c === "string")) {
       return { err: "capabilities must be an array of strings" };
     }
     mod.capabilities = obj.capabilities as string[];
@@ -135,18 +122,14 @@ async function findIndexFile(dirPath: string): Promise<string | null> {
   for (const candidate of INDEX_CANDIDATES) {
     try {
       const path = join(dirPath, candidate);
-      const stat = await Deno.stat(path);
-      if (stat.isFile) return path;
-    } catch {
-      continue;
-    }
+      const stat_ = await stat(path);
+      if (stat_.isFile()) return path;
+    } catch {}
   }
   return null;
 }
 
-export async function loadModules(
-  modulesDir: string,
-): Promise<ModuleLoadResult> {
+export async function loadModules(modulesDir: string): Promise<ModuleLoadResult> {
   const modules: BlennyModule[] = [];
   const failures: ModuleLoadFailure[] = [];
 
@@ -171,16 +154,16 @@ export async function loadModules(
     labelPrefix: string,
     results: { modules: BlennyModule[]; failures: ModuleLoadFailure[] },
   ): Promise<void> {
-    for await (const entry of Deno.readDir(dirPath)) {
+    for (const entry of await readdir(dirPath, { withFileTypes: true })) {
       const name = entry.name;
       if (name.startsWith(".")) continue;
 
       const label = labelPrefix ? `${labelPrefix}/${name}` : name;
       const entryPath = join(dirPath, name);
 
-      if (entry.isFile && (name.endsWith(".ts") || name.endsWith(".tsx"))) {
+      if (entry.isFile() && (name.endsWith(".ts") || name.endsWith(".tsx"))) {
         try {
-          const sourceUrl = toFileUrl(entryPath).href;
+          const sourceUrl = pathToFileURL(entryPath).href;
           const mod = await import(sourceUrl);
           const result = validateModule(mod.default, label);
           if (result.mod) {
@@ -195,11 +178,11 @@ export async function loadModules(
             stack: err instanceof Error ? err.stack : undefined,
           });
         }
-      } else if (entry.isDirectory) {
+      } else if (entry.isDirectory()) {
         const indexFile = await findIndexFile(entryPath);
         if (indexFile) {
           try {
-            const sourceUrl = toFileUrl(indexFile).href;
+            const sourceUrl = pathToFileURL(indexFile).href;
             const mod = await import(sourceUrl);
             const result = validateModule(mod.default, label);
             if (result.mod) {
@@ -226,22 +209,26 @@ export async function loadModules(
     await scanDir(modulesDir, "", results);
     return results;
   } catch (err) {
-    if (err instanceof Deno.errors.NotFound) {
+    if ((err as { code?: string }).code === "ENOENT") {
       return {
         modules: [],
-        failures: [{
-          file: String(modulesDir),
-          error: "modules dir not found",
-        }],
+        failures: [
+          {
+            file: String(modulesDir),
+            error: "modules dir not found",
+          },
+        ],
       };
     }
     return {
       modules: [],
-      failures: [{
-        file: String(modulesDir),
-        error: err instanceof Error ? err.message : String(err),
-        stack: err instanceof Error ? err.stack : undefined,
-      }],
+      failures: [
+        {
+          file: String(modulesDir),
+          error: err instanceof Error ? err.message : String(err),
+          stack: err instanceof Error ? err.stack : undefined,
+        },
+      ],
     };
   }
 }

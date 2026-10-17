@@ -1,8 +1,9 @@
-import { assertEquals, assertThrows } from "@std/assert";
-import { BlennyPublisher, PublisherError } from "@blenny/core/publisher.ts";
-import { TransportHub } from "@blenny/core/hub.ts";
-import { jsx } from "@hono/hono/jsx";
+import { test } from "bun:test";
 import type { Intent, ServerMessage } from "@blenny/core/envelope.ts";
+import { TransportHub } from "@blenny/core/hub.ts";
+import { BlennyPublisher, PublisherError } from "@blenny/core/publisher.ts";
+import { jsx } from "@hono/hono/jsx";
+import { assertEquals, assertThrows } from "@std/assert";
 
 class CaptureConnection {
   id: string;
@@ -24,27 +25,15 @@ class CaptureConnection {
   }
 }
 
-Deno.test("BlennyPublisher throws before init", () => {
+test("BlennyPublisher throws before init", () => {
   BlennyPublisher.reset();
-  assertThrows(
-    () => BlennyPublisher.broadcastHtml("<div>test</div>"),
-    PublisherError,
-  );
-  assertThrows(
-    () => BlennyPublisher.directHtml("<div>test</div>", "alice"),
-    PublisherError,
-  );
-  assertThrows(
-    () => BlennyPublisher.broadcastData('{"a":1}'),
-    PublisherError,
-  );
-  assertThrows(
-    () => BlennyPublisher.directData('{"a":1}', "alice"),
-    PublisherError,
-  );
+  assertThrows(() => BlennyPublisher.broadcastHtml("<div>test</div>"), PublisherError);
+  assertThrows(() => BlennyPublisher.directHtml("<div>test</div>", "alice"), PublisherError);
+  assertThrows(() => BlennyPublisher.broadcastData('{"a":1}'), PublisherError);
+  assertThrows(() => BlennyPublisher.directData('{"a":1}', "alice"), PublisherError);
 });
 
-Deno.test("BlennyPublisher init and reset lifecycle", () => {
+test("BlennyPublisher init and reset lifecycle", () => {
   BlennyPublisher.reset();
   const hub = new TransportHub();
   BlennyPublisher.init(hub);
@@ -52,29 +41,22 @@ Deno.test("BlennyPublisher init and reset lifecycle", () => {
   BlennyPublisher.broadcastHtml("<div>test</div>");
 
   BlennyPublisher.reset();
-  assertThrows(
-    () => BlennyPublisher.broadcastHtml("<div>test</div>"),
-    PublisherError,
-  );
+  assertThrows(() => BlennyPublisher.broadcastHtml("<div>test</div>"), PublisherError);
 });
 
-Deno.test("BlennyPublisher double init with different hub throws", () => {
+test("BlennyPublisher double init with different hub throws", () => {
   BlennyPublisher.reset();
   const hub1 = new TransportHub();
   const hub2 = new TransportHub();
   BlennyPublisher.init(hub1);
-  assertThrows(
-    () => BlennyPublisher.init(hub2),
-    PublisherError,
-    "already initialized",
-  );
+  assertThrows(() => BlennyPublisher.init(hub2), PublisherError, "already initialized");
   // reset + re-init is fine
   BlennyPublisher.reset();
   BlennyPublisher.init(hub2);
   BlennyPublisher.broadcastHtml("<div>from hub2</div>");
 });
 
-Deno.test("BlennyPublisher re-init with same hub is a no-op", () => {
+test("BlennyPublisher re-init with same hub is a no-op", () => {
   BlennyPublisher.reset();
   const hub = new TransportHub();
   BlennyPublisher.init(hub);
@@ -82,7 +64,7 @@ Deno.test("BlennyPublisher re-init with same hub is a no-op", () => {
   BlennyPublisher.init(hub);
 });
 
-Deno.test("BlennyPublisher broadcasts to all connections", () => {
+test("BlennyPublisher broadcasts to all connections", () => {
   BlennyPublisher.reset();
   const hub = new TransportHub();
   BlennyPublisher.init(hub);
@@ -96,7 +78,7 @@ Deno.test("BlennyPublisher broadcasts to all connections", () => {
   assertEquals(msg.html, "<div>Hello</div>");
 });
 
-Deno.test("BlennyPublisher broadcastData parses JSON internally", () => {
+test("BlennyPublisher broadcastData parses JSON internally", () => {
   BlennyPublisher.reset();
   const hub = new TransportHub();
   BlennyPublisher.init(hub);
@@ -114,46 +96,26 @@ Deno.test("BlennyPublisher broadcastData parses JSON internally", () => {
   assertEquals(msg.intent, "data");
 });
 
-Deno.test("BlennyPublisher broadcastData rejects invalid JSON", () => {
+test("BlennyPublisher broadcastData rejects invalid JSON", () => {
   BlennyPublisher.reset();
   const hub = new TransportHub();
   BlennyPublisher.init(hub);
 
-  assertThrows(
-    () => BlennyPublisher.broadcastData("not-json"),
-    PublisherError,
-    "invalid JSON",
-  );
+  assertThrows(() => BlennyPublisher.broadcastData("not-json"), PublisherError, "invalid JSON");
 });
 
-Deno.test("BlennyPublisher broadcastData rejects non-object JSON", () => {
+test("BlennyPublisher broadcastData rejects non-object JSON", () => {
   BlennyPublisher.reset();
   const hub = new TransportHub();
   BlennyPublisher.init(hub);
 
-  assertThrows(
-    () => BlennyPublisher.broadcastData('"hello"'),
-    PublisherError,
-    "JSON object",
-  );
-  assertThrows(
-    () => BlennyPublisher.broadcastData("42"),
-    PublisherError,
-    "JSON object",
-  );
-  assertThrows(
-    () => BlennyPublisher.broadcastData("[1,2,3]"),
-    PublisherError,
-    "JSON object",
-  );
-  assertThrows(
-    () => BlennyPublisher.broadcastData("null"),
-    PublisherError,
-    "JSON object",
-  );
+  assertThrows(() => BlennyPublisher.broadcastData('"hello"'), PublisherError, "JSON object");
+  assertThrows(() => BlennyPublisher.broadcastData("42"), PublisherError, "JSON object");
+  assertThrows(() => BlennyPublisher.broadcastData("[1,2,3]"), PublisherError, "JSON object");
+  assertThrows(() => BlennyPublisher.broadcastData("null"), PublisherError, "JSON object");
 });
 
-Deno.test("BlennyPublisher directs to specific user only", () => {
+test("BlennyPublisher directs to specific user only", () => {
   BlennyPublisher.reset();
   const hub = new TransportHub();
   BlennyPublisher.init(hub);
@@ -171,7 +133,7 @@ Deno.test("BlennyPublisher directs to specific user only", () => {
   assertEquals(msg.html, "<div>Private for alice</div>");
 });
 
-Deno.test("BlennyPublisher directData to specific user", () => {
+test("BlennyPublisher directData to specific user", () => {
   BlennyPublisher.reset();
   const hub = new TransportHub();
   BlennyPublisher.init(hub);
@@ -193,7 +155,7 @@ Deno.test("BlennyPublisher directData to specific user", () => {
   assertEquals(msg.intent, "data");
 });
 
-Deno.test("BlennyPublisher broadcastJsx auto-escapes text content", () => {
+test("BlennyPublisher broadcastJsx auto-escapes text content", () => {
   BlennyPublisher.reset();
   const hub = new TransportHub();
   BlennyPublisher.init(hub);
@@ -201,15 +163,13 @@ Deno.test("BlennyPublisher broadcastJsx auto-escapes text content", () => {
   const conn = new CaptureConnection("test-1");
   hub.registerConnection(conn);
 
-  BlennyPublisher.broadcastJsx(
-    jsx("p", null, "<script>alert(1)</script>"),
-  );
+  BlennyPublisher.broadcastJsx(jsx("p", null, "<script>alert(1)</script>"));
   assertEquals(conn.sent.length, 1);
   const msg = JSON.parse(conn.sent[0]) as { html: string };
   assertEquals(msg.html, "<p>&lt;script&gt;alert(1)&lt;/script&gt;</p>");
 });
 
-Deno.test("BlennyPublisher broadcastJsx escapes attribute bindings", () => {
+test("BlennyPublisher broadcastJsx escapes attribute bindings", () => {
   BlennyPublisher.reset();
   const hub = new TransportHub();
   BlennyPublisher.init(hub);
@@ -217,22 +177,13 @@ Deno.test("BlennyPublisher broadcastJsx escapes attribute bindings", () => {
   const conn = new CaptureConnection("test-1");
   hub.registerConnection(conn);
 
-  BlennyPublisher.broadcastJsx(
-    jsx(
-      "div",
-      { class: "msg", "data-x": '"><script>alert(1)</script>' },
-      "hello",
-    ),
-  );
+  BlennyPublisher.broadcastJsx(jsx("div", { class: "msg", "data-x": '"><script>alert(1)</script>' }, "hello"));
   assertEquals(conn.sent.length, 1);
   const msg = JSON.parse(conn.sent[0]) as { html: string };
-  assertEquals(
-    msg.html,
-    '<div class="msg" data-x="&quot;&gt;&lt;script&gt;alert(1)&lt;/script&gt;">hello</div>',
-  );
+  assertEquals(msg.html, '<div class="msg" data-x="&quot;&gt;&lt;script&gt;alert(1)&lt;/script&gt;">hello</div>');
 });
 
-Deno.test("BlennyPublisher directJsx targets specific user", () => {
+test("BlennyPublisher directJsx targets specific user", () => {
   BlennyPublisher.reset();
   const hub = new TransportHub();
   BlennyPublisher.init(hub);
@@ -242,10 +193,7 @@ Deno.test("BlennyPublisher directJsx targets specific user", () => {
   hub.registerConnection(alice);
   hub.registerConnection(bob);
 
-  BlennyPublisher.directJsx(
-    jsx("strong", null, "Private message"),
-    "alice",
-  );
+  BlennyPublisher.directJsx(jsx("strong", null, "Private message"), "alice");
   assertEquals(alice.sent.length, 1);
   assertEquals(bob.sent.length, 0);
 
@@ -253,19 +201,13 @@ Deno.test("BlennyPublisher directJsx targets specific user", () => {
   assertEquals(msg.html, "<strong>Private message</strong>");
 });
 
-Deno.test("BlennyPublisher broadcastJsx throws before init", () => {
+test("BlennyPublisher broadcastJsx throws before init", () => {
   BlennyPublisher.reset();
-  assertThrows(
-    () => BlennyPublisher.broadcastJsx(jsx("div", null, "test")),
-    PublisherError,
-  );
-  assertThrows(
-    () => BlennyPublisher.directJsx(jsx("div", null, "test"), "alice"),
-    PublisherError,
-  );
+  assertThrows(() => BlennyPublisher.broadcastJsx(jsx("div", null, "test")), PublisherError);
+  assertThrows(() => BlennyPublisher.directJsx(jsx("div", null, "test"), "alice"), PublisherError);
 });
 
-Deno.test("BlennyPublisher nop when no connections", () => {
+test("BlennyPublisher nop when no connections", () => {
   BlennyPublisher.reset();
   const hub = new TransportHub();
   BlennyPublisher.init(hub);

@@ -18,6 +18,6 @@ export function checkJwtSecret(config: BlennyConfig): void {
       "FATAL: auth.jwt_secret is still the embedded default. " +
         "Set BLENNY_AUTH_JWT_SECRET or add it to blenny.json before deploying to production.",
     );
-    Deno.exit(1);
+    process.exit(1);
   }
 }

@@ -1,6 +1,6 @@
-import { hasRole } from "./auth.ts";
-import type { UserInfo } from "./auth.ts";
 import type { FC } from "@hono/hono/jsx";
+import type { UserInfo } from "./auth.ts";
+import { hasRole } from "./auth.ts";
 
 export interface NavLinkProps {
   href: string;
@@ -14,16 +14,7 @@ export interface NavLinkProps {
 }
 
 export const NavLink: FC<NavLinkProps> = (props) => {
-  const {
-    href,
-    label,
-    icon,
-    user,
-    requiredRoles,
-    condition,
-    class: className,
-    ...rest
-  } = props;
+  const { href, label, icon, user, requiredRoles, condition, class: className, ...rest } = props;
 
   if (requiredRoles) {
     const r = Array.isArray(requiredRoles) ? requiredRoles : [requiredRoles];

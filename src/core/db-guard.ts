@@ -2,14 +2,9 @@ import type { DatabaseConnection } from "./db-connection.ts";
 import { DbError } from "./db-connection.ts";
 import { publish } from "./hub.ts";
 
-export function requireDb(
-  db: DatabaseConnection | undefined,
-  context?: string,
-): DatabaseConnection {
+export function requireDb(db: DatabaseConnection | undefined, context?: string): DatabaseConnection {
   if (!db) {
-    const msg = context
-      ? `Database is not connected (${context})`
-      : "Database is not connected";
+    const msg = context ? `Database is not connected (${context})` : "Database is not connected";
     throw new DbError(msg);
   }
   return db;

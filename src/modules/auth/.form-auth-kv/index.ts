@@ -1,21 +1,13 @@
 import type { AppState } from "@blenny/core/app-state.ts";
-import {
-  createAuthMiddleware,
-  requireRole,
-  requireUser,
-} from "@blenny/core/auth.ts";
-import { openKvStore } from "@blenny/core/kv-store.ts";
-import { createInMemoryUserStore } from "@blenny/core/user-store.ts";
+import { createAuthMiddleware, requireRole, requireUser } from "@blenny/core/auth.ts";
 import { FsBlobStore } from "@blenny/core/fs-blob-store.ts";
 import { publish } from "@blenny/core/hub.ts";
-import type { BlennyModule } from "@blenny/types";
+import { openSqliteStore } from "@blenny/core/sqlite-store.ts";
+import { createInMemoryUserStore } from "@blenny/core/user-store.ts";
 import { BlobStoreAvatarService } from "@blenny/lib/avatar/blob-store.ts";
-import {
-  createHandleAvatarServe,
-  createHandleAvatarUpload,
-} from "@blenny/lib/avatar/handlers.ts";
+import { createHandleAvatarServe, createHandleAvatarUpload } from "@blenny/lib/avatar/handlers.ts";
+import type { BlennyModule } from "@blenny/types";
 import { deriveKey } from "./crypto.ts";
-import { state } from "./state.ts";
 import {
   handleProfile,
   handleRegister,
@@ -24,6 +16,7 @@ import {
   renderRegister,
   renderSignIn,
 } from "./handlers.tsx";
+import { state } from "./state.ts";
 
 declare module "@blenny/types" {
   interface BlennyEvents {
@@ -74,12 +67,13 @@ const authModule: BlennyModule = {
     };
 
     const driver = state_.config.at("form-auth.store") ?? "memory";
-    if (driver === "kv") {
-      const dbPath = state_.config.at("form-auth.db.path") || undefined;
-      const stores = await openKvStore(dbPath);
+    if (driver === "sqlite" || driver === "kv") {
+      const dbPath = state_.config.at("form-auth.db.path") || "./data/blenny.sqlite";
+      const blobStore = new FsBlobStore();
+      const stores = openSqliteStore(dbPath, blobStore);
       state.store = stores.store;
       state.blobStore = stores.blobStore;
-      state.kv = stores.kv;
+      state.db = stores.db;
     } else {
       state.store = createInMemoryUserStore();
       state.blobStore = new FsBlobStore();
@@ -115,14 +109,13 @@ const authModule: BlennyModule = {
       if (!state_.config.devMode) {
         publish("log", {
           level: "warn",
-          template:
-            "Default admin credentials (admin/admin) are in use — change them immediately",
+          template: "Default admin credentials (admin/admin) are in use — change them immediately",
         });
       }
     }
   },
   async stop() {
-    await state.kv?.close();
+    state.db?.close();
   },
 };
 

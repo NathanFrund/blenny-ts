@@ -1,5 +1,4 @@
-import type { Context, Next } from "@hono/hono";
-import type { MiddlewareHandler } from "@hono/hono";
+import type { Context, MiddlewareHandler, Next } from "@hono/hono";
 import { publish } from "./hub.ts";
 
 interface RateLimitEntry {
@@ -18,9 +17,18 @@ function getClientIP(c: Context, trustProxy: boolean): string {
   }
 
   try {
-    const info = c.env as { remoteAddr?: Deno.NetAddr } | undefined;
-    if (info?.remoteAddr?.hostname) {
-      return info.remoteAddr.hostname;
+    const env = c.env as
+      | {
+          requestIP?: (req: Request) => { address?: string } | null;
+          server?: { requestIP?: (req: Request) => { address?: string } | null };
+        }
+      | undefined;
+    if (typeof env?.requestIP === "function") {
+      const addr = env.requestIP(c.req.raw);
+      if (addr?.address) return addr.address;
+    } else if (typeof env?.server?.requestIP === "function") {
+      const addr = env.server.requestIP(c.req.raw);
+      if (addr?.address) return addr.address;
     }
   } catch {
     // env access may fail in some environments
@@ -33,11 +41,7 @@ function parseWindowIndex(key: string): number {
   return Number(key.split(":").at(-1));
 }
 
-export function createRateLimiter(
-  windowMs: number,
-  maxRequests: number,
-  trustProxy = false,
-): MiddlewareHandler {
+export function createRateLimiter(windowMs: number, maxRequests: number, trustProxy = false): MiddlewareHandler {
   const store = new Map<string, RateLimitEntry>();
   let lastCleanupWindow = -1;
 

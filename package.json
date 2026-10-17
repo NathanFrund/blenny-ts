@@ -1,0 +1,32 @@
+{
+  "name": "blenny-ts",
+  "version": "0.3.0",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "dev": "bun run --watch main.ts",
+    "start": "bun run main.ts",
+    "test": "bun test",
+    "check": "bun run generate-manifest && tsc --noEmit",
+    "lint": "biome check .",
+    "lint:fix": "biome check --write .",
+    "format": "biome format --write .",
+    "format:check": "biome format .",
+    "generate-manifest": "bun tools/generate-manifest.ts",
+    "compile": "bun run generate-manifest && bun build main.ts --compile --outfile app",
+    "init": "bun tools/init.ts"
+  },
+  "dependencies": {
+    "@hono/hono": "npm:hono@4.12.23",
+    "@logtape/logtape": "2.1.1",
+    "@surrealdb/surrealdb": "npm:surrealdb@2.0.3",
+    "@starfederation/datastar-sdk": "1.0.0",
+    "@std/assert": "npm:@jsr/std__assert@1.0.19",
+    "@valibot/valibot": "npm:valibot@1.4.1"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "2.5.15",
+    "@types/bun": "^1.4.0",
+    "typescript": "^5.9.0"
+  }
+}

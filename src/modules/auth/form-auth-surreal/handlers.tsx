@@ -1,24 +1,14 @@
-import type { Context } from "@hono/hono";
 import type { UserInfo } from "@blenny/core/auth.ts";
-import {
-  clearSessionCookie,
-  createToken,
-  setSessionCookie,
-} from "@blenny/core/auth.ts";
+import { clearSessionCookie, createToken, setSessionCookie } from "@blenny/core/auth.ts";
 import { publish } from "@blenny/core/hub.ts";
-import * as v from "@valibot/valibot";
 import { PasswordSchema, UsernameSchema } from "@blenny/core/validation.ts";
-import { ProfilePage, RegisterPage, SignInPage } from "./ui.tsx";
+import type { Context } from "@hono/hono";
+import * as v from "@valibot/valibot";
 import { state } from "./state.ts";
+import { ProfilePage, RegisterPage, SignInPage } from "./ui.tsx";
 
-function renderSignIn(
-  c: Context,
-  error?: string,
-): Response | Promise<Response> {
-  return state.conduit.respond(
-    c,
-    <SignInPage error={error} />,
-  );
+function renderSignIn(c: Context, error?: string): Response | Promise<Response> {
+  return state.conduit.respond(c, <SignInPage error={error} />);
 }
 
 async function handleSignIn(c: Context): Promise<Response> {
@@ -31,18 +21,15 @@ async function handleSignIn(c: Context): Promise<Response> {
     return renderSignIn(c, "Invalid username or password");
   }
 
-  const [isValid] = await state.db!.query<[boolean]>(
-    "RETURN crypto::argon2::compare($hash, $password)",
-    { hash: user.passwordHash, password },
-  );
+  const [isValid] = await state.db!.query<[boolean]>("RETURN crypto::argon2::compare($hash, $password)", {
+    hash: user.passwordHash,
+    password,
+  });
   if (!isValid) {
     return renderSignIn(c, "Invalid username or password");
   }
 
-  const token = await createToken(
-    { id: user.id, role: user.role },
-    state.config,
-  );
+  const token = await createToken({ id: user.id, role: user.role }, state.config);
 
   const redirectTo = c.req.query("redirect_to") || "/dashboard";
   setSessionCookie(c, token, state.config);
@@ -52,14 +39,8 @@ async function handleSignIn(c: Context): Promise<Response> {
   return c.redirect(redirectTo);
 }
 
-function renderRegister(
-  c: Context,
-  error?: string,
-): Response | Promise<Response> {
-  return state.conduit.respond(
-    c,
-    <RegisterPage error={error} />,
-  );
+function renderRegister(c: Context, error?: string): Response | Promise<Response> {
+  return state.conduit.respond(c, <RegisterPage error={error} />);
 }
 
 async function handleRegister(c: Context): Promise<Response> {
@@ -80,23 +61,22 @@ async function handleRegister(c: Context): Promise<Response> {
     return renderRegister(c, "Display name is required");
   }
 
-  const user = await state.store.createUser({
-    username,
-    passwordHash: password,
-    salt: "",
-    displayName,
-    role: "user",
-  }).catch((err: unknown) => {
-    const msg = err instanceof Error ? err.message : "Registration failed";
-    return renderRegister(c, msg);
-  });
+  const user = await state.store
+    .createUser({
+      username,
+      passwordHash: password,
+      salt: "",
+      displayName,
+      role: "user",
+    })
+    .catch((err: unknown) => {
+      const msg = err instanceof Error ? err.message : "Registration failed";
+      return renderRegister(c, msg);
+    });
 
   if (user instanceof Response) return user;
 
-  const token = await createToken(
-    { id: user.id, role: user.role },
-    state.config,
-  );
+  const token = await createToken({ id: user.id, role: user.role }, state.config);
 
   const redirectTo = c.req.query("redirect_to") || "/dashboard";
   setSessionCookie(c, token, state.config);
@@ -139,11 +119,4 @@ async function handleProfile(c: Context): Promise<Response> {
   );
 }
 
-export {
-  handleProfile,
-  handleRegister,
-  handleSignIn,
-  handleSignOut,
-  renderRegister,
-  renderSignIn,
-};
+export { handleProfile, handleRegister, handleSignIn, handleSignOut, renderRegister, renderSignIn };

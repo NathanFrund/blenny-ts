@@ -1,10 +1,10 @@
-import { assertEquals } from "@std/assert";
+import { test } from "bun:test";
 import { WsConnection } from "@blenny/core/ws.ts";
+import { assertEquals } from "@std/assert";
 
-Deno.test("WsConnection", async (t) => {
-  await t.step("send() delivers bare HTML for ui messages", () => {
+test("WsConnection", async () => {
+  await step("send() delivers bare HTML for ui messages", () => {
     const sent: string[] = [];
-    // deno-lint-ignore no-explicit-any
     const ws = { send: (s: string) => sent.push(s) } as any;
     const conn = new WsConnection(ws, "test-id");
 
@@ -13,9 +13,8 @@ Deno.test("WsConnection", async (t) => {
     assertEquals(sent, ["<div>hello</div>"]);
   });
 
-  await t.step("send() delivers JSON string for data messages", () => {
+  await step("send() delivers JSON string for data messages", () => {
     const sent: string[] = [];
-    // deno-lint-ignore no-explicit-any
     const ws = { send: (s: string) => sent.push(s) } as any;
     const conn = new WsConnection(ws, "test-id");
 
@@ -24,9 +23,8 @@ Deno.test("WsConnection", async (t) => {
     assertEquals(sent, [JSON.stringify({ x: 1, y: 2 })]);
   });
 
-  await t.step("send() delivers bare script text for command messages", () => {
+  await step("send() delivers bare script text for command messages", () => {
     const sent: string[] = [];
-    // deno-lint-ignore no-explicit-any
     const ws = { send: (s: string) => sent.push(s) } as any;
     const conn = new WsConnection(ws, "test-id");
 

@@ -1,19 +1,10 @@
 import type { AppState } from "@blenny/core/app-state.ts";
-import {
-  createAuthMiddleware,
-  requireRole,
-  requireUser,
-} from "@blenny/core/auth.ts";
+import { createAuthMiddleware, requireRole, requireUser } from "@blenny/core/auth.ts";
 import { requireDb } from "@blenny/core/db-guard.ts";
-import { SurrealUserStore } from "@blenny/core/surreal-store.ts";
 import { publish } from "@blenny/core/hub.ts";
+import { SurrealUserStore } from "@blenny/core/surreal-store.ts";
+import { createHandleAvatarServe, createHandleAvatarUpload } from "@blenny/lib/avatar/handlers.ts";
 import type { BlennyModule } from "@blenny/types";
-import { SurrealBucketAvatarService } from "./surreal.ts";
-import {
-  createHandleAvatarServe,
-  createHandleAvatarUpload,
-} from "@blenny/lib/avatar/handlers.ts";
-import { state } from "./state.ts";
 import {
   handleProfile,
   handleRegister,
@@ -22,6 +13,8 @@ import {
   renderRegister,
   renderSignIn,
 } from "./handlers.tsx";
+import { state } from "./state.ts";
+import { SurrealBucketAvatarService } from "./surreal.ts";
 
 declare module "@blenny/types" {
   interface BlennyEvents {
@@ -79,24 +72,18 @@ const authModule: BlennyModule = {
 
     const backend = state_.config.at("form-auth.bucket.backend") ?? "memory";
     try {
-      await db.query(
-        "DEFINE BUCKET IF NOT EXISTS avatars BACKEND $backend",
-        { backend },
-      );
+      await db.query("DEFINE BUCKET IF NOT EXISTS avatars BACKEND $backend", { backend });
     } catch (err) {
       publish("log", {
         level: "warn",
-        template:
-          "Avatar bucket not available (enable --experimental-files on SurrealDB): {error}",
+        template: "Avatar bucket not available (enable --experimental-files on SurrealDB): {error}",
         args: { error: String(err) },
       });
     }
 
     try {
       await db.query("DEFINE TABLE IF NOT EXISTS avatar_meta SCHEMAFULL");
-      await db.query(
-        "DEFINE FIELD mimeType ON avatar_meta TYPE string",
-      );
+      await db.query("DEFINE FIELD mimeType ON avatar_meta TYPE string");
     } catch {
       // meta table not critical — will default to octet-stream
     }
@@ -128,8 +115,7 @@ const authModule: BlennyModule = {
       if (!state_.config.devMode) {
         publish("log", {
           level: "warn",
-          template:
-            "Default admin credentials (admin/admin) are in use — change them immediately",
+          template: "Default admin credentials (admin/admin) are in use — change them immediately",
         });
       }
     }

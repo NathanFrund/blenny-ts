@@ -1,11 +1,11 @@
 import type { MiddlewareHandler } from "@hono/hono";
-import type { TransportHub } from "./hub.ts";
-import type { Conduit } from "./conduit.ts";
-import type { DatabaseConnection } from "./db-connection.ts";
 import type { AuthConfig } from "./auth.ts";
+import type { Conduit } from "./conduit.ts";
 import type { BlennyConfig } from "./config.ts";
-import type { TaskSupervisor } from "./task-supervisor.ts";
+import type { DatabaseConnection } from "./db-connection.ts";
+import type { TransportHub } from "./hub.ts";
 import type { UserStore } from "./store.ts";
+import type { TaskSupervisor } from "./task-supervisor.ts";
 
 export interface AuthBundle {
   config: AuthConfig;

@@ -1,41 +1,25 @@
-import type { FC } from "@hono/hono/jsx";
-import type { Context } from "@hono/hono";
-import { NavLink } from "@blenny/core/nav-link.tsx";
+import type { AppState } from "@blenny/core/app-state.ts";
 import type { UserInfo } from "@blenny/core/auth.ts";
 import type { Conduit } from "@blenny/core/conduit.ts";
-import type { AppState } from "@blenny/core/app-state.ts";
+import { BlennyError } from "@blenny/core/error.ts";
+import { NavLink } from "@blenny/core/nav-link.tsx";
 import type { UserStore } from "@blenny/core/store.ts";
 import type { BlennyModule } from "@blenny/types";
-import { BlennyError } from "@blenny/core/error.ts";
+import type { Context } from "@hono/hono";
+import type { FC } from "@hono/hono/jsx";
 
 let conduit: Conduit;
 let store: UserStore;
 
-const DashboardPage: FC<{ userInfo: UserInfo; displayName: string }> = (
-  { userInfo, displayName },
-) => (
+const DashboardPage: FC<{ userInfo: UserInfo; displayName: string }> = ({ userInfo, displayName }) => (
   <div>
     <h1>Dashboard</h1>
     <p>Welcome, {displayName}.</p>
     <nav>
       <NavLink href="/dashboard" label="Dashboard" user={userInfo} />
-      <NavLink
-        href="/auth/profile"
-        label="Profile"
-        user={userInfo}
-      />
-      <NavLink
-        href="/auth/change-password"
-        label="Change Password"
-        user={userInfo}
-        requiredRoles="user"
-      />
-      <NavLink
-        href="/admin/users"
-        label="User Administration"
-        user={userInfo}
-        requiredRoles="admin"
-      />
+      <NavLink href="/auth/profile" label="Profile" user={userInfo} />
+      <NavLink href="/auth/change-password" label="Change Password" user={userInfo} requiredRoles="user" />
+      <NavLink href="/admin/users" label="User Administration" user={userInfo} requiredRoles="admin" />
     </nav>
     <form method="post" action="/auth/signout" style="margin-top:16px">
       <button type="submit">Sign Out</button>
@@ -45,6 +29,7 @@ const DashboardPage: FC<{ userInfo: UserInfo; displayName: string }> = (
 
 const dashboardModule: BlennyModule = {
   name: "dashboard",
+  requires: ["auth"],
   routes: [
     {
       method: "GET",
@@ -56,11 +41,7 @@ const dashboardModule: BlennyModule = {
   initialize(state: AppState) {
     conduit = state.conduit;
     if (!state.store) {
-      throw new BlennyError(
-        "missing_dependency",
-        "Dashboard module requires a UserStore",
-        500,
-      );
+      throw new BlennyError("missing_dependency", "Dashboard module requires a UserStore", 500);
     }
     store = state.store;
   },
@@ -69,13 +50,7 @@ const dashboardModule: BlennyModule = {
 async function handleDashboard(c: Context) {
   const user = c.get("user") as UserInfo;
   const full = await store.findById(user.id);
-  return conduit.respond(
-    c,
-    <DashboardPage
-      userInfo={user}
-      displayName={full?.displayName ?? user.id}
-    />,
-  );
+  return conduit.respond(c, <DashboardPage userInfo={user} displayName={full?.displayName ?? user.id} />);
 }
 
 export default dashboardModule;

@@ -3,10 +3,7 @@ import type { DatabaseConnection } from "./db-connection.ts";
 import { DbError } from "./db-connection.ts";
 import { publish } from "./hub.ts";
 
-const DRIVERS: Record<
-  string,
-  (config: BlennyConfig) => Promise<DatabaseConnection>
-> = {
+const DRIVERS: Record<string, (config: BlennyConfig) => Promise<DatabaseConnection>> = {
   surreal: async (cfg) => {
     const { SurrealConnectionManager } = await import("./db-manager.ts");
     const mgr = new SurrealConnectionManager(cfg);
@@ -15,18 +12,12 @@ const DRIVERS: Record<
   },
 };
 
-export async function connectDatabase(
-  config: BlennyConfig,
-): Promise<DatabaseConnection | null> {
+export async function connectDatabase(config: BlennyConfig): Promise<DatabaseConnection | null> {
   const type = config.at("database.type") ?? "surreal";
   const instantiate = DRIVERS[type];
 
   if (!instantiate) {
-    throw new DbError(
-      `Unknown database type "${type}". Supported types: ${
-        Object.keys(DRIVERS).join(", ")
-      }`,
-    );
+    throw new DbError(`Unknown database type "${type}". Supported types: ${Object.keys(DRIVERS).join(", ")}`);
   }
 
   try {

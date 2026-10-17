@@ -1,38 +1,39 @@
-import { assertEquals, assertThrows } from "@std/assert";
+import { test } from "bun:test";
 import { BlennyConfig } from "@blenny/core/config.ts";
+import { assertEquals, assertThrows } from "@std/assert";
 
-Deno.test("BlennyConfig defaults", async (t) => {
-  await t.step("returns embedded default port", () => {
+test("BlennyConfig defaults", async () => {
+  await step("returns embedded default port", () => {
     const cfg = new BlennyConfig({ env: {}, args: [] });
     assertEquals(cfg.port, 3000);
   });
 
-  await t.step("returns embedded default bind address", () => {
+  await step("returns embedded default bind address", () => {
     const cfg = new BlennyConfig({ env: {}, args: [] });
     assertEquals(cfg.bindAddress, "0.0.0.0");
   });
 
-  await t.step("returns embedded default jwt secret", () => {
+  await step("returns embedded default jwt secret", () => {
     const cfg = new BlennyConfig({ env: {}, args: [] });
     assertEquals(cfg.jwtSecret, "CHANGE-ME-EMBEDDED-DEFAULT");
   });
 
-  await t.step("returns embedded default session duration", () => {
+  await step("returns embedded default session duration", () => {
     const cfg = new BlennyConfig({ env: {}, args: [] });
     assertEquals(cfg.sessionDurationHours, 720);
   });
 
-  await t.step("returns embedded default cookie name", () => {
+  await step("returns embedded default cookie name", () => {
     const cfg = new BlennyConfig({ env: {}, args: [] });
     assertEquals(cfg.cookieName, "blenny_session");
   });
 
-  await t.step("returns embedded default dev mode", () => {
+  await step("returns embedded default dev mode", () => {
     const cfg = new BlennyConfig({ env: {}, args: [] });
     assertEquals(cfg.devMode, true);
   });
 
-  await t.step("returns embedded default surreal settings", () => {
+  await step("returns embedded default surreal settings", () => {
     const cfg = new BlennyConfig({ env: {}, args: [] });
     assertEquals(cfg.surrealUrl, "ws://127.0.0.1:8000/rpc");
     assertEquals(cfg.surrealNs, "blenny");
@@ -41,7 +42,7 @@ Deno.test("BlennyConfig defaults", async (t) => {
     assertEquals(cfg.surrealPass, "root");
   });
 
-  await t.step("returns embedded default ratelimit values", () => {
+  await step("returns embedded default ratelimit values", () => {
     const cfg = new BlennyConfig({ env: {}, args: [] });
     assertEquals(cfg.at("ratelimit.window_ms"), "60000");
     assertEquals(cfg.at("ratelimit.max_requests"), "30");
@@ -49,17 +50,17 @@ Deno.test("BlennyConfig defaults", async (t) => {
     assertEquals(cfg.at("ratelimit.auth_max_requests"), "20");
   });
 
-  await t.step("returns embedded default cors origin", () => {
+  await step("returns embedded default cors origin", () => {
     const cfg = new BlennyConfig({ env: {}, args: [] });
     assertEquals(cfg.corsOrigin, "");
   });
 
-  await t.step("transport auth defaults to false in dev mode", () => {
+  await step("transport auth defaults to false in dev mode", () => {
     const cfg = new BlennyConfig({ env: {}, args: [] });
     assertEquals(cfg.transportAuthRequired, false);
   });
 
-  await t.step("transport auth can be explicitly enabled", () => {
+  await step("transport auth can be explicitly enabled", () => {
     const cfg = new BlennyConfig({
       fileContent: JSON.stringify({ "transport.auth_required": "true" }),
       env: {},
@@ -69,8 +70,8 @@ Deno.test("BlennyConfig defaults", async (t) => {
   });
 });
 
-Deno.test("BlennyConfig overrides", async (t) => {
-  await t.step("env var overrides default", () => {
+test("BlennyConfig overrides", async () => {
+  await step("env var overrides default", () => {
     const cfg = new BlennyConfig({
       env: { BLENNY_SERVER_PORT: "8080" },
       args: [],
@@ -78,7 +79,7 @@ Deno.test("BlennyConfig overrides", async (t) => {
     assertEquals(cfg.port, 8080);
   });
 
-  await t.step("cli arg overrides env var", () => {
+  await step("cli arg overrides env var", () => {
     const cfg = new BlennyConfig({
       env: { BLENNY_SERVER_PORT: "8080" },
       args: ["--server.port=9090"],
@@ -86,7 +87,7 @@ Deno.test("BlennyConfig overrides", async (t) => {
     assertEquals(cfg.port, 9090);
   });
 
-  await t.step("file content overrides default", () => {
+  await step("file content overrides default", () => {
     const cfg = new BlennyConfig({
       fileContent: JSON.stringify({ "server.port": "5050" }),
       env: {},
@@ -95,7 +96,7 @@ Deno.test("BlennyConfig overrides", async (t) => {
     assertEquals(cfg.port, 5050);
   });
 
-  await t.step("env var overrides file", () => {
+  await step("env var overrides file", () => {
     const cfg = new BlennyConfig({
       fileContent: JSON.stringify({ "server.port": "5050" }),
       env: { BLENNY_SERVER_PORT: "6060" },
@@ -104,7 +105,7 @@ Deno.test("BlennyConfig overrides", async (t) => {
     assertEquals(cfg.port, 6060);
   });
 
-  await t.step("priority order: cli > env > file > default", () => {
+  await step("priority order: cli > env > file > default", () => {
     const cfg = new BlennyConfig({
       fileContent: JSON.stringify({ "server.port": "1111" }),
       env: { BLENNY_SERVER_PORT: "2222" },
@@ -113,7 +114,7 @@ Deno.test("BlennyConfig overrides", async (t) => {
     assertEquals(cfg.port, 3333);
   });
 
-  await t.step("cli arg without equals sign", () => {
+  await step("cli arg without equals sign", () => {
     const cfg = new BlennyConfig({
       env: {},
       args: ["--server.port", "7777"],
@@ -121,7 +122,7 @@ Deno.test("BlennyConfig overrides", async (t) => {
     assertEquals(cfg.port, 7777);
   });
 
-  await t.step("cli flag without value sets true", () => {
+  await step("cli flag without value sets true", () => {
     const cfg = new BlennyConfig({
       env: {},
       args: ["--dev_mode"],
@@ -130,18 +131,18 @@ Deno.test("BlennyConfig overrides", async (t) => {
   });
 });
 
-Deno.test("BlennyConfig accessors", async (t) => {
-  await t.step("at() returns value for known key", () => {
+test("BlennyConfig accessors", async () => {
+  await step("at() returns value for known key", () => {
     const cfg = new BlennyConfig({ env: {}, args: [] });
     assertEquals(cfg.at("server.port"), "3000");
   });
 
-  await t.step("at() returns undefined for unknown key", () => {
+  await step("at() returns undefined for unknown key", () => {
     const cfg = new BlennyConfig({ env: {}, args: [] });
     assertEquals(cfg.at("nope"), undefined);
   });
 
-  await t.step("at() returns env-overridden value", () => {
+  await step("at() returns env-overridden value", () => {
     const cfg = new BlennyConfig({
       env: { BLENNY_SURREAL_NS: "myapp" },
       args: [],
@@ -150,8 +151,8 @@ Deno.test("BlennyConfig accessors", async (t) => {
   });
 });
 
-Deno.test("BlennyConfig edge cases", async (t) => {
-  await t.step("null fileContent is skipped", () => {
+test("BlennyConfig edge cases", async () => {
+  await step("null fileContent is skipped", () => {
     const cfg = new BlennyConfig({
       fileContent: null,
       env: {},
@@ -160,12 +161,12 @@ Deno.test("BlennyConfig edge cases", async (t) => {
     assertEquals(cfg.port, 3000);
   });
 
-  await t.step("empty env and args does not crash", () => {
+  await step("empty env and args does not crash", () => {
     const cfg = new BlennyConfig({ env: {}, args: [] });
     assertEquals(cfg.port, 3000);
   });
 
-  await t.step("no overrides at all uses real sources", () => {
+  await step("no overrides at all uses real sources", () => {
     // When no overrides provided, reads from real env/args/file.
     // In CI with no env vars set, it should fall back to defaults.
     const cfg = new BlennyConfig();
@@ -173,7 +174,7 @@ Deno.test("BlennyConfig edge cases", async (t) => {
     assertEquals(typeof cfg.jwtSecret, "string");
   });
 
-  await t.step("number in file content is coerced to string", () => {
+  await step("number in file content is coerced to string", () => {
     const cfg = new BlennyConfig({
       fileContent: JSON.stringify({ "auth.session_duration_hours": 48 }),
       env: {},
@@ -182,9 +183,9 @@ Deno.test("BlennyConfig edge cases", async (t) => {
     assertEquals(cfg.sessionDurationHours, 48);
   });
 
-  await t.step("boolean in file content is coerced to string", () => {
+  await step("boolean in file content is coerced to string", () => {
     const cfg = new BlennyConfig({
-      fileContent: JSON.stringify({ "dev_mode": false }),
+      fileContent: JSON.stringify({ dev_mode: false }),
       env: {},
       args: [],
     });
@@ -192,8 +193,8 @@ Deno.test("BlennyConfig edge cases", async (t) => {
   });
 });
 
-Deno.test("BlennyConfig numeric validation", async (t) => {
-  await t.step("port must be between 1 and 65535", () => {
+test("BlennyConfig numeric validation", async () => {
+  await step("port must be between 1 and 65535", () => {
     assertThrows(
       () =>
         new BlennyConfig({
@@ -226,7 +227,7 @@ Deno.test("BlennyConfig numeric validation", async (t) => {
     );
   });
 
-  await t.step("sessionDurationHours must be >= 1", () => {
+  await step("sessionDurationHours must be >= 1", () => {
     assertThrows(
       () =>
         new BlennyConfig({
@@ -239,7 +240,7 @@ Deno.test("BlennyConfig numeric validation", async (t) => {
     );
   });
 
-  await t.step("maxConnections must be >= 1", () => {
+  await step("maxConnections must be >= 1", () => {
     assertThrows(
       () =>
         new BlennyConfig({
@@ -252,7 +253,7 @@ Deno.test("BlennyConfig numeric validation", async (t) => {
     );
   });
 
-  await t.step("maxBodyBytes must be >= 1", () => {
+  await step("maxBodyBytes must be >= 1", () => {
     assertThrows(
       () =>
         new BlennyConfig({
@@ -265,7 +266,7 @@ Deno.test("BlennyConfig numeric validation", async (t) => {
     );
   });
 
-  await t.step("idleTimeoutMs accepts 0 (no timeout)", () => {
+  await step("idleTimeoutMs accepts 0 (no timeout)", () => {
     const cfg = new BlennyConfig({
       fileContent: JSON.stringify({ "transport.idle_timeout_ms": "0" }),
       env: {},
@@ -274,7 +275,7 @@ Deno.test("BlennyConfig numeric validation", async (t) => {
     assertEquals(cfg.idleTimeoutMs, 0);
   });
 
-  await t.step("idleTimeoutMs rejects negative", () => {
+  await step("idleTimeoutMs rejects negative", () => {
     assertThrows(
       () =>
         new BlennyConfig({
@@ -287,7 +288,7 @@ Deno.test("BlennyConfig numeric validation", async (t) => {
     );
   });
 
-  await t.step("ratelimitWindowMs rejects out-of-range", () => {
+  await step("ratelimitWindowMs rejects out-of-range", () => {
     assertThrows(
       () =>
         new BlennyConfig({
@@ -300,7 +301,7 @@ Deno.test("BlennyConfig numeric validation", async (t) => {
     );
   });
 
-  await t.step("ratelimitMaxRequests rejects zero", () => {
+  await step("ratelimitMaxRequests rejects zero", () => {
     assertThrows(
       () =>
         new BlennyConfig({

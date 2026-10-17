@@ -92,8 +92,11 @@ out/
 
 scratchpad
 
-# Blob storage (FsBlobStore) and Deno KV SQLite databases
+# Blob storage (FsBlobStore) and SQLite databases
 data/
 
 # Auto-generated module manifest for compiled binaries
 src/modules/manifest.ts
+
+# Compiled binary (bun build --compile)
+/app

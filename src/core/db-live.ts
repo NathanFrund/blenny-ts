@@ -1,8 +1,5 @@
-import { raw, Surreal, Table } from "@surrealdb/surrealdb";
-import type {
-  LiveMessage,
-  LiveSubscription as SurrealLiveSubscription,
-} from "@surrealdb/surrealdb";
+import type { LiveMessage, LiveSubscription as SurrealLiveSubscription } from "@surrealdb/surrealdb";
+import { raw, type Surreal, Table } from "@surrealdb/surrealdb";
 import type { DatabaseConnection } from "./db-connection.ts";
 
 export type { LiveMessage };

@@ -2,7 +2,7 @@
 
 ## Project Identity
 
-A Deno/TypeScript port of the Blenny philosophy (Pharo Smalltalk → Rust →
+A Bun/TypeScript port of the Blenny philosophy (Pharo Smalltalk → Rust →
 Clojure → TS). A hypermedia-driven web framework where modules self-assemble,
 real-time is default, and deployment is a single binary.
 
@@ -16,7 +16,7 @@ real-time is default, and deployment is a single binary.
    via `@starfederation/datastar-sdk`
 4. **Connection intents** — client-side deduplication when multiple connections
    are open
-5. **Single binary** — `deno compile` produces a self-contained executable
+5. **Single binary** — `bun build --compile` produces a self-contained executable
 6. **Zero ceremony** — `main.ts` is infrastructure only; all active logic lives
    in modules
 
@@ -105,10 +105,10 @@ needed.
 
 ### Template Strategy
 
-**JSX via Hono's precompiled JSX** — no separate template language. Modules
-export `.tsx` files that are type-checked, authored alongside their handlers,
-and rendered inline. The `deno.json` already configures `"jsx": "precompile"`
-with `@hono/hono/jsx` as the import source.
+**JSX via Hono's JSX runtime** — no separate template language. Modules export
+`.tsx` files that are type-checked, authored alongside their handlers, and
+rendered inline. `tsconfig.json` sets `"jsx": "react-jsx"` with
+`jsxImportSource: "@hono/hono/jsx"`.
 
 ### Datastar SDK
 
@@ -149,7 +149,9 @@ with `@hono/hono/jsx` as the import source.
 ### Phase 5: Auth + Per-User Messaging
 
 - `src/core/auth.ts` — JWT primitives, cookie helpers, middleware factories
-- `src/modules/form-auth.tsx` — reference auth module (hardcoded admin/admin)
+- `src/modules/auth/form-auth-surreal/` (active) and
+  `src/modules/auth/.form-auth-kv/` (disabled SQLite peer) — reference auth
+  modules (default admin/admin)
 - Route-level `auth` flag on `Route` type (`true` or role string)
 - Framework wires `requireUser`/`requireRole` guards based on `route.auth`
 - `/sse` reads JWT from cookie or `?token=`, binds connection to `userId`
@@ -161,11 +163,11 @@ with `@hono/hono/jsx` as the import source.
 | ------------------------------ | --------------------------------------------------- |
 | `@hono/hono`                   | HTTP router, JSX rendering, middleware              |
 | `@starfederation/datastar-sdk` | SSE wire format (client & server)                   |
-| `@std/path`                    | Filesystem path resolution (file URL → system path) |
-| `@std/html`                    | HTML escaping utilities                             |
+| `@std/assert`                  | Test assertions (JSR via npm mirror; test-only)     |
 | `@logtape/logtape`             | Structured logging                                  |
 | `@valibot/valibot`             | Runtime validation                                  |
 | `@surrealdb/surrealdb`         | Optional database driver                            |
+| `bun:sqlite`                   | SQLite driver (built in; no dependency)             |
 
 ## Open Questions for Team Discussion
 
@@ -173,14 +175,15 @@ with `@hono/hono/jsx` as the import source.
    versions make it opt-in via config flag. SSE alone covers the real-time use
    case for most applications.
 2. ~~Auth module — ship a dev auth module (hardcoded admin/password) in core, or
-   leave auth entirely to user modules?~~ **Resolved: shipped `form-auth.tsx` as
-   reference implementation; swappable strategy pattern.**
+   leave auth entirely to user modules?~~ **Resolved: shipped reference auth
+   modules (`form-auth-surreal/`, `.form-auth-kv/`); swappable strategy
+   pattern.**
 3. ~~JSX Conduit scope — minimal helper (detect HTMX, render fragment) or full
    template engine with named templates, extension stripping, and hot-reload
    from disk?~~ **Resolved: minimal helper.**
-4. **Single-binary compilation** — `deno compile` is in the task file but
-   untested with FFI/`--allow-ffi`. Should we validate this early or defer to
-   late-stage?
+4. **Single-binary compilation** — `bun build --compile` (with `--target bun`)
+   is wired up in the `compile` script. Should we validate this early or defer
+   to late-stage?
 
 ---
 

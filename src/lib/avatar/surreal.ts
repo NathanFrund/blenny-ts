@@ -1,10 +1,7 @@
 import type { DatabaseConnection } from "@blenny/core/db-connection.ts";
 import type { AvatarGetResult } from "./service.ts";
 
-export async function getAvatarFromBucket(
-  db: DatabaseConnection,
-  userId: string,
-): Promise<AvatarGetResult | null> {
+export async function getAvatarFromBucket(db: DatabaseConnection, userId: string): Promise<AvatarGetResult | null> {
   const path = `avatars:/${userId}`;
   const [raw] = await db.query(`f'${path}'.get()`);
 
@@ -17,10 +14,7 @@ export async function getAvatarFromBucket(
 
   if (!bytes) return null;
 
-  const [metaRows] = await db.query(
-    "SELECT mimeType FROM type::record('avatar_meta', $id)",
-    { id: userId },
-  );
+  const [metaRows] = await db.query("SELECT mimeType FROM type::record('avatar_meta', $id)", { id: userId });
   const metaRow = (metaRows as { mimeType?: string }[] | undefined)?.[0];
   const mimeType = metaRow?.mimeType ?? "application/octet-stream";
 

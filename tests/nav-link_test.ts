@@ -1,13 +1,14 @@
-import { assertEquals } from "@std/assert";
+import { test } from "bun:test";
 import { NavLink } from "@blenny/core/nav-link.tsx";
+import { assertEquals } from "@std/assert";
 
-Deno.test("NavLink", async (t) => {
-  await t.step("renders <a> tag when no role required", () => {
+test("NavLink", async () => {
+  await step("renders <a> tag when no role required", () => {
     const result = NavLink({ href: "/test", label: "Test" });
     assertEquals(result !== null, true);
   });
 
-  await t.step("renders <a> tag when role matches", () => {
+  await step("renders <a> tag when role matches", () => {
     const result = NavLink({
       href: "/admin",
       label: "Admin",
@@ -17,7 +18,7 @@ Deno.test("NavLink", async (t) => {
     assertEquals(result !== null, true);
   });
 
-  await t.step("returns null when role does not match", () => {
+  await step("returns null when role does not match", () => {
     const result = NavLink({
       href: "/admin",
       label: "Admin",
@@ -27,7 +28,7 @@ Deno.test("NavLink", async (t) => {
     assertEquals(result, null);
   });
 
-  await t.step("accepts requiredRoles as array", () => {
+  await step("accepts requiredRoles as array", () => {
     const result = NavLink({
       href: "/command",
       label: "Command",
@@ -37,7 +38,7 @@ Deno.test("NavLink", async (t) => {
     assertEquals(result !== null, true);
   });
 
-  await t.step("returns null when condition returns false", () => {
+  await step("returns null when condition returns false", () => {
     const result = NavLink({
       href: "/beta",
       label: "Beta",
@@ -47,7 +48,7 @@ Deno.test("NavLink", async (t) => {
     assertEquals(result, null);
   });
 
-  await t.step("renders link when condition returns true", () => {
+  await step("renders link when condition returns true", () => {
     const result = NavLink({
       href: "/beta",
       label: "Beta",
@@ -57,7 +58,7 @@ Deno.test("NavLink", async (t) => {
     assertEquals(result !== null, true);
   });
 
-  await t.step("role check and condition are both evaluated", () => {
+  await step("role check and condition are both evaluated", () => {
     const result = NavLink({
       href: "/admin-beta",
       label: "Admin Beta",
@@ -68,7 +69,7 @@ Deno.test("NavLink", async (t) => {
     assertEquals(result, null);
   });
 
-  await t.step("renders link with icon", () => {
+  await step("renders link with icon", () => {
     const result = NavLink({
       href: "/dashboard",
       label: "Dashboard",
@@ -77,7 +78,7 @@ Deno.test("NavLink", async (t) => {
     assertEquals(result !== null, true);
   });
 
-  await t.step("applies class prop to <a> tag", () => {
+  await step("applies class prop to <a> tag", () => {
     const result = NavLink({
       href: "/test",
       label: "Test",
@@ -86,7 +87,7 @@ Deno.test("NavLink", async (t) => {
     assertEquals(result !== null, true);
   });
 
-  await t.step("forwards extra props to <a> tag", () => {
+  await step("forwards extra props to <a> tag", () => {
     const result = NavLink({
       href: "/test",
       label: "Test",

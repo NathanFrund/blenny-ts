@@ -29,10 +29,7 @@ function jitter(delay: number): number {
 
 function computeDelay(task: TaskConfig): number {
   if (task.failures === 0) return task.intervalMs;
-  const base = Math.min(
-    task.intervalMs * Math.pow(2, task.failures),
-    task.maxBackoff,
-  );
+  const base = Math.min(task.intervalMs * 2 ** task.failures, task.maxBackoff);
   return jitter(base);
 }
 
@@ -42,17 +39,9 @@ export class TaskSupervisor {
   private running = new Map<string, Promise<void>>();
   private isRunning = false;
 
-  constructor(
-    private defaultMaxBackoff = 60_000,
-  ) {}
+  constructor(private defaultMaxBackoff = 60_000) {}
 
-  add(
-    name: string,
-    fn: TaskFn,
-    intervalMs: number,
-    maxBackoff?: number,
-    options?: TaskOptions,
-  ): void {
+  add(name: string, fn: TaskFn, intervalMs: number, maxBackoff?: number, options?: TaskOptions): void {
     this.tasks.set(name, {
       fn,
       intervalMs,
@@ -62,13 +51,7 @@ export class TaskSupervisor {
     });
   }
 
-  replace(
-    name: string,
-    fn: TaskFn,
-    intervalMs: number,
-    maxBackoff?: number,
-    options?: TaskOptions,
-  ): void {
+  replace(name: string, fn: TaskFn, intervalMs: number, maxBackoff?: number, options?: TaskOptions): void {
     this.stopTask(name);
     this.tasks.set(name, {
       fn,

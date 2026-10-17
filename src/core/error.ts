@@ -25,10 +25,7 @@ export class BlennyError extends Error {
   }
 }
 
-export function errorResponse(
-  body: Record<string, unknown>,
-  status: number,
-): Response {
+export function errorResponse(body: Record<string, unknown>, status: number): Response {
   return new Response(JSON.stringify(body), {
     status,
     headers: { "content-type": "application/json" },

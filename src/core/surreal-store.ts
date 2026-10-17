@@ -1,9 +1,9 @@
 import * as v from "@valibot/valibot";
 import type { DatabaseConnection } from "./db-connection.ts";
-import { NewUserSchema } from "./validation.ts";
-import type { NewUserInput } from "./validation.ts";
-import type { StoredUser, UserStore } from "./store.ts";
 import { unwrapFirst } from "./db-query.ts";
+import type { StoredUser, UserStore } from "./store.ts";
+import type { NewUserInput } from "./validation.ts";
+import { NewUserSchema } from "./validation.ts";
 
 interface SurrealUserRecord {
   uuid: string;
@@ -50,13 +50,8 @@ export class SurrealUserStore implements UserStore {
     }
   }
 
-  async findById(
-    id: string,
-    fields?: string[],
-  ): Promise<StoredUser | null> {
-    const select = fields?.length
-      ? [...new Set([...fields, "uuid"])].join(", ")
-      : "*";
+  async findById(id: string, fields?: string[]): Promise<StoredUser | null> {
+    const select = fields?.length ? [...new Set([...fields, "uuid"])].join(", ") : "*";
     const result = await this.db.query<[Record<string, unknown>[]]>(
       `SELECT ${select} FROM user WHERE uuid = $uuid LIMIT 1`,
       { uuid: id },
@@ -67,13 +62,8 @@ export class SurrealUserStore implements UserStore {
     return mapUser(record as unknown as SurrealUserRecord);
   }
 
-  async findByUsername(
-    username: string,
-    fields?: string[],
-  ): Promise<StoredUser | null> {
-    const select = fields?.length
-      ? [...new Set([...fields, "uuid"])].join(", ")
-      : "*";
+  async findByUsername(username: string, fields?: string[]): Promise<StoredUser | null> {
+    const select = fields?.length ? [...new Set([...fields, "uuid"])].join(", ") : "*";
     const result = await this.db.query<[Record<string, unknown>[]]>(
       `SELECT ${select} FROM user WHERE username = $username LIMIT 1`,
       { username },
@@ -90,21 +80,18 @@ export class SurrealUserStore implements UserStore {
     const createdAt = Date.now();
 
     try {
-      await this.db.query(
-        "CREATE user CONTENT $data",
-        {
-          data: {
-            uuid,
-            username: parsed.username,
-            password: await this.hashPassword(parsed.passwordHash),
-            displayName: parsed.displayName,
-            role: parsed.role,
-            avatarKey: "",
-            avatarMimeType: "",
-            createdAt,
-          },
+      await this.db.query("CREATE user CONTENT $data", {
+        data: {
+          uuid,
+          username: parsed.username,
+          password: await this.hashPassword(parsed.passwordHash),
+          displayName: parsed.displayName,
+          role: parsed.role,
+          avatarKey: "",
+          avatarMimeType: "",
+          createdAt,
         },
-      );
+      });
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       if (
@@ -145,25 +132,19 @@ export class SurrealUserStore implements UserStore {
   }
 
   async findAll(): Promise<StoredUser[]> {
-    const result = await this.db.query<[SurrealUserRecord[]]>(
-      "SELECT * FROM user ORDER BY createdAt ASC",
-    );
+    const result = await this.db.query<[SurrealUserRecord[]]>("SELECT * FROM user ORDER BY createdAt ASC");
     return (result[0] ?? []).map(mapUser);
   }
 
   async updateRole(id: string, role: string): Promise<void> {
-    const result = await this.db.query<[SurrealUserRecord[]]>(
-      "UPDATE user MERGE { role: $role } WHERE uuid = $uuid",
-      { uuid: id, role },
-    );
+    const result = await this.db.query<[SurrealUserRecord[]]>("UPDATE user MERGE { role: $role } WHERE uuid = $uuid", {
+      uuid: id,
+      role,
+    });
     if (!unwrapFirst(result)) throw new Error(`User ${id} not found`);
   }
 
-  async changePassword(
-    id: string,
-    currentPassword: string,
-    newPassword: string,
-  ): Promise<void> {
+  async changePassword(id: string, currentPassword: string, newPassword: string): Promise<void> {
     const user = await this.findById(id);
     if (!user) throw new Error(`User ${id} not found`);
     const valid = await this.verifyPassword(currentPassword, user.passwordHash);
@@ -184,29 +165,20 @@ export class SurrealUserStore implements UserStore {
       }
     }
 
-    const result = await this.db.query<[SurrealUserRecord[]]>(
-      "DELETE user WHERE uuid = $uuid",
-      { uuid: id },
-    );
+    const result = await this.db.query<[SurrealUserRecord[]]>("DELETE user WHERE uuid = $uuid", { uuid: id });
     return !!unwrapFirst(result);
   }
 
-  async verifyPassword(
-    rawPassword: string,
-    passwordHash: string,
-  ): Promise<boolean> {
-    const [result] = await this.db.query<[boolean]>(
-      "RETURN crypto::argon2::compare($hash, $password)",
-      { hash: passwordHash, password: rawPassword },
-    );
+  async verifyPassword(rawPassword: string, passwordHash: string): Promise<boolean> {
+    const [result] = await this.db.query<[boolean]>("RETURN crypto::argon2::compare($hash, $password)", {
+      hash: passwordHash,
+      password: rawPassword,
+    });
     return result ?? false;
   }
 
   private async hashPassword(password: string): Promise<string> {
-    const [result] = await this.db.query<[string]>(
-      "RETURN crypto::argon2::generate($password)",
-      { password },
-    );
+    const [result] = await this.db.query<[string]>("RETURN crypto::argon2::generate($password)", { password });
     return result ?? "";
   }
 }

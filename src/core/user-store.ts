@@ -1,22 +1,16 @@
-import type { NewUserInput } from "./validation.ts";
-import type { StoredUser } from "./store.ts";
 import { deriveKey, verifyKey } from "./crypto.ts";
+import type { StoredUser } from "./store.ts";
+import type { NewUserInput } from "./validation.ts";
 
 export function createInMemoryUserStore() {
   const users = new Map<string, StoredUser>();
   const byUsername = new Map<string, StoredUser>();
 
-  const findByUsername = (
-    username: string,
-    _fields?: string[],
-  ): Promise<StoredUser | null> => {
+  const findByUsername = (username: string, _fields?: string[]): Promise<StoredUser | null> => {
     return Promise.resolve(byUsername.get(username) ?? null);
   };
 
-  const findById = (
-    id: string,
-    _fields?: string[],
-  ): Promise<StoredUser | null> => {
+  const findById = (id: string, _fields?: string[]): Promise<StoredUser | null> => {
     return Promise.resolve(users.get(id) ?? null);
   };
 
@@ -79,11 +73,7 @@ export function createInMemoryUserStore() {
       return Promise.resolve();
     },
 
-    async changePassword(
-      id: string,
-      currentPassword: string,
-      newPassword: string,
-    ): Promise<void> {
+    async changePassword(id: string, currentPassword: string, newPassword: string): Promise<void> {
       const user = users.get(id);
       if (!user) throw new Error(`User ${id} not found`);
       const hash = await verifyKey(currentPassword, user.salt);

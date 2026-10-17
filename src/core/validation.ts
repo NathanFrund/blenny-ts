@@ -1,8 +1,12 @@
 import * as v from "@valibot/valibot";
-export { escape as escapeHtml } from "@std/html/entities";
 
-const isPlainObject = (input: unknown) =>
-  typeof input === "object" && input !== null && !Array.isArray(input);
+export function escapeHtml(input: string): string {
+  return input.replace(/[&<>"']/g, (c) =>
+    c === "&" ? "&amp;" : c === "<" ? "&lt;" : c === ">" ? "&gt;" : c === '"' ? "&quot;" : "&#39;",
+  );
+}
+
+const isPlainObject = (input: unknown) => typeof input === "object" && input !== null && !Array.isArray(input);
 
 export const SignalSchema = v.pipe(
   v.any(),

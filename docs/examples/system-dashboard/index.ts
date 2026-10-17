@@ -1,8 +1,9 @@
+import { freemem, hostname, loadavg, totalmem } from "node:os";
 import type { AppState } from "../../core/app-state.ts";
-import type { BlennyModule } from "../../types.ts";
 import { publish } from "../../core/hub.ts";
-import { state } from "./state.ts";
+import type { BlennyModule } from "../../types.ts";
 import { handleDashboard } from "./handlers.tsx";
+import { state } from "./state.ts";
 
 function bytes(n: number): string {
   const units = ["B", "KB", "MB", "GB"];
@@ -32,11 +33,11 @@ const systemModule: BlennyModule = {
     state.startedAt = Date.now();
     const push = () => {
       try {
-        const mem = Deno.systemMemoryInfo();
-        const loadAvg = Deno.loadavg?.() ?? [];
+        const mem = { total: totalmem(), free: freemem() };
+        const loadAvg = loadavg();
         state.hub.mergeSignals({
           sys: {
-            hostname: Deno.hostname(),
+            hostname: hostname(),
             memTotal: bytes(mem.total),
             memUsed: bytes(mem.total - mem.free),
             memFree: bytes(mem.free),

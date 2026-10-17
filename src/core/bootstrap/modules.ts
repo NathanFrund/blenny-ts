@@ -1,11 +1,11 @@
-import { isAbsolute, join } from "@std/path";
+import { isAbsolute, join } from "node:path";
 import type { Hono, MiddlewareHandler } from "@hono/hono";
-import { connectDatabase } from "../database.ts";
-import { loadModules } from "../module-loader.ts";
-import { publish, subscribe } from "../hub.ts";
+import type { BlennyEvents, BlennyModule, HttpMethod } from "../../types.ts";
 import type { AppState } from "../app-state.ts";
 import type { BlennyConfig } from "../config.ts";
-import type { BlennyEvents, BlennyModule, HttpMethod } from "../../types.ts";
+import { connectDatabase } from "../database.ts";
+import { publish, subscribe } from "../hub.ts";
+import { loadModules } from "../module-loader.ts";
 import { withRouteSpan } from "./routing.ts";
 
 export interface ModuleLoadResult {
@@ -13,12 +13,8 @@ export interface ModuleLoadResult {
   failures: { file: string; error: string; stack?: string }[];
 }
 
-export async function discoverModules(
-  config: BlennyConfig,
-): Promise<ModuleLoadResult> {
-  const modulesDir = isAbsolute(config.modulesPath)
-    ? config.modulesPath
-    : join(Deno.cwd(), config.modulesPath);
+export async function discoverModules(config: BlennyConfig): Promise<ModuleLoadResult> {
+  const modulesDir = isAbsolute(config.modulesPath) ? config.modulesPath : join(process.cwd(), config.modulesPath);
   const { modules, failures } = await loadModules(modulesDir);
   for (const mod of modules) {
     publish("log", {
@@ -56,9 +52,7 @@ export function detectCapabilityConflicts(modules: BlennyModule[]): void {
     for (const cap of mod.capabilities) {
       const existing = capabilityOwners.get(cap);
       if (existing) {
-        throw new Error(
-          `Capability "${cap}" conflict: "${existing}" and "${mod.name}" both declare it`,
-        );
+        throw new Error(`Capability "${cap}" conflict: "${existing}" and "${mod.name}" both declare it`);
       }
       capabilityOwners.set(cap, mod.name);
     }
@@ -70,9 +64,7 @@ export function detectMissingDependencies(modules: BlennyModule[]): void {
   for (const mod of modules) {
     for (const req of mod.requires ?? []) {
       if (!provided.has(req)) {
-        throw new Error(
-          `Module "${mod.name}" requires "${req}" but no loaded module provides it`,
-        );
+        throw new Error(`Module "${mod.name}" requires "${req}" but no loaded module provides it`);
       }
     }
   }
@@ -101,9 +93,7 @@ export function sortByDependencies(modules: BlennyModule[]): BlennyModule[] {
       const provider = providerToModule.get(req);
       if (provider) {
         if (provider === mod) {
-          throw new Error(
-            `Module "${mod.name}" requires its own capability "${req}"`,
-          );
+          throw new Error(`Module "${mod.name}" requires its own capability "${req}"`);
         }
         adj.get(provider)!.push(mod);
         inDegree.set(mod, (inDegree.get(mod) ?? 0) + 1);
@@ -129,27 +119,17 @@ export function sortByDependencies(modules: BlennyModule[]): BlennyModule[] {
 
   if (sorted.length !== modules.length) {
     const remaining = modules.filter((m) => (inDegree.get(m) ?? 0) > 0);
-    throw new Error(
-      `Circular dependency detected among modules: ${
-        remaining.map((m) => m.name).join(", ")
-      }`,
-    );
+    throw new Error(`Circular dependency detected among modules: ${remaining.map((m) => m.name).join(", ")}`);
   }
 
   return sorted;
 }
 
-export async function setupDatabase(
-  state: AppState,
-  config: BlennyConfig,
-): Promise<void> {
+export async function setupDatabase(state: AppState, config: BlennyConfig): Promise<void> {
   state.db = (await connectDatabase(config)) ?? undefined;
 }
 
-export async function initializeModules(
-  modules: BlennyModule[],
-  state: AppState,
-): Promise<void> {
+export async function initializeModules(modules: BlennyModule[], state: AppState): Promise<void> {
   const sorted = sortByDependencies(modules);
   for (const mod of sorted) {
     await mod.initialize?.(state);
@@ -167,11 +147,7 @@ export function applyAuthMiddleware(app: Hono, state: AppState): void {
   }
 }
 
-export function registerModuleRoutes(
-  app: Hono,
-  modules: BlennyModule[],
-  state: AppState,
-): void {
+export function registerModuleRoutes(app: Hono, modules: BlennyModule[], state: AppState): void {
   for (const mod of modules) {
     for (const route of mod.routes) {
       const method = route.method as HttpMethod;
@@ -180,9 +156,8 @@ export function registerModuleRoutes(
         route.handler as unknown as MiddlewareHandler,
       );
       if (route.auth && state.auth) {
-        const guard: MiddlewareHandler = typeof route.auth === "string"
-          ? state.auth.requireRole(route.auth)
-          : state.auth.requireUser;
+        const guard: MiddlewareHandler =
+          typeof route.auth === "string" ? state.auth.requireRole(route.auth) : state.auth.requireUser;
         app.on(method, route.path, guard, handler);
       } else {
         app.on(method, route.path, handler);
@@ -200,16 +175,11 @@ export function registerModuleRoutes(
   }
 }
 
-export function subscribeModuleEvents(
-  modules: BlennyModule[],
-): void {
+export function subscribeModuleEvents(modules: BlennyModule[]): void {
   for (const mod of modules) {
     if (mod.subscriptions) {
       for (const sub of mod.subscriptions) {
-        subscribe(
-          sub.topic as keyof BlennyEvents,
-          sub.handler as (payload: unknown) => void | Promise<void>,
-        );
+        subscribe(sub.topic as keyof BlennyEvents, sub.handler as (payload: unknown) => void | Promise<void>);
         publish("log", {
           level: "debug",
           template: "Event subscription: {module} -> {topic}",
@@ -220,10 +190,7 @@ export function subscribeModuleEvents(
   }
 }
 
-export async function startModules(
-  modules: BlennyModule[],
-  state: AppState,
-): Promise<void> {
+export async function startModules(modules: BlennyModule[], state: AppState): Promise<void> {
   for (const mod of modules) {
     await mod.start?.();
     if (mod.start) {
@@ -237,10 +204,7 @@ export async function startModules(
   state.supervisor.start();
 }
 
-export async function stopModules(
-  modules: BlennyModule[],
-  state: AppState,
-): Promise<void> {
+export async function stopModules(modules: BlennyModule[], state: AppState): Promise<void> {
   state.supervisor.stop();
   state.hub.closeAllConnections();
   state.hub.stopReaper();

@@ -9,7 +9,7 @@ const indexModule: BlennyModule = {
       handler: (c) =>
         c.html(`
 <!DOCTYPE html>
-<html>
+<html lang="en">
   <head><title>blenny-ts</title></head>
   <body>
     <h1>blenny-ts</h1>

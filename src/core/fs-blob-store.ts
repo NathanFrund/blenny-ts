@@ -1,29 +1,31 @@
+import { mkdir, readFile, unlink, writeFile } from "node:fs/promises";
+import { join } from "node:path";
 import type { BlobStore } from "./store.ts";
 
 export class FsBlobStore implements BlobStore {
   constructor(private readonly baseDir: string = "./data/blobs") {}
 
   private filePath(prefix: string, id: string): string {
-    return `${this.baseDir}/${prefix}/${id}`;
+    return join(this.baseDir, prefix, id);
   }
 
   private typePath(prefix: string, id: string): string {
-    return `${this.baseDir}/${prefix}/${id}.type`;
+    return join(this.baseDir, prefix, `${id}.type`);
   }
 
   private metaDir(prefix: string): string {
-    return `${this.baseDir}/${prefix}`;
+    return join(this.baseDir, prefix);
   }
 
   async set(prefix: string, id: string, file: File): Promise<string> {
     const fpath = this.filePath(prefix, id);
     const tpath = this.typePath(prefix, id);
 
-    await Deno.mkdir(this.metaDir(prefix), { recursive: true });
+    await mkdir(this.metaDir(prefix), { recursive: true });
 
     const bytes = new Uint8Array(await file.arrayBuffer());
-    await Deno.writeFile(fpath, bytes);
-    await Deno.writeTextFile(tpath, file.type || "application/octet-stream");
+    await writeFile(fpath, bytes);
+    await writeFile(tpath, file.type || "application/octet-stream");
 
     return `${prefix}:${id}`;
   }
@@ -34,8 +36,8 @@ export class FsBlobStore implements BlobStore {
 
     try {
       const [data, contentType] = await Promise.all([
-        Deno.readFile(fpath),
-        Deno.readTextFile(tpath).catch(() => "application/octet-stream"),
+        readFile(fpath),
+        readFile(tpath, "utf-8").catch(() => "application/octet-stream"),
       ]);
 
       return new Response(data, {
@@ -53,9 +55,6 @@ export class FsBlobStore implements BlobStore {
     const fpath = this.filePath(prefix, id);
     const tpath = this.typePath(prefix, id);
 
-    await Promise.allSettled([
-      Deno.remove(fpath),
-      Deno.remove(tpath),
-    ]);
+    await Promise.allSettled([unlink(fpath), unlink(tpath)]);
   }
 }

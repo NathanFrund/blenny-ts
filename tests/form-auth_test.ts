@@ -1,12 +1,13 @@
-import { assertEquals, assertExists } from "@std/assert";
-import { Hono } from "@hono/hono";
-import type { MiddlewareHandler } from "@hono/hono";
-import { TransportHub } from "@blenny/core/hub.ts";
+import { test } from "bun:test";
+import type { AppState } from "@blenny/core/app-state.ts";
 import { Conduit } from "@blenny/core/conduit.ts";
 import { BlennyConfig } from "@blenny/core/config.ts";
+import { TransportHub } from "@blenny/core/hub.ts";
 import { TaskSupervisor } from "@blenny/core/task-supervisor.ts";
+import type { MiddlewareHandler } from "@hono/hono";
+import { Hono } from "@hono/hono";
+import { assertEquals, assertExists } from "@std/assert";
 import authModule from "../src/modules/auth/.form-auth-kv/index.ts";
-import type { AppState } from "@blenny/core/app-state.ts";
 import type { HttpMethod } from "../src/types.ts";
 
 function buildBody(base: Record<string, string>): URLSearchParams {
@@ -45,10 +46,10 @@ async function buildApp(): Promise<Hono> {
   return app;
 }
 
-Deno.test("form-auth module", async (t) => {
+test("form-auth module", async () => {
   const app = await buildApp();
 
-  await t.step("GET /auth/signin returns sign-in form", async () => {
+  await step("GET /auth/signin returns sign-in form", async () => {
     const res = await app.request("http://localhost/auth/signin");
     assertEquals(res.status, 200);
     const html = await res.text();
@@ -58,7 +59,7 @@ Deno.test("form-auth module", async (t) => {
     assertEquals(html.includes('name="password"'), true);
   });
 
-  await t.step("POST /auth/signin with bad creds shows error", async () => {
+  await step("POST /auth/signin with bad creds shows error", async () => {
     const body = buildBody({ username: "bad", password: "wrong" });
     const res = await app.request("http://localhost/auth/signin", {
       method: "POST",
@@ -70,26 +71,23 @@ Deno.test("form-auth module", async (t) => {
     assertEquals(html.includes("Invalid username or password"), true);
   });
 
-  await t.step(
-    "POST /auth/signin with admin/admin returns 302 + cookie",
-    async () => {
-      const body = buildBody({ username: "admin", password: "admin" });
-      const res = await app.request("http://localhost/auth/signin", {
-        method: "POST",
-        body: body.toString(),
-        headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      });
-      assertEquals(res.status, 302);
-      assertEquals(res.headers.get("location"), "/dashboard");
+  await step("POST /auth/signin with admin/admin returns 302 + cookie", async () => {
+    const body = buildBody({ username: "admin", password: "admin" });
+    const res = await app.request("http://localhost/auth/signin", {
+      method: "POST",
+      body: body.toString(),
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    });
+    assertEquals(res.status, 302);
+    assertEquals(res.headers.get("location"), "/dashboard");
 
-      const setCookie = res.headers.get("set-cookie");
-      assertExists(setCookie);
-      assertEquals(setCookie.includes("blenny_session"), true);
-      assertEquals(setCookie.includes("HttpOnly"), true);
-    },
-  );
+    const setCookie = res.headers.get("set-cookie");
+    assertExists(setCookie);
+    assertEquals(setCookie.includes("blenny_session"), true);
+    assertEquals(setCookie.includes("HttpOnly"), true);
+  });
 
-  await t.step("authenticated request passes requireUser guard", async () => {
+  await step("authenticated request passes requireUser guard", async () => {
     const body = buildBody({ username: "admin", password: "admin" });
     const signinRes = await app.request("http://localhost/auth/signin", {
       method: "POST",
@@ -106,7 +104,7 @@ Deno.test("form-auth module", async (t) => {
     assertEquals(await res.text(), "inside");
   });
 
-  await t.step("POST /auth/signout clears cookie", async () => {
+  await step("POST /auth/signout clears cookie", async () => {
     const body = buildBody({});
     const res = await app.request("http://localhost/auth/signout", {
       method: "POST",
@@ -123,10 +121,10 @@ Deno.test("form-auth module", async (t) => {
   });
 });
 
-Deno.test("registration", async (t) => {
+test("registration", async () => {
   const app = await buildApp();
 
-  await t.step("GET /auth/register returns registration form", async () => {
+  await step("GET /auth/register returns registration form", async () => {
     const res = await app.request("http://localhost/auth/register");
     assertEquals(res.status, 200);
     const html = await res.text();
@@ -137,90 +135,75 @@ Deno.test("registration", async (t) => {
     assertEquals(html.includes('/auth/signin"'), true);
   });
 
-  await t.step(
-    "POST /auth/register creates user and returns 302 + cookie",
-    async () => {
-      const body = buildBody({
-        username: "regtest-user",
-        display_name: "Reg User",
-        password: "secret123",
-      });
-      const res = await app.request("http://localhost/auth/register", {
-        method: "POST",
-        body: body.toString(),
-        headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      });
-      assertEquals(res.status, 302);
-      assertEquals(res.headers.get("location"), "/dashboard");
+  await step("POST /auth/register creates user and returns 302 + cookie", async () => {
+    const body = buildBody({
+      username: "regtest-user",
+      display_name: "Reg User",
+      password: "secret123",
+    });
+    const res = await app.request("http://localhost/auth/register", {
+      method: "POST",
+      body: body.toString(),
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    });
+    assertEquals(res.status, 302);
+    assertEquals(res.headers.get("location"), "/dashboard");
 
-      const setCookie = res.headers.get("set-cookie");
-      assertExists(setCookie);
-      assertEquals(setCookie.includes("blenny_session"), true);
-      assertEquals(setCookie.includes("HttpOnly"), true);
-    },
-  );
+    const setCookie = res.headers.get("set-cookie");
+    assertExists(setCookie);
+    assertEquals(setCookie.includes("blenny_session"), true);
+    assertEquals(setCookie.includes("HttpOnly"), true);
+  });
 
-  await t.step(
-    "POST /auth/register with taken username shows error",
-    async () => {
-      const body = buildBody({
-        username: "admin",
-        display_name: "Should Fail",
-        password: "whatever",
-      });
-      const res = await app.request("http://localhost/auth/register", {
-        method: "POST",
-        body: body.toString(),
-        headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      });
-      assertEquals(res.status, 200);
-      const html = await res.text();
-      assertEquals(html.includes("Username is already taken"), true);
-    },
-  );
+  await step("POST /auth/register with taken username shows error", async () => {
+    const body = buildBody({
+      username: "admin",
+      display_name: "Should Fail",
+      password: "whatever",
+    });
+    const res = await app.request("http://localhost/auth/register", {
+      method: "POST",
+      body: body.toString(),
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    });
+    assertEquals(res.status, 200);
+    const html = await res.text();
+    assertEquals(html.includes("Username is already taken"), true);
+  });
 
-  await t.step(
-    "POST /auth/register with empty fields shows error",
-    async () => {
-      const body = buildBody({
-        username: "",
-        display_name: "",
-        password: "",
-      });
-      const res = await app.request("http://localhost/auth/register", {
-        method: "POST",
-        body: body.toString(),
-        headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      });
-      assertEquals(res.status, 200);
-      const html = await res.text();
-      assertEquals(html.includes("Username is required"), true);
-    },
-  );
+  await step("POST /auth/register with empty fields shows error", async () => {
+    const body = buildBody({
+      username: "",
+      display_name: "",
+      password: "",
+    });
+    const res = await app.request("http://localhost/auth/register", {
+      method: "POST",
+      body: body.toString(),
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    });
+    assertEquals(res.status, 200);
+    const html = await res.text();
+    assertEquals(html.includes("Username is required"), true);
+  });
 
-  await t.step(
-    "POST /auth/register with short password shows error",
-    async () => {
-      const body = buildBody({
-        username: "validuser",
-        display_name: "Valid User",
-        password: "short",
-      });
-      const res = await app.request("http://localhost/auth/register", {
-        method: "POST",
-        body: body.toString(),
-        headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      });
-      assertEquals(res.status, 200);
-      const html = await res.text();
-      assertEquals(
-        html.includes("Password must be at least 8 characters"),
-        true,
-      );
-    },
-  );
+  await step("POST /auth/register with short password shows error", async () => {
+    const body = buildBody({
+      username: "validuser",
+      display_name: "Valid User",
+      password: "short",
+    });
+    const res = await app.request("http://localhost/auth/register", {
+      method: "POST",
+      body: body.toString(),
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    });
+    assertEquals(res.status, 200);
+    const html = await res.text();
+    assertEquals(html.includes("Password must be at least 8 characters"), true);
+  });
 
-  await t.step("newly registered user can sign in", async () => {
+  await step("newly registered user can sign in", async () => {
     const body = buildBody({
       username: "regtest-user",
       password: "secret123",
@@ -236,8 +219,8 @@ Deno.test("registration", async (t) => {
   });
 });
 
-Deno.test("lifecycle", async (t) => {
-  await t.step("stop is a no-op in memory mode", async () => {
+test("lifecycle", async () => {
+  await step("stop is a no-op in memory mode", async () => {
     const config = new BlennyConfig();
     const hub = new TransportHub();
     const conduit = new Conduit();
@@ -254,7 +237,7 @@ Deno.test("lifecycle", async (t) => {
     await authModule.stop?.();
   });
 
-  await t.step("stop closes the KV connection cleanly", async () => {
+  await step("stop closes the KV connection cleanly", async () => {
     const config = new BlennyConfig({
       fileContent: JSON.stringify({
         "form-auth.store": "kv",

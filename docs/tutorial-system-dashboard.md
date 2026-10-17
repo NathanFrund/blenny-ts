@@ -181,6 +181,7 @@ import type { BlennyModule } from "../../types.ts";
 import { publish } from "../../core/hub.ts";
 import { state } from "./state.ts";
 import { handleDashboard } from "./handlers.tsx";
+import { freemem, hostname, loadavg, totalmem } from "node:os";
 
 function bytes(n: number): string {
   const units = ["B", "KB", "MB", "GB"];
@@ -210,11 +211,11 @@ const systemModule: BlennyModule = {
     state.startedAt = Date.now();
     const push = () => {
       try {
-        const mem = Deno.systemMemoryInfo();
-        const loadAvg = Deno.loadavg?.() ?? [];
+        const mem = { total: totalmem(), free: freemem() };
+        const loadAvg = loadavg();
         state.hub.mergeSignals({
           sys: {
-            hostname: Deno.hostname(),
+            hostname: hostname(),
             memTotal: bytes(mem.total),
             memUsed: bytes(mem.total - mem.free),
             memFree: bytes(mem.free),
@@ -262,7 +263,7 @@ Key points:
 ## Step 6: Try it
 
 ```sh
-deno task dev
+bun run dev
 ```
 
 Sign in at `/auth/signin` (default: admin/admin), then visit `/system`.
@@ -273,16 +274,10 @@ pushing `datastar-merge-signals` events.
 
 ---
 
-## Step 7: Add `--allow-sys` to your task
+## Step 7: No permission flags needed
 
-If you use a custom `dev` task, make sure it includes `--allow-sys`:
-
-```
-deno run --allow-net --allow-read --allow-sys --watch src/app.ts
-```
-
-The module uses `Deno.systemMemoryInfo()`, `Deno.hostname()`, and
-`Deno.loadavg()` — all require the `sys` permission.
+Bun has no runtime permission model — the module reads host metrics through
+Node's `node:os` API with no extra configuration.
 
 ---
 
@@ -298,7 +293,7 @@ The module uses `Deno.systemMemoryInfo()`, `Deno.hostname()`, and
 | `initialize()` hook        | Grab references from `AppState`                            |
 | `start()` / `stop()` hooks | Timers, connections, cleanup                               |
 | Event publishing           | `publish("log", ...)` for errors                           |
-| Deno built-ins             | `systemMemoryInfo()`, `loadavg()`, `hostname()`            |
+| `node:os` built-ins        | `totalmem()`, `freemem()`, `loadavg()`, `hostname()`       |
 
 The system dashboard is a real, working example in
 `docs/examples/system-dashboard/`. Copy it into `src/modules/system/` to try it,

@@ -1,13 +1,13 @@
-import { Context } from "@hono/hono";
+import type { AppState } from "@blenny/core/app-state.ts";
+import type { UserInfo } from "@blenny/core/auth.ts";
+import type { Conduit } from "@blenny/core/conduit.ts";
+import { NavLink } from "@blenny/core/nav-link.tsx";
+import type { StoredUser } from "@blenny/core/store.ts";
+import { PasswordSchema } from "@blenny/core/validation.ts";
+import type { BlennyModule } from "@blenny/types";
+import type { Context } from "@hono/hono";
 import type { FC } from "@hono/hono/jsx";
 import * as v from "@valibot/valibot";
-import { PasswordSchema } from "@blenny/core/validation.ts";
-import type { UserInfo } from "@blenny/core/auth.ts";
-import { NavLink } from "@blenny/core/nav-link.tsx";
-import type { AppState } from "@blenny/core/app-state.ts";
-import type { Conduit } from "@blenny/core/conduit.ts";
-import type { StoredUser } from "@blenny/core/store.ts";
-import type { BlennyModule } from "@blenny/types";
 
 let conduit: Conduit;
 let store: NonNullable<AppState["store"]>;
@@ -17,40 +17,21 @@ const UserRow: FC<{ user: StoredUser }> = ({ user }) => (
     <td>{user.username}</td>
     <td>{user.displayName}</td>
     <td>
-      <form
-        method="post"
-        action={`/admin/users/${user.id}/role`}
-        style="display:inline"
-      >
-        <select
-          name="role"
-          onChange={"this.form.submit()" as unknown as (e: Event) => void}
-        >
-          <option value="user" selected={user.role === "user"}>User</option>
-          <option value="admin" selected={user.role === "admin"}>Admin</option>
+      <form method="post" action={`/admin/users/${user.id}/role`} style="display:inline">
+        <select name="role" onChange={"this.form.submit()" as unknown as (e: Event) => void}>
+          <option value="user" selected={user.role === "user"}>
+            User
+          </option>
+          <option value="admin" selected={user.role === "admin"}>
+            Admin
+          </option>
         </select>
       </form>
     </td>
     <td>
-      <form
-        method="post"
-        action={`/admin/users/${user.id}/reset-password`}
-        style="display:inline"
-      >
-        <input
-          type="password"
-          name="newPassword"
-          placeholder="New pwd"
-          required
-          minLength={8}
-        />
-        <input
-          type="password"
-          name="confirmPassword"
-          placeholder="Confirm"
-          required
-          minLength={8}
-        />
+      <form method="post" action={`/admin/users/${user.id}/reset-password`} style="display:inline">
+        <input type="password" name="newPassword" placeholder="New pwd" required minLength={8} />
+        <input type="password" name="confirmPassword" placeholder="Confirm" required minLength={8} />
         <button type="submit">Set</button>
       </form>
     </td>
@@ -59,9 +40,7 @@ const UserRow: FC<{ user: StoredUser }> = ({ user }) => (
         method="post"
         action={`/admin/users/${user.id}/delete`}
         style="display:inline"
-        onSubmit={"return confirm('Delete this user?')" as unknown as (
-          e: Event,
-        ) => void}
+        onSubmit={"return confirm('Delete this user?')" as unknown as (e: Event) => void}
       >
         <button type="submit">Delete</button>
       </form>
@@ -69,9 +48,7 @@ const UserRow: FC<{ user: StoredUser }> = ({ user }) => (
   </tr>
 );
 
-const UsersPage: FC<{ users: StoredUser[]; userInfo?: UserInfo }> = (
-  { users, userInfo },
-) => (
+const UsersPage: FC<{ users: StoredUser[]; userInfo?: UserInfo }> = ({ users, userInfo }) => (
   <div>
     <h1>User Administration</h1>
     <table>
@@ -85,7 +62,9 @@ const UsersPage: FC<{ users: StoredUser[]; userInfo?: UserInfo }> = (
         </tr>
       </thead>
       <tbody>
-        {users.map((u) => <UserRow key={u.id} user={u} />)}
+        {users.map((u) => (
+          <UserRow key={u.id} user={u} />
+        ))}
       </tbody>
     </table>
     <nav>

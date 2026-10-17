@@ -1,5 +1,22 @@
 # OpenTelemetry Instrumentation
 
+> **Status (Bun port): deferred.** This document describes the original
+> Deno-era integration, which relied on Deno's runtime-provided global tracer
+> provider and auto-instrumentation (`OTEL_DENO=true`). Bun supplies neither, so
+> OTel is deferred for now.
+>
+> Current state: `src/core/tracing.ts` is a no-op stub that preserves every
+> instrumentation seam (`withSpan`, `trace.getActiveSpan`, `SpanStatusCode`, and
+> the hub meter counters) with unchanged signatures, so call sites are untouched.
+> Set `BLENNY_TELEMETRY_STRICT=1` to turn the stub into a fail-fast "loud" mode
+> that throws on each instrumentation call — a way to inventory what WOULD be
+> traced before committing to a real backend. The original implementation is
+> preserved verbatim at `docs/telemetry.deno.ts.bak`.
+>
+> Everything below this banner is the Deno-era spec, retained as the record of
+> what was instrumented (and therefore the blueprint for a future Bun OTel
+> integration).
+
 ## Overview
 
 Blenny uses Deno's
@@ -14,6 +31,10 @@ global tracer provider, and reads standard OTLP environment variables. No manual
 `trace.setGlobalTracerProvider()` call is needed.
 
 ## Enabling Telemetry
+
+> The commands below are Deno-era (`OTEL_DENO` and `deno run --allow-*`). The
+> current Bun port uses a no-op stub that ignores them; they are retained only as
+> the record of the Deno integration.
 
 ```bash
 # Run with telemetry exported to an OTLP collector
@@ -89,7 +110,7 @@ remaining connections after a failure.
 | `auth.createToken` | JWT signed for a user session                       | —          |
 | `auth.getUser`     | JWT verified and decoded from cookie or query param | —          |
 
-### Crypto — `src/modules/form-auth/crypto.ts`
+### Crypto — `src/core/crypto.ts`
 
 | Span name        | When                                                | Attributes |
 | ---------------- | --------------------------------------------------- | ---------- |
@@ -158,17 +179,21 @@ recordDuration(messageDuration, start, { "result.type": "success" });
 
 // src/core/hub.ts          — uses withSpan for broadcast/direct spans
 // src/core/auth.ts         — uses withSpan for createToken/getUser
-// src/modules/form-auth/crypto.ts — uses withSpan for deriveKey
+// src/core/crypto.ts         — uses withSpan for deriveKey
 // main.ts                  — augments Deno.serve spans, fills error gap
 ```
 
 ## Test Coverage
 
-Four test files verify the instrumentation using `InMemorySpanExporter` from
-`@opentelemetry/sdk-trace-base`. Each file creates its own
-`BasicTracerProvider` + `SimpleSpanProcessor` — this is the standard testing
-pattern and does not conflict with Deno's runtime OTel (tests run without
-`OTEL_DENO=true`).
+> **Removed in the Bun port.** The five `tests/otel-*_test.ts` files below were
+> deleted, along with the `@opentelemetry/*` dependencies, when OTel was
+> deferred. They are preserved here as the record of what was verified against a
+> real `BasicTracerProvider` + `InMemorySpanExporter`, and as the starting point
+> for restoring that coverage when a Bun backend is wired up.
+
+Each file created its own `BasicTracerProvider` + `SimpleSpanProcessor` (the
+standard testing pattern) and did not conflict with Deno's runtime OTel (they
+ran without `OTEL_DENO=true`).
 
 | File                         | Steps | What it covers                                                                     |
 | ---------------------------- | ----- | ---------------------------------------------------------------------------------- |
@@ -176,13 +201,7 @@ pattern and does not conflict with Deno's runtime OTel (tests run without
 | `tests/otel-auth_test.ts`    | 2     | createToken and getUser span names; uses name-list matching (not index order)      |
 | `tests/otel-crypto_test.ts`  | 1     | deriveKey span name and UNSET status                                               |
 | `tests/otel-tracing_test.ts` | 4     | withSpan sync/async callbacks, exception recording, return value propagation       |
-| `tests/otel-main_test.ts`    | 2     | Route wrapper attribute setting, onError exception recording                       |
+| `tests/otel-routing_test.ts` | 2     | Route wrapper attribute setting, onError exception recording                       |
 
-Run them with:
-
-```bash
-deno test --allow-env tests/otel-*
-```
-
-The `@opentelemetry/sdk-trace-base` package is listed in `deno.json` imports but
-is only loaded by the test runner — it is never included in production builds.
+The `@opentelemetry/sdk-trace-base` package was loaded only by the test runner
+and was never included in production builds.

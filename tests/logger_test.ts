@@ -1,21 +1,12 @@
-import { assertEquals } from "@std/assert";
-import { Hono } from "@hono/hono";
-import {
-  configure,
-  getLogger,
-  getThrottlingFilter,
-  type LogRecord,
-  reset as logtapeReset,
-} from "@logtape/logtape";
+import { test } from "bun:test";
 import { BlennyConfig } from "@blenny/core/config.ts";
-import {
-  createLogger,
-  requestLogger,
-  resetLogger,
-} from "@blenny/core/logger.ts";
 import type { BlennyLogger } from "@blenny/core/logger.ts";
+import { createLogger, requestLogger, resetLogger } from "@blenny/core/logger.ts";
+import { Hono } from "@hono/hono";
+import { configure, getLogger, getThrottlingFilter, type LogRecord, reset as logtapeReset } from "@logtape/logtape";
+import { assertEquals } from "@std/assert";
 
-Deno.test("createLogger returns a working BlennyLogger", async () => {
+test("createLogger returns a working BlennyLogger", async () => {
   const config = new BlennyConfig({ args: ["--log.level=debug"] });
   const logger = await createLogger(config);
   // Should not throw — LogTape without full config is silent
@@ -26,7 +17,7 @@ Deno.test("createLogger returns a working BlennyLogger", async () => {
   await resetLogger();
 });
 
-Deno.test("child logger inherits context", async () => {
+test("child logger inherits context", async () => {
   const config = new BlennyConfig({ args: ["--log.level=debug"] });
   const logger = await createLogger(config);
   const child = logger.child({ requestId: "abc-123" });
@@ -34,7 +25,7 @@ Deno.test("child logger inherits context", async () => {
   await resetLogger();
 });
 
-Deno.test("requestLogger logs request details", async () => {
+test("requestLogger logs request details", async () => {
   await createLogger(new BlennyConfig({ args: ["--log.level=debug"] }));
   const app = new Hono();
   app.use(requestLogger());
@@ -47,7 +38,7 @@ Deno.test("requestLogger logs request details", async () => {
   await resetLogger();
 });
 
-Deno.test("requestLogger uses warn for 4xx", async () => {
+test("requestLogger uses warn for 4xx", async () => {
   await createLogger(new BlennyConfig({ args: ["--log.level=debug"] }));
   const app = new Hono();
   app.use(requestLogger());
@@ -58,7 +49,7 @@ Deno.test("requestLogger uses warn for 4xx", async () => {
   await resetLogger();
 });
 
-Deno.test("getThrottlingFilter suppresses repeated messages", async () => {
+test("getThrottlingFilter suppresses repeated messages", async () => {
   const captured: LogRecord[] = [];
   const testSink = (record: LogRecord) => {
     captured.push(record);
@@ -69,16 +60,19 @@ Deno.test("getThrottlingFilter suppresses repeated messages", async () => {
   await configure({
     filters: { throttle: throttleFilter },
     sinks: { test: testSink },
-    loggers: [{
-      category: ["blenny", "throttle-test"],
-      sinks: ["test"],
-      filters: ["throttle"],
-      lowestLevel: "debug",
-    }, {
-      category: ["logtape", "meta"],
-      sinks: ["test"],
-      lowestLevel: "warning",
-    }],
+    loggers: [
+      {
+        category: ["blenny", "throttle-test"],
+        sinks: ["test"],
+        filters: ["throttle"],
+        lowestLevel: "debug",
+      },
+      {
+        category: ["logtape", "meta"],
+        sinks: ["test"],
+        lowestLevel: "warning",
+      },
+    ],
   });
 
   const logger = getLogger(["blenny", "throttle-test"]);
@@ -94,7 +88,7 @@ Deno.test("getThrottlingFilter suppresses repeated messages", async () => {
   await logtapeReset();
 });
 
-Deno.test("throttling resets per unique message pattern", async () => {
+test("throttling resets per unique message pattern", async () => {
   const captured: LogRecord[] = [];
   const testSink = (record: LogRecord) => {
     captured.push(record);
@@ -105,16 +99,19 @@ Deno.test("throttling resets per unique message pattern", async () => {
   await configure({
     filters: { throttle: throttleFilter },
     sinks: { test: testSink },
-    loggers: [{
-      category: ["blenny", "pattern-test"],
-      sinks: ["test"],
-      filters: ["throttle"],
-      lowestLevel: "debug",
-    }, {
-      category: ["logtape", "meta"],
-      sinks: ["test"],
-      lowestLevel: "warning",
-    }],
+    loggers: [
+      {
+        category: ["blenny", "pattern-test"],
+        sinks: ["test"],
+        filters: ["throttle"],
+        lowestLevel: "debug",
+      },
+      {
+        category: ["logtape", "meta"],
+        sinks: ["test"],
+        lowestLevel: "warning",
+      },
+    ],
   });
 
   const logger = getLogger(["blenny", "pattern-test"]);
@@ -171,7 +168,7 @@ class MockLogger implements BlennyLogger {
   }
 }
 
-Deno.test("MockLogger captures messages", () => {
+test("MockLogger captures messages", () => {
   const logger = new MockLogger();
   logger.info("hello");
   assertEquals(logger.entries.length, 1);
@@ -179,7 +176,7 @@ Deno.test("MockLogger captures messages", () => {
   assertEquals(logger.entries[0].level, "info");
 });
 
-Deno.test("MockLogger child returns self", () => {
+test("MockLogger child returns self", () => {
   const logger = new MockLogger();
   const child = logger.child({ x: 1 });
   child.info("from child");
@@ -187,7 +184,7 @@ Deno.test("MockLogger child returns self", () => {
   assertEquals(logger.entries[0].template, "from child");
 });
 
-Deno.test("MockLogger.error overload stores error and props", () => {
+test("MockLogger.error overload stores error and props", () => {
   const logger = new MockLogger();
   const err = new Error("boom");
   logger.error(err, { requestId: "abc" });

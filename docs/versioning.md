@@ -14,9 +14,7 @@ bump.
 
 ## Source of Truth
 
-The current version is stored in the `version` field of `deno.json`. The OTel
-tracer and meter in `src/core/tracing.ts` track this value so telemetry data is
-identifiable by release.
+The current version is stored in the `version` field of `package.json`.
 
 Tagging follows the `v` convention:
 
@@ -25,9 +23,13 @@ git tag v0.2.0
 git push origin v0.2.0
 ```
 
-The `deno bump-version` subcommand can increment the field automatically:
+Use `npm version` to increment the field (it also commits the change and creates
+the matching git tag):
 
 ```bash
-deno bump-version patch   # 0.2.0 → 0.2.1
-deno bump-version minor   # 0.2.1 → 0.3.0
+npm version patch   # 0.2.0 → 0.2.1
+npm version minor   # 0.2.1 → 0.3.0
 ```
+
+> Telemetry is currently deferred (see [telemetry.md](telemetry.md)), so the
+> version is no longer attached to OpenTelemetry tracer/meter resources.

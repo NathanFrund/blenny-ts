@@ -1,26 +1,24 @@
-import { assertEquals, assertExists, assertRejects } from "@std/assert";
-import { createInMemoryUserStore } from "@blenny/core/user-store.ts";
+import { test } from "bun:test";
 import { verifyKey } from "@blenny/core/crypto.ts";
+import { createInMemoryUserStore } from "@blenny/core/user-store.ts";
+import { assertEquals, assertExists, assertRejects } from "@std/assert";
 
 const passHash = "abc123hash";
 
-Deno.test("user-store", async (t) => {
+test("user-store", async () => {
   const store = createInMemoryUserStore();
 
-  await t.step(
-    "findByUsername returns null for non-existent user",
-    async () => {
-      const user = await store.findByUsername("nonexistent");
-      assertEquals(user, null);
-    },
-  );
+  await step("findByUsername returns null for non-existent user", async () => {
+    const user = await store.findByUsername("nonexistent");
+    assertEquals(user, null);
+  });
 
-  await t.step("findById returns null for non-existent user", async () => {
+  await step("findById returns null for non-existent user", async () => {
     const user = await store.findById("nonexistent");
     assertEquals(user, null);
   });
 
-  await t.step("createUser creates a user and returns it", async () => {
+  await step("createUser creates a user and returns it", async () => {
     const user = await store.createUser({
       username: "alice",
       passwordHash: passHash,
@@ -35,7 +33,7 @@ Deno.test("user-store", async (t) => {
     assertEquals(typeof user.createdAt, "number");
   });
 
-  await t.step("createUser throws on duplicate username", async () => {
+  await step("createUser throws on duplicate username", async () => {
     await assertRejects(
       () =>
         store.createUser({
@@ -49,14 +47,14 @@ Deno.test("user-store", async (t) => {
     );
   });
 
-  await t.step("findByUsername returns created user", async () => {
+  await step("findByUsername returns created user", async () => {
     const user = await store.findByUsername("alice");
     assertExists(user);
     assertEquals(user.username, "alice");
     assertEquals(user.displayName, "Alice");
   });
 
-  await t.step("findById returns created user", async () => {
+  await step("findById returns created user", async () => {
     const alice = await store.findByUsername("alice");
     assertExists(alice);
     const user = await store.findById(alice.id);
@@ -64,7 +62,7 @@ Deno.test("user-store", async (t) => {
     assertEquals(user.username, "alice");
   });
 
-  await t.step("setPassword hashes and persists the new password", async () => {
+  await step("setPassword hashes and persists the new password", async () => {
     const user = await store.createUser({
       username: "hash-test",
       passwordHash: passHash,
@@ -81,7 +79,7 @@ Deno.test("user-store", async (t) => {
     assertEquals(updated.passwordHash, expectedHash);
   });
 
-  await t.step("updateAvatarKey persists the avatar key", async () => {
+  await step("updateAvatarKey persists the avatar key", async () => {
     const user = await store.createUser({
       username: "avatar-test",
       passwordHash: passHash,
@@ -98,7 +96,7 @@ Deno.test("user-store", async (t) => {
     assertEquals(updated.avatarKey, key);
   });
 
-  await t.step("deleteUser removes the record and returns true", async () => {
+  await step("deleteUser removes the record and returns true", async () => {
     const user = await store.createUser({
       username: "delete-me",
       passwordHash: passHash,
@@ -114,36 +112,31 @@ Deno.test("user-store", async (t) => {
     assertEquals(await store.findByUsername("delete-me"), null);
   });
 
-  await t.step("deleteUser returns false for non-existent id", async () => {
-    const result = await store.deleteUser(
-      "00000000-0000-0000-0000-000000000000",
-    );
+  await step("deleteUser returns false for non-existent id", async () => {
+    const result = await store.deleteUser("00000000-0000-0000-0000-000000000000");
     assertEquals(result, false);
   });
 
-  await t.step(
-    "username freed after delete — can be re-registered",
-    async () => {
-      const first = await store.createUser({
-        username: "reuse",
-        passwordHash: passHash,
-        salt: "x",
-        displayName: "First",
-      });
-      await store.deleteUser(first.id);
+  await step("username freed after delete — can be re-registered", async () => {
+    const first = await store.createUser({
+      username: "reuse",
+      passwordHash: passHash,
+      salt: "x",
+      displayName: "First",
+    });
+    await store.deleteUser(first.id);
 
-      const second = await store.createUser({
-        username: "reuse",
-        passwordHash: "newhash",
-        salt: "x",
-        displayName: "Second",
-      });
-      assertEquals(second.username, "reuse");
-      assertEquals(second.displayName, "Second");
-    },
-  );
+    const second = await store.createUser({
+      username: "reuse",
+      passwordHash: "newhash",
+      salt: "x",
+      displayName: "Second",
+    });
+    assertEquals(second.username, "reuse");
+    assertEquals(second.displayName, "Second");
+  });
 
-  await t.step("createUser with admin role creates admin user", async () => {
+  await step("createUser with admin role creates admin user", async () => {
     const user = await store.createUser({
       username: "admin2",
       passwordHash: passHash,
@@ -155,7 +148,7 @@ Deno.test("user-store", async (t) => {
     assertEquals(user.role, "admin");
   });
 
-  await t.step("createUser with role defaults to user", async () => {
+  await step("createUser with role defaults to user", async () => {
     const user = await store.createUser({
       username: "bob",
       passwordHash: passHash,

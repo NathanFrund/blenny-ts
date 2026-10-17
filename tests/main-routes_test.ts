@@ -1,21 +1,18 @@
-import { assertEquals, assertExists } from "@std/assert";
-import { Hono } from "@hono/hono";
-
-import { TransportHub } from "@blenny/core/hub.ts";
+import { test } from "bun:test";
+import type { AppState } from "@blenny/core/app-state.ts";
+import { getUser } from "@blenny/core/auth.ts";
+import { registerPlatformEndpoints } from "@blenny/core/bootstrap/endpoints.ts";
+import { applyAuthMiddleware, registerModuleRoutes } from "@blenny/core/bootstrap/modules.ts";
 import { Conduit } from "@blenny/core/conduit.ts";
 import { BlennyConfig } from "@blenny/core/config.ts";
-import { TaskSupervisor } from "@blenny/core/task-supervisor.ts";
-import { getUser } from "@blenny/core/auth.ts";
-import type { AppState } from "@blenny/core/app-state.ts";
-import { ServerSentEventGenerator } from "@starfederation/datastar-sdk/web";
+import { TransportHub } from "@blenny/core/hub.ts";
 import { SseConnection } from "@blenny/core/sse-connection.ts";
-import { registerPlatformEndpoints } from "@blenny/core/bootstrap/endpoints.ts";
-import {
-  applyAuthMiddleware,
-  registerModuleRoutes,
-} from "@blenny/core/bootstrap/modules.ts";
+import { TaskSupervisor } from "@blenny/core/task-supervisor.ts";
+import { Hono } from "@hono/hono";
+import { ServerSentEventGenerator } from "@starfederation/datastar-sdk/web";
+import { assertEquals, assertExists } from "@std/assert";
 
-Deno.test("main routes", async (t) => {
+test("main routes", async () => {
   const config = new BlennyConfig();
   const hub = new TransportHub();
   const conduit = new Conduit();
@@ -38,7 +35,7 @@ Deno.test("main routes", async (t) => {
   registerModuleRoutes(app, [dashboardModule.default], state);
   registerPlatformEndpoints(app, state, config);
 
-  await t.step("GET /health returns JSON with module count", async () => {
+  await step("GET /health returns JSON with module count", async () => {
     const res = await app.request("http://localhost/health");
     assertEquals(res.status, 200);
     const body = await res.json();
@@ -46,89 +43,68 @@ Deno.test("main routes", async (t) => {
     assertEquals(typeof body.modules, "number");
   });
 
-  await t.step(
-    "GET /sse without auth returns 401 when auth required",
-    async () => {
-      const authConfig = { ...state.auth!.config };
-      authConfig.allowQueryToken = true;
-      const appAuth = new Hono();
-      appAuth.get("/sse", async (c) => {
-        const user = await getUser(c, authConfig);
-        if (user) {
-          return ServerSentEventGenerator.stream(
-            (stream) => {
-              const id = crypto.randomUUID();
-              const conn = new SseConnection(stream, id, user.id);
-              const cleanup = hub.registerConnection(conn);
-              return new Promise<void>((resolve) => {
-                c.req.raw.signal.addEventListener("abort", () => {
-                  cleanup();
-                  resolve();
-                });
+  await step("GET /sse without auth returns 401 when auth required", async () => {
+    const authConfig = { ...state.auth!.config };
+    authConfig.allowQueryToken = true;
+    const appAuth = new Hono();
+    appAuth.get("/sse", async (c) => {
+      const user = await getUser(c, authConfig);
+      if (user) {
+        return ServerSentEventGenerator.stream(
+          (stream) => {
+            const id = crypto.randomUUID();
+            const conn = new SseConnection(stream, id, user.id);
+            const cleanup = hub.registerConnection(conn);
+            return new Promise<void>((resolve) => {
+              c.req.raw.signal.addEventListener("abort", () => {
+                cleanup();
+                resolve();
               });
-            },
-            { keepalive: true },
-          );
-        }
-        return c.text("Unauthorized", 401);
-      });
-      const res = await appAuth.request("http://localhost/sse");
-      assertEquals(res.status, 401);
-    },
-  );
+            });
+          },
+          { keepalive: true },
+        );
+      }
+      return c.text("Unauthorized", 401);
+    });
+    const res = await appAuth.request("http://localhost/sse");
+    assertEquals(res.status, 401);
+  });
 
-  await t.step(
-    "GET /sse with valid token returns SSE content-type",
-    async () => {
-      const { createToken } = await import("@blenny/core/auth.ts");
-      const token = await createToken(
-        { id: "admin", role: "admin" },
-        state.auth!.config,
-      );
-      const res = await app.request("http://localhost/sse", {
-        headers: { Cookie: "blenny_session=" + token },
-      });
-      assertEquals(res.status, 200);
-      const ctype = res.headers.get("content-type");
-      assertExists(ctype);
-      assertEquals(ctype.includes("text/event-stream"), true);
-      assertEquals(res.headers.get("cache-control"), "no-cache");
-    },
-  );
-
-  await t.step(
-    "GET /dashboard (no auth) redirects to /auth/signin",
-    async () => {
-      const res = await app.request("http://localhost/dashboard");
-      assertEquals(res.status, 302);
-      assertEquals(res.headers.get("location"), "/auth/signin");
-    },
-  );
-
-  await t.step("GET /sse with token and intent works", async () => {
+  await step("GET /sse with valid token returns SSE content-type", async () => {
     const { createToken } = await import("@blenny/core/auth.ts");
-    const token = await createToken(
-      { id: "admin", role: "admin" },
-      state.auth!.config,
-    );
+    const token = await createToken({ id: "admin", role: "admin" }, state.auth!.config);
+    const res = await app.request("http://localhost/sse", {
+      headers: { Cookie: "blenny_session=" + token },
+    });
+    assertEquals(res.status, 200);
+    const ctype = res.headers.get("content-type");
+    assertExists(ctype);
+    assertEquals(ctype.includes("text/event-stream"), true);
+    assertEquals(res.headers.get("cache-control"), "no-cache");
+  });
+
+  await step("GET /dashboard (no auth) redirects to /auth/signin", async () => {
+    const res = await app.request("http://localhost/dashboard");
+    assertEquals(res.status, 302);
+    assertEquals(res.headers.get("location"), "/auth/signin");
+  });
+
+  await step("GET /sse with token and intent works", async () => {
+    const { createToken } = await import("@blenny/core/auth.ts");
+    const token = await createToken({ id: "admin", role: "admin" }, state.auth!.config);
     const res = await app.request("http://localhost/sse?intent=ui", {
       headers: { Cookie: "blenny_session=" + token },
     });
     assertEquals(res.status, 200);
   });
 
-  await t.step(
-    "GET /sse with token creates authenticated connection",
-    async () => {
-      const { createToken } = await import("@blenny/core/auth.ts");
-      const token = await createToken(
-        { id: "admin", role: "admin" },
-        state.auth!.config,
-      );
-      const res = await app.request("http://localhost/sse", {
-        headers: { Cookie: "blenny_session=" + token },
-      });
-      assertEquals(res.status, 200);
-    },
-  );
+  await step("GET /sse with token creates authenticated connection", async () => {
+    const { createToken } = await import("@blenny/core/auth.ts");
+    const token = await createToken({ id: "admin", role: "admin" }, state.auth!.config);
+    const res = await app.request("http://localhost/sse", {
+      headers: { Cookie: "blenny_session=" + token },
+    });
+    assertEquals(res.status, 200);
+  });
 });

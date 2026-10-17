@@ -2,7 +2,7 @@
 
 When a module outgrows a single file, it becomes a directory under `modules/`.
 The directory _is_ the module — the same way a directory with `index.ts` is a
-Deno/JS/TS module.
+JS/TS module.
 
 ## Convention
 
@@ -42,9 +42,9 @@ The modules path is configurable in `blenny.json` via `modules.path` (default:
 
 ## Why
 
-- A directory with `index.ts` _is_ a Deno module — `import("./forum/")` resolves
+- A directory with `index.ts` _is_ a module — `import("./forum/")` resolves
   naturally.
 - No stub files, no config. Drop a directory in `modules/` and it loads. For
   compiled binaries, an auto-generated `manifest.ts` is created (see
   [Compiled Binaries & Module Manifest](modules.md#compiled-binaries--module-manifest)).
-- Follows the same convention as every Deno/Node/TypeScript project.
+- Follows the same convention as every Node/TypeScript project.

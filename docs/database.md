@@ -30,9 +30,9 @@ interface AppState {
 
 Both are optional because:
 
-- `db` may be absent if no database driver is configured (e.g. Deno.Kv-only
+- `db` may be absent if no database driver is configured (e.g. SQLite-only
   deployments)
-- `store` is set by whichever auth module loads first (Surreal, Kv, or
+- `store` is set by whichever auth module loads first (Surreal, SQLite, or
   in-memory)
 
 Guard at the top of `initialize()` to fail fast if a dependency is missing:
@@ -47,7 +47,7 @@ const db = requireDb(state_.db, "my-module");
 
 When you need user data — find, create, update role, change password, delete —
 use the `UserStore` interface. This keeps your module backend-agnostic (it works
-identically with SurrealDB, Deno.Kv, or in-memory stores).
+identically with SurrealDB, SQLite, or in-memory stores).
 
 ```ts
 let store: NonNullable<AppState["store"]>;
@@ -339,7 +339,7 @@ for await (const msg of sub) {
 
 **Error note:** `liveQuery()` calls `db.native<Surreal>()` internally and will
 **throw** if the database backend is not SurrealDB. This is intentional — live
-queries are a SurrealDB-specific feature, not available on Kv or in-memory
+queries are a SurrealDB-specific feature, not available on SQLite or in-memory
 backends.
 
 **Lifecycle note:** Managed live subscriptions auto-restart after a
@@ -351,18 +351,18 @@ down.
 
 Unit tests in `tests/db-live_test.ts` cover the builder chain wiring, error
 behavior, and unsubscribe semantics using mock Surreal objects — these run on
-every `deno test` with no special flags.
+every `bun test` with no special flags.
 
 An integration test is gated behind `BLENNY_SURREAL_URL`: it connects to a real
 SurrealDB instance, subscribes, inserts a matching row, and asserts the event
 fires. Run it with:
 
 ```sh
-BLENNY_SURREAL_URL=ws://127.0.0.1:8000/rpc deno test --allow-env --filter="integration"
+BLENNY_SURREAL_URL=ws://127.0.0.1:8000/rpc bun test -t integration
 ```
 
-The integration test is silently ignored when the env var is unset or
-`--allow-env` is not granted, so it never blocks the regular test suite.
+The integration test is skipped when the env var is unset, so it never blocks the
+regular test suite.
 
 ---
 

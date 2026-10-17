@@ -6,10 +6,7 @@ export interface RouteInfo {
   method: string;
 }
 
-export function withRouteSpan(
-  route: RouteInfo,
-  handler: MiddlewareHandler,
-): MiddlewareHandler {
+export function withRouteSpan(route: RouteInfo, handler: MiddlewareHandler): MiddlewareHandler {
   return (c, next) => {
     const span = trace.getActiveSpan();
     if (span) {

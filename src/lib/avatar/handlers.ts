@@ -1,6 +1,6 @@
-import type { Context } from "@hono/hono";
 import type { UserInfo } from "@blenny/core/auth.ts";
 import type { BlobStore, UserStore } from "@blenny/core/store.ts";
+import type { Context } from "@hono/hono";
 import type { AvatarService } from "./service.ts";
 
 export interface AvatarHandlerDeps {
@@ -9,9 +9,7 @@ export interface AvatarHandlerDeps {
   blobStore?: BlobStore;
 }
 
-export function createHandleAvatarUpload(
-  deps: AvatarHandlerDeps,
-): (c: Context) => Promise<Response> {
+export function createHandleAvatarUpload(deps: AvatarHandlerDeps): (c: Context) => Promise<Response> {
   const { store, avatarService } = deps;
   return async (c: Context): Promise<Response> => {
     const user = c.get("user") as UserInfo | undefined;
@@ -29,19 +27,11 @@ export function createHandleAvatarUpload(
     const file = form.avatar;
 
     if (!(file instanceof File)) {
-      return c.redirect(
-        `/auth/profile?error=${
-          encodeURIComponent("avatar field must be a file")
-        }`,
-      );
+      return c.redirect(`/auth/profile?error=${encodeURIComponent("avatar field must be a file")}`);
     }
 
     if (!file.type.startsWith("image/")) {
-      return c.redirect(
-        `/auth/profile?error=${
-          encodeURIComponent("Only image files are accepted")
-        }`,
-      );
+      return c.redirect(`/auth/profile?error=${encodeURIComponent("Only image files are accepted")}`);
     }
 
     const result = await avatarService.put(user.id, file);
@@ -51,9 +41,7 @@ export function createHandleAvatarUpload(
   };
 }
 
-export function createHandleAvatarServe(
-  deps: AvatarHandlerDeps,
-): (c: Context) => Promise<Response> {
+export function createHandleAvatarServe(deps: AvatarHandlerDeps): (c: Context) => Promise<Response> {
   const { avatarService } = deps;
   return async (c: Context): Promise<Response> => {
     const userId = c.req.param("userId");

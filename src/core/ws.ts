@@ -1,6 +1,13 @@
 import type { Context } from "@hono/hono";
-import type { Connection, TransportHub } from "./hub.ts";
+import type { WebSocketHandler } from "bun";
 import type { Intent, ServerMessage } from "./envelope.ts";
+import type { Connection, TransportHub } from "./hub.ts";
+
+/** Minimal socket surface WsConnection needs (Bun's ServerWebSocket satisfies it). */
+export interface WsSocket {
+  send(data: string): void;
+  close?(code?: number, reason?: string): void;
+}
 
 export class WsConnection implements Connection {
   id: string;
@@ -10,7 +17,7 @@ export class WsConnection implements Connection {
   lastWriteAt: number;
 
   constructor(
-    private ws: WebSocket,
+    private ws: WsSocket,
     id: string,
     userId?: string,
     intents?: Set<Intent>,
@@ -34,49 +41,69 @@ export class WsConnection implements Connection {
         break;
     }
   }
+
+  close(): void {
+    this.ws.close?.();
+  }
 }
 
-export function createWsHandler(hub: TransportHub, idleTimeoutMs: number) {
+/** Per-connection data attached at upgrade time. */
+export interface WsData {
+  userId?: string;
+  intents?: Set<Intent>;
+  cleanup?: () => void;
+}
+
+type UpgradeCapableServer = {
+  upgrade(req: Request, opts?: { data?: WsData }): boolean;
+};
+
+function resolveServer(c: Context): UpgradeCapableServer | undefined {
+  const env = c.env as (UpgradeCapableServer & { server?: UpgradeCapableServer }) | undefined;
+  if (env && typeof env.upgrade === "function") return env;
+  if (env?.server && typeof env.server.upgrade === "function") return env.server;
+  return undefined;
+}
+
+/**
+ * Bun.serve websocket handlers. Registered once at serve time; per-connection
+ * state travels via `ws.data` set during `server.upgrade()`.
+ */
+export function createWebsocketHandlers(hub: TransportHub): WebSocketHandler<WsData> {
+  return {
+    data: {} as WsData,
+    open(ws) {
+      const conn = new WsConnection(ws, crypto.randomUUID(), ws.data.userId, ws.data.intents);
+      ws.data.cleanup = hub.registerConnection(conn);
+    },
+    message() {
+      // Server-push only: inbound messages are ignored.
+    },
+    close(ws) {
+      ws.data.cleanup?.();
+      ws.data.cleanup = undefined;
+    },
+  };
+}
+
+export function createWsHandler(_idleTimeoutMs: number) {
   return (c: Context): Response => {
     const user = c.get("user") as { id: string } | undefined;
     const intentParam = c.req.query("intent");
-    const intents = intentParam
-      ? new Set(intentParam.split(",") as Intent[])
-      : undefined;
+    const intents = intentParam ? new Set(intentParam.split(",") as Intent[]) : undefined;
     const userId = user?.id;
 
-    try {
-      const { socket, response } = Deno.upgradeWebSocket(c.req.raw, {
-        idleTimeout: idleTimeoutMs > 0
-          ? Math.max(1, Math.floor(idleTimeoutMs / 1000))
-          : undefined,
-      });
+    const server = resolveServer(c);
+    if (!server) {
+      return c.text("WebSocket upgrade unavailable", 500);
+    }
 
-      let cleanup: (() => void) | undefined;
-
-      socket.onopen = () => {
-        const conn = new WsConnection(
-          socket,
-          crypto.randomUUID(),
-          userId,
-          intents,
-        );
-        cleanup = hub.registerConnection(conn);
-      };
-
-      socket.onclose = () => {
-        cleanup?.();
-        cleanup = undefined;
-      };
-
-      socket.onerror = () => {
-        cleanup?.();
-        cleanup = undefined;
-      };
-
-      return response;
-    } catch {
+    const upgraded = server.upgrade(c.req.raw, {
+      data: { userId, intents },
+    });
+    if (!upgraded) {
       return c.text("WebSocket upgrade failed", 500);
     }
+    return c.body(null);
   };
 }

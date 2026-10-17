@@ -1,8 +1,8 @@
-import { TransportHub } from "./hub.ts";
-import { SignalSchema } from "./validation.ts";
-import type { SignalData } from "./validation.ts";
 import type { Child } from "@hono/hono/jsx";
 import * as v from "@valibot/valibot";
+import type { TransportHub } from "./hub.ts";
+import type { SignalData } from "./validation.ts";
+import { SignalSchema } from "./validation.ts";
 
 let hubInstance: TransportHub | null = null;
 
@@ -19,9 +19,7 @@ let hubInstance: TransportHub | null = null;
 export class BlennyPublisher {
   static init(hub: TransportHub): void {
     if (hubInstance && hubInstance !== hub) {
-      throw new PublisherError(
-        "BlennyPublisher already initialized with a different hub — call reset() first",
-      );
+      throw new PublisherError("BlennyPublisher already initialized with a different hub — call reset() first");
     }
     hubInstance = hub;
   }
@@ -39,9 +37,7 @@ export class BlennyPublisher {
    */
   static broadcastHtml(html: string): void {
     if (!hubInstance) {
-      throw new PublisherError(
-        "BlennyPublisher not initialized — call BlennyPublisher.init(hub) at boot",
-      );
+      throw new PublisherError("BlennyPublisher not initialized — call BlennyPublisher.init(hub) at boot");
     }
     hubInstance.patchElements(html);
   }
@@ -55,9 +51,7 @@ export class BlennyPublisher {
    */
   static directHtml(html: string, userId: string): void {
     if (!hubInstance) {
-      throw new PublisherError(
-        "BlennyPublisher not initialized — call BlennyPublisher.init(hub) at boot",
-      );
+      throw new PublisherError("BlennyPublisher not initialized — call BlennyPublisher.init(hub) at boot");
     }
     hubInstance.patchElements(html, { userId });
   }
@@ -86,9 +80,7 @@ export class BlennyPublisher {
 
   static broadcastData(data: string): void {
     if (!hubInstance) {
-      throw new PublisherError(
-        "BlennyPublisher not initialized — call BlennyPublisher.init(hub) at boot",
-      );
+      throw new PublisherError("BlennyPublisher not initialized — call BlennyPublisher.init(hub) at boot");
     }
     const parsed = parseJsonData(data);
     hubInstance.mergeSignals(parsed);
@@ -96,9 +88,7 @@ export class BlennyPublisher {
 
   static directData(data: string, userId: string): void {
     if (!hubInstance) {
-      throw new PublisherError(
-        "BlennyPublisher not initialized — call BlennyPublisher.init(hub) at boot",
-      );
+      throw new PublisherError("BlennyPublisher not initialized — call BlennyPublisher.init(hub) at boot");
     }
     const parsed = parseJsonData(data);
     hubInstance.mergeSignals(parsed, { userId });
@@ -114,10 +104,7 @@ function parseJsonData(data: string): SignalData {
   }
   const result = v.safeParse(SignalSchema, parsed);
   if (!result.success) {
-    throw new PublisherError(
-      "broadcastData/directData requires a JSON object — received: " +
-        typeof parsed,
-    );
+    throw new PublisherError("broadcastData/directData requires a JSON object — received: " + typeof parsed);
   }
   return result.output;
 }

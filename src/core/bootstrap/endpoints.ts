@@ -1,18 +1,14 @@
 import type { Hono } from "@hono/hono";
-import { serveStatic } from "@hono/hono/deno";
+import { serveStatic } from "@hono/hono/bun";
 import { ServerSentEventGenerator } from "@starfederation/datastar-sdk/web";
-import { SseConnection } from "../sse-connection.ts";
-import { createWsHandler } from "../ws.ts";
-import { getUser } from "../auth.ts";
 import type { AppState } from "../app-state.ts";
+import { getUser } from "../auth.ts";
 import type { BlennyConfig } from "../config.ts";
 import type { Intent } from "../envelope.ts";
+import { SseConnection } from "../sse-connection.ts";
+import { createWsHandler } from "../ws.ts";
 
-export function registerPlatformEndpoints(
-  app: Hono,
-  state: AppState,
-  config: BlennyConfig,
-): void {
+export function registerPlatformEndpoints(app: Hono, state: AppState, config: BlennyConfig): void {
   app.get("/health", (c) => {
     const uptime = Math.floor((Date.now() - state.startTime) / 1000);
     const dbStatus = state.db?.connected ? "connected" : "unavailable";
@@ -29,9 +25,7 @@ export function registerPlatformEndpoints(
 
   app.get("/sse", async (c) => {
     const intentParam = c.req.query("intent");
-    const intents = intentParam
-      ? new Set(intentParam.split(",") as Intent[])
-      : undefined;
+    const intents = intentParam ? new Set(intentParam.split(",") as Intent[]) : undefined;
 
     let userId: string | undefined;
     if (state.auth) {
@@ -63,7 +57,7 @@ export function registerPlatformEndpoints(
     );
   });
 
-  const wsHandler = createWsHandler(state.hub, config.idleTimeoutMs);
+  const wsHandler = createWsHandler(config.idleTimeoutMs);
   app.get("/ws", async (c) => {
     if (state.auth && config.transportAuthRequired) {
       const transportConfig = { ...state.auth.config, allowQueryToken: true };
@@ -78,10 +72,7 @@ export function registerPlatformEndpoints(
     async (c, next) => {
       await next();
       if (c.res.status === 200 && !c.res.headers.has("Cache-Control")) {
-        c.res.headers.set(
-          "Cache-Control",
-          "public, max-age=31536000, immutable",
-        );
+        c.res.headers.set("Cache-Control", "public, max-age=31536000, immutable");
       }
     },
     serveStatic({

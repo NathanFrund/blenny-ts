@@ -1,5 +1,5 @@
-import type { Intent, ServerMessage } from "./envelope.ts";
 import type { BlennyEvents } from "../types.ts";
+import type { Intent, ServerMessage } from "./envelope.ts";
 import { BlennyError } from "./error.ts";
 import { TaskSupervisor } from "./task-supervisor.ts";
 import {
@@ -16,10 +16,7 @@ import {
 type Handler<T> = (payload: T) => void | Promise<void>;
 const eventSubs = new Map<keyof BlennyEvents, Set<Handler<unknown>>>();
 
-export function subscribe<K extends keyof BlennyEvents>(
-  topic: K,
-  handler: Handler<BlennyEvents[K]>,
-): () => void {
+export function subscribe<K extends keyof BlennyEvents>(topic: K, handler: Handler<BlennyEvents[K]>): () => void {
   if (!eventSubs.has(topic)) {
     eventSubs.set(topic, new Set());
   }
@@ -27,10 +24,7 @@ export function subscribe<K extends keyof BlennyEvents>(
   return () => eventSubs.get(topic)?.delete(handler as Handler<unknown>);
 }
 
-export async function publish<K extends keyof BlennyEvents>(
-  topic: K,
-  payload: BlennyEvents[K],
-): Promise<void> {
+export async function publish<K extends keyof BlennyEvents>(topic: K, payload: BlennyEvents[K]): Promise<void> {
   const handlers = eventSubs.get(topic);
   if (!handlers) return;
   const results: (void | Promise<void>)[] = [];
@@ -43,9 +37,7 @@ export async function publish<K extends keyof BlennyEvents>(
         template: 'Error in handler for "{topic}"',
         error: err,
         errorProps: { topic: String(topic) },
-      }).catch(() =>
-        console.error(`[hub] Error in handler for "${String(topic)}":`, err)
-      );
+      }).catch(() => console.error(`[hub] Error in handler for "${String(topic)}":`, err));
     }
   }
   await Promise.allSettled(results);
@@ -92,11 +84,7 @@ export class TransportHub {
   startReaper(idleTimeoutMs: number, intervalMs = 30_000): void {
     this.reaperIdleMs = idleTimeoutMs;
     this.reaperSupervisor.stop();
-    this.reaperSupervisor.add(
-      "reaper",
-      () => this.reapIdleConnections(),
-      intervalMs,
-    );
+    this.reaperSupervisor.add("reaper", () => this.reapIdleConnections(), intervalMs);
     this.reaperSupervisor.start();
   }
 
@@ -153,18 +141,10 @@ export class TransportHub {
 
   registerConnection(conn: Connection): () => void {
     if (this.draining) {
-      throw new BlennyError(
-        "draining",
-        "server is shutting down",
-        503,
-      );
+      throw new BlennyError("draining", "server is shutting down", 503);
     }
     if (this.conns.size >= this.maxConns) {
-      throw new BlennyError(
-        "too_many_connections",
-        `connection limit reached (${this.maxConns})`,
-        503,
-      );
+      throw new BlennyError("too_many_connections", `connection limit reached (${this.maxConns})`, 503);
     }
     if (conn.userId) {
       const userSet = this.userConns.get(conn.userId) ?? new Set();
@@ -251,12 +231,7 @@ export class TransportHub {
         template: "Send failed for {connId}, removing connection",
         error: err,
         errorProps: { connId: conn.id },
-      }).catch(() =>
-        console.warn(
-          `[hub] Send failed for ${conn.id}, removing connection`,
-          err,
-        )
-      );
+      }).catch(() => console.warn(`[hub] Send failed for ${conn.id}, removing connection`, err));
       this.removeConnection(conn.id);
       throw err;
     }
@@ -275,10 +250,7 @@ export class TransportHub {
    * Delivered via `datastar-patch-elements` events to connections
    * subscribed to the `ui` intent.
    */
-  patchElements(
-    html: string,
-    opts?: { userId?: string },
-  ): Promise<void> {
+  patchElements(html: string, opts?: { userId?: string }): Promise<void> {
     return this.sendMessage({ intent: "ui", html }, opts?.userId);
   }
 
@@ -287,14 +259,8 @@ export class TransportHub {
    * Delivered via `datastar-patch-signals` events to connections
    * subscribed to the `data` intent.
    */
-  mergeSignals(
-    data: Record<string, unknown>,
-    opts?: { userId?: string },
-  ): Promise<void> {
-    return this.sendMessage(
-      { intent: "data", signals: data },
-      opts?.userId,
-    );
+  mergeSignals(data: Record<string, unknown>, opts?: { userId?: string }): Promise<void> {
+    return this.sendMessage({ intent: "data", signals: data }, opts?.userId);
   }
 
   /**
@@ -303,17 +269,11 @@ export class TransportHub {
    * subscribed to the `command` intent.
    * Script is sent verbatim — only use with trusted content.
    */
-  executeScript(
-    script: string,
-    opts?: { userId?: string },
-  ): Promise<void> {
+  executeScript(script: string, opts?: { userId?: string }): Promise<void> {
     return this.sendMessage({ intent: "command", script }, opts?.userId);
   }
 
-  private sendMessage(
-    msg: ServerMessage,
-    targetUserId?: string,
-  ): Promise<void> {
+  private sendMessage(msg: ServerMessage, targetUserId?: string): Promise<void> {
     if (targetUserId) {
       return this.directToUser(msg, targetUserId);
     } else {
@@ -349,10 +309,7 @@ export class TransportHub {
     });
   }
 
-  private async directToUser(
-    msg: ServerMessage,
-    userId: string,
-  ): Promise<void> {
+  private async directToUser(msg: ServerMessage, userId: string): Promise<void> {
     const userSet = this.userConns.get(userId);
     if (!userSet || userSet.size === 0) return;
     await withSpan("hub.direct", async (span) => {

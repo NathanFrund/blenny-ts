@@ -26,14 +26,14 @@ function pushLog(entry: LogEntry): void {
 }
 
 function formatLog(): string {
-  return history.map((e) => {
-    const icon = e.status === "ok" ? " ✓" : " ✗";
-    const idx = String(e.attempt).padStart(3);
-    const retry = e.retryMs != null
-      ? `  (next in ${(e.retryMs / 1000).toFixed(1)}s)`
-      : "  (next in 2.0s)";
-    return `${idx}${icon}  ${e.time}${retry}`;
-  }).join("\n");
+  return history
+    .map((e) => {
+      const icon = e.status === "ok" ? " ✓" : " ✗";
+      const idx = String(e.attempt).padStart(3);
+      const retry = e.retryMs != null ? `  (next in ${(e.retryMs / 1000).toFixed(1)}s)` : "  (next in 2.0s)";
+      return `${idx}${icon}  ${e.time}${retry}`;
+    })
+    .join("\n");
 }
 
 const taskDemoModule: BlennyModule = {
@@ -61,10 +61,7 @@ const taskDemoModule: BlennyModule = {
         const now = new Date().toLocaleTimeString();
         if (Math.random() < 0.65) {
           failureCount++;
-          const retryMs = Math.min(
-            INTERVAL_MS * Math.pow(2, failureCount),
-            MAX_BACKOFF_MS,
-          );
+          const retryMs = Math.min(INTERVAL_MS * 2 ** failureCount, MAX_BACKOFF_MS);
           pushLog({
             attempt: attemptCount,
             time: now,
@@ -72,10 +69,9 @@ const taskDemoModule: BlennyModule = {
             retryMs,
           });
           hub.mergeSignals({
-            flakyStatus:
-              `✗ FAILED at ${now} (attempt #${attemptCount}, retry #${failureCount} in ${
-                (retryMs / 1000).toFixed(1)
-              }s)`,
+            flakyStatus: `✗ FAILED at ${now} (attempt #${attemptCount}, retry #${failureCount} in ${(
+              retryMs / 1000
+            ).toFixed(1)}s)`,
             flakyOk: false,
             flakyFail: true,
             flakyAttempts: attemptCount,
@@ -111,7 +107,7 @@ const taskDemoModule: BlennyModule = {
 };
 
 const PAGE = `<!doctype html>
-<html>
+<html lang="en">
   <head>
     <meta charset="UTF-8" />
     <title>Blenny — TaskSupervisor Demo</title>

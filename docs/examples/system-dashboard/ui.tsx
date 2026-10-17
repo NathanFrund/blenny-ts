@@ -34,8 +34,7 @@ const Dashboard: FC = () => (
           <strong>Load Average</strong>
         </td>
         <td>
-          <span data-text="$.sys.load1m">—</span> /
-          <span data-text="$.sys.load5m">—</span> /
+          <span data-text="$.sys.load1m">—</span> /<span data-text="$.sys.load5m">—</span> /
           <span data-text="$.sys.load15m">—</span>
         </td>
       </tr>

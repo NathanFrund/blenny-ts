@@ -1,9 +1,9 @@
-import { Context } from "@hono/hono";
+import type { Context } from "@hono/hono";
 import type { AppState } from "./core/app-state.ts";
 import type { LayoutComponent } from "./core/conduit.ts";
 
 export const HTTP_METHODS = ["GET", "POST", "PUT", "DELETE"] as const;
-export type HttpMethod = typeof HTTP_METHODS[number];
+export type HttpMethod = (typeof HTTP_METHODS)[number];
 
 // The contract for any community module dropped into Blenny
 export interface Route {
@@ -44,7 +44,7 @@ export interface BlennyModule {
  */
 export interface BlennyEvents {
   "platform:ready": { timestamp: number };
-  "log": {
+  log: {
     level: "debug" | "info" | "warn" | "error";
     template: string;
     args?: Record<string, unknown>;

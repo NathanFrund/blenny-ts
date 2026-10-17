@@ -1,0 +1,23 @@
+{
+  "compilerOptions": {
+    "target": "ESNext",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "lib": ["ESNext", "DOM", "DOM.Iterable"],
+    "strict": true,
+    "skipLibCheck": true,
+    "noEmit": true,
+    "allowImportingTsExtensions": true,
+    "isolatedModules": true,
+    "resolveJsonModule": true,
+    "forceConsistentCasingInFileNames": true,
+    "jsx": "react-jsx",
+    "jsxImportSource": "@hono/hono/jsx",
+    "paths": {
+      "@blenny/types": ["./src/types.ts"],
+      "@blenny/core/*": ["./src/core/*"],
+      "@blenny/lib/*": ["./src/lib/*"]
+    }
+  },
+  "include": ["main.ts", "src/**/*", "tests/**/*", "tools/**/*"]
+}

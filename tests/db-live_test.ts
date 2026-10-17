@@ -1,7 +1,8 @@
-import { assertEquals, assertThrows } from "@std/assert";
+import { test } from "bun:test";
 import type { DatabaseConnection } from "@blenny/core/db-connection.ts";
-import { liveQuery } from "@blenny/core/db-live.ts";
 import type { LiveMessage, LiveSubscription } from "@blenny/core/db-live.ts";
+import { liveQuery } from "@blenny/core/db-live.ts";
+import { assertEquals, assertThrows } from "@std/assert";
 import type { Uuid } from "@surrealdb/surrealdb";
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
@@ -45,14 +46,9 @@ function mockSub(): LiveSubscription {
 }
 
 /** Create a thenable chain that records calls and resolves to mockSub. */
-function mockChain(
-  calls: string[],
-  record: (args: Record<string, unknown>) => void,
-) {
+function mockChain(calls: string[], record: (args: Record<string, unknown>) => void) {
   const sub = mockSub();
-  const chain = Promise.resolve(sub) as
-    & Promise<LiveSubscription>
-    & Record<string, unknown>;
+  const chain = Promise.resolve(sub) as Promise<LiveSubscription> & Record<string, unknown>;
   chain.where = (cond: string) => {
     calls.push("where");
     record({ where: cond });
@@ -73,12 +69,12 @@ function mockChain(
 
 // ─── Unit tests (always run, mock-based) ────────────────────────────────────
 
-Deno.test("liveQuery throws when backend is not SurrealDB", () => {
+test("liveQuery throws when backend is not SurrealDB", () => {
   const db = makeDb(() => ({})); // no .live() method
   assertThrows(() => liveQuery(db, "event"));
 });
 
-Deno.test("liveQuery passes options to Surreal builder chain", async () => {
+test("liveQuery passes options to Surreal builder chain", async () => {
   const calls: string[] = [];
   const recorded: Record<string, unknown>[] = [];
 
@@ -106,7 +102,7 @@ Deno.test("liveQuery passes options to Surreal builder chain", async () => {
   assertEquals(typeof sub.subscribe, "function");
 });
 
-Deno.test("liveQuery without options still returns LiveSubscription", async () => {
+test("liveQuery without options still returns LiveSubscription", async () => {
   const mockSurreal = { live: () => Promise.resolve(mockSub()) };
   const db = makeDb(<T>() => mockSurreal as T);
   const sub = await liveQuery(db, "event");
@@ -114,7 +110,7 @@ Deno.test("liveQuery without options still returns LiveSubscription", async () =
   assertEquals(typeof sub.subscribe, "function");
 });
 
-Deno.test("liveQuery subscribe returns an unsubscribe function", async () => {
+test("liveQuery subscribe returns an unsubscribe function", async () => {
   let unsubscribed = false;
   const customSub: LiveSubscription = {
     kill: () => Promise.resolve(),
@@ -159,7 +155,7 @@ Deno.test("liveQuery subscribe returns an unsubscribe function", async () => {
 
 function surrealdbUrl(): string | null {
   try {
-    return Deno.env.get("BLENNY_SURREAL_URL") ?? null;
+    return process.env.BLENNY_SURREAL_URL ?? null;
   } catch {
     return null;
   }
@@ -167,57 +163,45 @@ function surrealdbUrl(): string | null {
 
 const runIntegration = surrealdbUrl() !== null;
 
-Deno.test({
-  name:
-    "liveQuery integration — insert fires subscription [requires SurrealDB]",
-  ignore: !runIntegration,
-  async fn() {
-    const { Surreal } = await import("@surrealdb/surrealdb");
+test.skipIf(!runIntegration)("liveQuery integration — insert fires subscription [requires SurrealDB]", async () => {
+  const { Surreal } = await import("@surrealdb/surrealdb");
 
-    const url = surrealdbUrl()!;
-    const user = Deno.env.get("BLENNY_SURREAL_USER") ?? "root";
-    const pass = Deno.env.get("BLENNY_SURREAL_PASS") ?? "root";
+  const url = surrealdbUrl()!;
+  const user = process.env.BLENNY_SURREAL_USER ?? "root";
+  const pass = process.env.BLENNY_SURREAL_PASS ?? "root";
 
-    const direct = new Surreal();
-    await direct.connect(url, {
-      authentication: { username: user, password: pass },
-    });
-    await direct.use({ namespace: "blenny_test", database: "blenny_test" });
+  const direct = new Surreal();
+  await direct.connect(url, {
+    authentication: { username: user, password: pass },
+  });
+  await direct.use({ namespace: "blenny_test", database: "blenny_test" });
 
-    const table = `live_test_${Date.now()}`;
-    await direct.query(`DEFINE TABLE IF NOT EXISTS ${table} SCHEMAFULL`);
-    await direct.query(
-      `DEFINE FIELD IF NOT EXISTS name ON ${table} TYPE string`,
-    );
-    await direct.query(
-      `DEFINE FIELD IF NOT EXISTS status ON ${table} TYPE string`,
-    );
+  const table = `live_test_${Date.now()}`;
+  await direct.query(`DEFINE TABLE IF NOT EXISTS ${table} SCHEMAFULL`);
+  await direct.query(`DEFINE FIELD IF NOT EXISTS name ON ${table} TYPE string`);
+  await direct.query(`DEFINE FIELD IF NOT EXISTS status ON ${table} TYPE string`);
 
-    // Mock DatabaseConnection that delegates native() to the real Surreal
-    const db = makeDb(<T>() => direct as T);
-    const sub = await liveQuery(db, table, { where: "status = 'active'" });
+  // Mock DatabaseConnection that delegates native() to the real Surreal
+  const db = makeDb(<T>() => direct as T);
+  const sub = await liveQuery(db, table, { where: "status = 'active'" });
 
-    const event = new Promise<LiveMessage>((resolve) => {
-      sub.subscribe(resolve);
-    });
+  const event = new Promise<LiveMessage>((resolve) => {
+    sub.subscribe(resolve);
+  });
 
-    await direct.query(`CREATE ${table} CONTENT $data`, {
-      data: { name: "test", status: "active" },
-    });
+  await direct.query(`CREATE ${table} CONTENT $data`, {
+    data: { name: "test", status: "active" },
+  });
 
-    const timeout = new Promise<never>((_, reject) =>
-      setTimeout(
-        () => reject(new Error("timed out waiting for live event")),
-        5000,
-      )
-    );
-    const msg = await Promise.race([event, timeout]);
+  const timeout = new Promise<never>((_, reject) =>
+    setTimeout(() => reject(new Error("timed out waiting for live event")), 5000),
+  );
+  const msg = await Promise.race([event, timeout]);
 
-    assertEquals(msg.action, "CREATE");
-    assertEquals(typeof msg.value, "object");
+  assertEquals(msg.action, "CREATE");
+  assertEquals(typeof msg.value, "object");
 
-    await sub.kill();
-    await direct.query(`DELETE ${table}`);
-    direct.close();
-  },
+  await sub.kill();
+  await direct.query(`DELETE ${table}`);
+  direct.close();
 });

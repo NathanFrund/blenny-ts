@@ -1,6 +1,6 @@
-import type { FC } from "@hono/hono/jsx";
 import type { UserInfo } from "@blenny/core/auth.ts";
 import { NavLink } from "@blenny/core/nav-link.tsx";
+import type { FC } from "@hono/hono/jsx";
 
 interface ProfilePageProps {
   id: string;
@@ -20,15 +20,11 @@ const ProfilePage: FC<ProfilePageProps> = (props) => (
     <p>Display Name: {props.displayName}</p>
     <p>Role: {props.role}</p>
     <div style="margin:16px 0">
-      {props.avatarKey
-        ? (
-          <img
-            src={`/avatars/${props.id}`}
-            alt="Avatar"
-            style="max-width:128px;border-radius:8px"
-          />
-        )
-        : <p>No avatar</p>}
+      {props.avatarKey ? (
+        <img src={`/avatars/${props.id}`} alt="Avatar" style="max-width:128px;border-radius:8px" />
+      ) : (
+        <p>No avatar</p>
+      )}
     </div>
     <form method="post" action="/auth/avatar" enctype="multipart/form-data">
       <label>
@@ -41,18 +37,8 @@ const ProfilePage: FC<ProfilePageProps> = (props) => (
     <nav>
       <NavLink href="/dashboard" label="Dashboard" user={props.userInfo} />
       <NavLink href="/auth/profile" label="Profile" user={props.userInfo} />
-      <NavLink
-        href="/auth/change-password"
-        label="Change Password"
-        user={props.userInfo}
-        requiredRoles="user"
-      />
-      <NavLink
-        href="/admin/users"
-        label="User Administration"
-        user={props.userInfo}
-        requiredRoles="admin"
-      />
+      <NavLink href="/auth/change-password" label="Change Password" user={props.userInfo} requiredRoles="user" />
+      <NavLink href="/admin/users" label="User Administration" user={props.userInfo} requiredRoles="admin" />
     </nav>
   </div>
 );
