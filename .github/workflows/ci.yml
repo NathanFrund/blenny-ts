@@ -29,6 +29,9 @@ jobs:
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
+      - name: Lint & format
+        run: bun x biome ci . --reporter=github
+
       - name: Type check
         run: bun run check
 
