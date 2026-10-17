@@ -151,6 +151,67 @@ test("BlennyConfig accessors", async () => {
   });
 });
 
+test("BlennyConfig module and timeout keys", async () => {
+  await step("exposes defaults for module-scoped keys", () => {
+    const cfg = new BlennyConfig({ env: {}, args: [] });
+    assertEquals(cfg.at("form-auth.bucket.backend"), "memory");
+    assertEquals(cfg.at("form-auth.store"), "memory");
+    assertEquals(cfg.at("form-auth.db.path"), "");
+    assertEquals(cfg.at("modules.path"), "./src/modules");
+    assertEquals(cfg.at("transport.auth_required"), "");
+  });
+
+  await step("exposes embedded surreal connect timeout default", () => {
+    const cfg = new BlennyConfig({ env: {}, args: [] });
+    assertEquals(cfg.surrealConnectTimeoutMs, 5000);
+  });
+
+  await step("env var sets a hyphenated module key", () => {
+    const cfg = new BlennyConfig({
+      env: { BLENNY_FORM_AUTH_BUCKET_BACKEND: "file" },
+      args: [],
+    });
+    assertEquals(cfg.at("form-auth.bucket.backend"), "file");
+  });
+
+  await step("env var sets form-auth.store", () => {
+    const cfg = new BlennyConfig({
+      env: { BLENNY_FORM_AUTH_STORE: "sqlite" },
+      args: [],
+    });
+    assertEquals(cfg.at("form-auth.store"), "sqlite");
+  });
+
+  await step("env var enables transport auth", () => {
+    const cfg = new BlennyConfig({
+      env: { BLENNY_TRANSPORT_AUTH_REQUIRED: "true" },
+      args: [],
+    });
+    assertEquals(cfg.transportAuthRequired, true);
+  });
+
+  await step("env var overrides the surreal connect timeout", () => {
+    const cfg = new BlennyConfig({
+      env: { BLENNY_SURREAL_CONNECT_TIMEOUT_MS: "1234" },
+      args: [],
+    });
+    assertEquals(cfg.surrealConnectTimeoutMs, 1234);
+  });
+
+  await step("surreal connect timeout rejects out-of-range values", () => {
+    assertThrows(
+      () =>
+        new BlennyConfig({
+          fileContent: JSON.stringify({ "surreal.connect_timeout_ms": "50" }),
+          env: {},
+          args: [],
+        }).surrealConnectTimeoutMs,
+      Error,
+      "between 100 and 300000",
+    );
+  });
+});
+
 test("BlennyConfig edge cases", async () => {
   await step("null fileContent is skipped", () => {
     const cfg = new BlennyConfig({

@@ -16,6 +16,7 @@ const DEFAULTS: Record<string, string> = {
   "surreal.db": "blenny",
   "surreal.user": "root",
   "surreal.pass": "root",
+  "surreal.connect_timeout_ms": "5000",
   "log.level": "",
   "log.format": "",
   "log.timezone": "",
@@ -31,6 +32,11 @@ const DEFAULTS: Record<string, string> = {
   "ratelimit.auth_window_ms": "300000",
   "ratelimit.auth_max_requests": "20",
   "server.trust_proxy": "false",
+  "transport.auth_required": "",
+  "modules.path": "./src/modules",
+  "form-auth.store": "memory",
+  "form-auth.db.path": "",
+  "form-auth.bucket.backend": "memory",
 };
 
 export interface ConfigOverrides {
@@ -113,6 +119,10 @@ export class BlennyConfig {
 
   get surrealPass(): string {
     return this.data.get("surreal.pass")!;
+  }
+
+  get surrealConnectTimeoutMs(): number {
+    return this.getNumeric("surreal.connect_timeout_ms", 100, 300_000);
   }
 
   get logLevel(): string {
@@ -246,7 +256,7 @@ export class BlennyConfig {
 
   private applyEnv(): void {
     for (const key of Object.keys(DEFAULTS)) {
-      const envName = "BLENNY_" + key.toUpperCase().replace(/\./g, "_");
+      const envName = "BLENNY_" + key.toUpperCase().replace(/[.-]/g, "_");
       const value = process.env[envName];
       if (value !== undefined) {
         this.set(key, value, "env");
@@ -279,7 +289,7 @@ export class BlennyConfig {
   private applyEnvOverride(env: Record<string, string | undefined> | undefined): void {
     if (!env) return;
     for (const key of Object.keys(DEFAULTS)) {
-      const envName = "BLENNY_" + key.toUpperCase().replace(/\./g, "_");
+      const envName = "BLENNY_" + key.toUpperCase().replace(/[.-]/g, "_");
       const value = env[envName];
       if (value !== undefined) {
         this.set(key, value, "env");

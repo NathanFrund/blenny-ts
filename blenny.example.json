@@ -13,6 +13,11 @@
 
   "form-auth.store": "sqlite",
   "form-auth.db.path": "",
+  "form-auth.bucket.backend": "memory",
+
+  "transport.auth_required": "",
+
+  "modules.path": "./src/modules",
 
   "log.level": "info",
   "log.format": "text",
@@ -26,5 +31,6 @@
   "surreal.ns": "blenny",
   "surreal.db": "blenny",
   "surreal.user": "root",
-  "surreal.pass": "root"
+  "surreal.pass": "root",
+  "surreal.connect_timeout_ms": "5000"
 }
