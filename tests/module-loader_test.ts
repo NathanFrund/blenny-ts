@@ -20,7 +20,7 @@ test("module-loader", async () => {
     assertEquals(names.includes("index"), true);
     assertEquals(names.includes("demo"), true);
     assertEquals(names.includes("dashboard"), true);
-    assertEquals(names.includes("form-auth-surreal"), true);
+    assertEquals(names.includes("form-auth"), true);
     assertEquals(names.includes("task-demo"), true);
   });
 
@@ -44,17 +44,17 @@ test("module-loader", async () => {
     assertEquals(typeof demo.start, "function");
     assertEquals(typeof demo.stop, "function");
 
-    const formAuthSurreal = result.modules.find((m) => m.name === "form-auth-surreal");
-    assertExists(formAuthSurreal);
-    assertEquals(typeof formAuthSurreal.initialize, "function");
+    const formAuthKv = result.modules.find((m) => m.name === "form-auth");
+    assertExists(formAuthKv);
+    assertEquals(typeof formAuthKv.initialize, "function");
 
-    const oldKvAuth = result.modules.find((m) => m.name === "form-auth");
-    assertEquals(oldKvAuth, undefined);
+    const formAuthSurreal = result.modules.find((m) => m.name === "form-auth-surreal");
+    assertEquals(formAuthSurreal, undefined);
   });
 
-  await step("form-auth-surreal declares auth capability", async () => {
+  await step("form-auth declares auth capability", async () => {
     const result = await loadModules(modulesDir);
-    const formAuth = result.modules.find((m) => m.name === "form-auth-surreal");
+    const formAuth = result.modules.find((m) => m.name === "form-auth");
     assertExists(formAuth);
     assertExists(formAuth.capabilities);
     assertEquals(formAuth.capabilities!.includes("auth"), true);

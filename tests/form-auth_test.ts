@@ -7,7 +7,7 @@ import { TaskSupervisor } from "@blenny/core/task-supervisor.ts";
 import type { MiddlewareHandler } from "@hono/hono";
 import { Hono } from "@hono/hono";
 import { assertEquals, assertExists } from "@std/assert";
-import authModule from "../src/modules/auth/.form-auth-kv/index.ts";
+import authModule from "../src/modules/auth/form-auth-kv/index.ts";
 import type { HttpMethod } from "../src/types.ts";
 
 function buildBody(base: Record<string, string>): URLSearchParams {

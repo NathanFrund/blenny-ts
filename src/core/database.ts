@@ -13,7 +13,8 @@ const DRIVERS: Record<string, (config: BlennyConfig) => Promise<DatabaseConnecti
 };
 
 export async function connectDatabase(config: BlennyConfig): Promise<DatabaseConnection | null> {
-  const type = config.at("database.type") ?? "surreal";
+  const type = config.at("database.type") ?? "memory";
+  if (type === "memory" || type === "none") return null;
   const instantiate = DRIVERS[type];
 
   if (!instantiate) {

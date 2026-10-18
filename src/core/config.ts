@@ -5,7 +5,7 @@ type ConfigSource = "cli" | "env" | "file" | "default";
 
 const DEFAULTS: Record<string, string> = {
   "server.port": "3000",
-  "database.type": "surreal",
+  "database.type": "memory",
   "server.bind_address": "0.0.0.0",
   "auth.jwt_secret": "CHANGE-ME-EMBEDDED-DEFAULT",
   "auth.session_duration_hours": "720",

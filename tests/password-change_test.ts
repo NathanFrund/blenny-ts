@@ -8,7 +8,7 @@ import { TaskSupervisor } from "@blenny/core/task-supervisor.ts";
 import type { MiddlewareHandler } from "@hono/hono";
 import { Hono } from "@hono/hono";
 import { assertEquals } from "@std/assert";
-import authModule from "../src/modules/auth/.form-auth-kv/index.ts";
+import authModule from "../src/modules/auth/form-auth-kv/index.ts";
 import passwordChangeModule from "../src/modules/auth/password-change.tsx";
 import type { HttpMethod } from "../src/types.ts";
 
