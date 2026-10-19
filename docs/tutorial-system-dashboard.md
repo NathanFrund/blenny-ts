@@ -143,7 +143,7 @@ export async function handleDashboard(c: Context): Promise<Response> {
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <script
           type="module"
-          src="https://cdn.jsdelivr.net/gh/starfederation/datastar@v1.0.1/bundles/datastar.js"
+          src="https://cdn.jsdelivr.net/gh/starfederation/datastar@v1.0.4/bundles/datastar.js"
         >
         </script>
       </head>

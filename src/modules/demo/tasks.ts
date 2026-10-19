@@ -111,7 +111,7 @@ const PAGE = `<!doctype html>
   <head>
     <meta charset="UTF-8" />
     <title>Blenny — TaskSupervisor Demo</title>
-    <script type="module" src="https://cdn.jsdelivr.net/gh/starfederation/datastar@v1.0.1/bundles/datastar.js"></script>
+    <script type="module" src="https://cdn.jsdelivr.net/gh/starfederation/datastar@v1.0.4/bundles/datastar.js"></script>
     <style>
       * { box-sizing: border-box; margin: 0; padding: 0; }
       body { font-family: system-ui, sans-serif; background: #0d1117; color: #c9d1d9; padding: 2rem; }
